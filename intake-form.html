@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — Create Your Child's Story</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #2d6a4f;
+      --green-light: #52b788;
+      --green-pale:  #d8f3dc;
+      --yellow:      #f9c74f;
+      --yellow-dark: #e9a800;
+      --cream:       #fefae0;
+      --brown:       #5c3d2e;
+      --sky:         #caf0f8;
+      --text:        #1a1a2e;
+      --muted:       #6b7280;
+      --white:       #ffffff;
+      --border:      #e5e7eb;
+      --error:       #ef4444;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+    }
+
+    /* ── LAYOUT ── */
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--green);
+      padding: 2.5rem 2rem;
+      display: flex; flex-direction: column;
+      position: sticky; top: 0; height: 100vh;
+      overflow: hidden;
+    }
+    .sidebar-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.4rem; font-weight: 700;
+      color: white; display: flex; align-items: center; gap: .5rem;
+      margin-bottom: 3rem;
+      text-decoration: none;
+    }
+
+    .sidebar-steps { flex: 1; display: flex; flex-direction: column; gap: .5rem; }
+
+    .sidebar-step {
+      display: flex; align-items: flex-start; gap: 1rem;
+      padding: .9rem 1rem; border-radius: 14px;
+      transition: background .2s;
+      cursor: default;
+    }
+    .sidebar-step.active { background: rgba(255,255,255,0.15); }
+    .sidebar-step.done { opacity: .75; }
+
+    .step-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 800;
+      flex-shrink: 0; margin-top: 1px;
+      transition: all .3s;
+    }
+    .sidebar-step.done .step-dot {
+      background: var(--yellow); color: var(--brown);
+    }
+    .sidebar-step.active .step-dot {
+      background: white; color: var(--green);
+    }
+    .sidebar-step:not(.active):not(.done) .step-dot {
+      background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.5);
+    }
+
+    .step-info { flex: 1; }
+    .step-info-label {
+      font-size: .72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: .15rem;
+    }
+    .sidebar-step.active .step-info-label { color: rgba(255,255,255,0.8); }
+    .step-info-title {
+      font-size: .95rem; font-weight: 700;
+      color: rgba(255,255,255,0.6);
+    }
+    .sidebar-step.active .step-info-title { color: white; }
+    .sidebar-step.done .step-info-title { color: rgba(255,255,255,0.7); }
+
+    .sidebar-preview {
+      background: rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 1.25rem;
+      margin-top: 2rem;
+    }
+    .preview-label {
+      font-size: .75rem; font-weight: 700;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase; letter-spacing: .08em;
+      margin-bottom: .75rem;
+    }
+    .preview-row {
+      display: flex; align-items: center; gap: .6rem;
+      font-size: .88rem; color: rgba(255,255,255,0.8);
+      margin-bottom: .4rem; min-height: 1.4rem;
+    }
+    .preview-row .preview-icon { font-size: 1rem; width: 20px; text-align: center; }
+    .preview-row .preview-val { font-weight: 700; color: white; }
+    .preview-row .preview-empty { color: rgba(255,255,255,0.3); font-style: italic; font-size: .82rem; }
+
+    /* ── MAIN FORM ── */
+    .form-area {
+      padding: 3rem 3.5rem;
+      display: flex; flex-direction: column;
+      max-width: 680px;
+    }
+
+    /* progress bar */
+    .progress-bar-wrap {
+      margin-bottom: 2.5rem;
+    }
+    .progress-meta {
+      display: flex; justify-content: space-between;
+      font-size: .82rem; font-weight: 700; color: var(--muted);
+      margin-bottom: .6rem;
+    }
+    .progress-track {
+      height: 6px; background: var(--border); border-radius: 99px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: var(--green);
+      border-radius: 99px;
+      transition: width .4s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* step panel */
+    .step-panel { display: none; animation: slideIn .35s ease both; }
+    .step-panel.active { display: block; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .step-eyebrow {
+      font-size: .8rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .1em;
+      color: var(--green); margin-bottom: .5rem;
+    }
+    .step-title {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem; font-weight: 700;
+      color: var(--text); line-height: 1.2;
+      margin-bottom: .6rem;
+    }
+    .step-subtitle {
+      font-size: 1rem; color: var(--muted);
+      line-height: 1.6; margin-bottom: 2.2rem;
+    }
+
+    /* ── FORM FIELDS ── */
+    .field { margin-bottom: 1.6rem; }
+    .field label {
+      display: block; font-weight: 800;
+      font-size: .9rem; margin-bottom: .5rem; color: var(--text);
+    }
+    .field label .opt {
+      font-weight: 600; color: var(--muted); font-size: .82rem; margin-left: .3rem;
+    }
+
+    .field input[type="text"],
+    .field input[type="number"],
+    .field input[type="email"],
+    .field select {
+      width: 100%;
+      padding: .85rem 1.1rem;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1rem; font-weight: 600;
+      color: var(--text);
+      background: var(--white);
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+      appearance: none;
+    }
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(45,106,79,0.12);
+    }
+    .field input::placeholder { color: #b0b8c1; font-weight: 600; }
+    .field select.unselected { color: #b0b8c1 !important; }
+    .field select option { color: var(--text); }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+
+    /* pill select */
+    .pill-group { display: flex; flex-wrap: wrap; gap: .6rem; }
+    .pill {
+      padding: .6rem 1.2rem;
+      border: 2px solid var(--border);
+      border-radius: 50px; background: var(--white);
+      font-family: 'Nunito', sans-serif;
+      font-size: .9rem; font-weight: 700;
+      cursor: pointer; transition: all .15s;
+      color: var(--text);
+    }
+    .pill:hover { border-color: var(--green-light); background: var(--green-pale); }
+    .pill.selected { border-color: var(--green); background: var(--green); color: white; }
+
+    /* icon card select */
+    .card-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .9rem; }
+    .card-option {
+      border: 2px solid var(--border);
+      border-radius: 16px; padding: 1.1rem .8rem;
+      text-align: center; cursor: pointer;
+      background: var(--white);
+      transition: all .15s;
+    }
+    .card-option:hover { border-color: var(--green-light); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .card-option.selected { border-color: var(--green); background: var(--green-pale); }
+    .card-option .card-icon { font-size: 2rem; margin-bottom: .4rem; }
+    .card-option .card-label { font-size: .82rem; font-weight: 800; color: var(--text); }
+    .card-option.selected .card-label { color: var(--green); }
+
+    /* color swatch select */
+    .swatch-group { display: flex; flex-wrap: wrap; gap: .8rem; }
+    .swatch-wrap {
+      text-align: center; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      padding: .5rem .4rem;
+      border-radius: 12px;
+      border: 2px solid transparent;
+      transition: all .15s;
+    }
+    .swatch-wrap:hover { background: var(--green-pale); border-color: var(--green-light); }
+    .swatch-wrap.selected {
+      background: var(--green-pale);
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(45,106,79,0.2);
+    }
+    .swatch {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.1);
+      pointer-events: none;
+      position: relative;
+      transition: all .15s;
+    }
+    .swatch-wrap.selected .swatch::after {
+      content: '✓';
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; font-weight: 900;
+      color: white;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    .swatch-label {
+      font-size: .75rem; font-weight: 700;
+      text-align: center; margin-top: .35rem;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .swatch-wrap.selected .swatch-label { color: var(--green); font-weight: 900; }
+
+    /* milestone cards */
+    .milestone-group { display: flex; flex-direction: column; gap: .7rem; }
+    .milestone-option {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 1.2rem;
+      border: 2px solid var(--border);
+      border-radius: 14px; background: var(--white);
+      cursor: pointer; transition: all .15s;
+    }
+    .milestone-option:hover { border-color: var(--green-light); background: var(--green-pale); }
+    .milestone-option.selected { border-color: var(--green); background: var(--green-pale); }
+    .milestone-icon { font-size: 1.5rem; width: 36px; text-align: center; }
+    .milestone-text { font-size: .95rem; font-weight: 700; color: var(--text); flex: 1; }
+    .milestone-check {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .milestone-option.selected .milestone-check {
+      background: var(--green); border-color: var(--green); color: white; font-size: .7rem;
+    }
+
+    /* other text reveal */
+    .other-input-wrap { display: none; margin-top: .75rem; }
+    .other-input-wrap.show { display: block; }
+
+    /* nav buttons */
+    .form-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 2.5rem; padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+    .btn-back {
+      background: none; border: 2px solid var(--border);
+      border-radius: 50px; padding: .75rem 1.6rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700; font-size: .95rem;
+      color: var(--muted); cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-back:hover { border-color: var(--green); color: var(--green); }
+    .btn-next {
+      background: var(--green); color: white;
+      border: none; border-radius: 50px;
+      padding: .85rem 2.2rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800; font-size: 1rem;
+      cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; gap: .5rem;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.3);
+    }
+    .btn-next:hover { background: var(--green-light); transform: translateY(-1px); }
+    .btn-next:disabled { background: var(--border); box-shadow: none; cursor: not-allowed; transform: none; }
+
+    .btn-submit {
+      background: var(--yellow); color: var(--brown);
+      border: none; border-radius: 50px;
+      padding: .9rem 2.4rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 900; font-size: 1.05rem;
+      cursor: pointer; transition: all .2s;
+      box-shadow: 0 4px 20px rgba(249,199,79,0.4);
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .btn-submit:hover { background: var(--yellow-dark); color: white; transform: translateY(-1px); }
+
+    /* error msg */
+    .error-msg {
+      color: var(--error); font-size: .82rem; font-weight: 700;
+      margin-top: .4rem; display: none;
+    }
+    .error-msg.show { display: block; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 860px) {
+      .page { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .form-area { padding: 2rem 1.5rem; max-width: 100%; }
+    }
+  </style>
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+    gtag("config", "G-P6FLSR57GV");
+  </script>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <a href="index.html" class="sidebar-logo">🌱 Growing Minds</a>
+
+    <div class="sidebar-steps">
+      <div class="sidebar-step active" id="sbar-1">
+        <div class="step-dot">1</div>
+        <div class="step-info">
+          <div class="step-info-label">Step 1 of 5</div>
+          <div class="step-info-title">The Basics</div>
+        </div>
+      </div>
+      <div class="sidebar-step" id="sbar-2">
+        <div class="step-dot">2</div>
+        <div class="step-info">
+          <div class="step-info-label">Step 2 of 5</div>
+          <div class="step-info-title">Their Look</div>
+        </div>
+      </div>
+      <div class="sidebar-step" id="sbar-3">
+        <div class="step-dot">3</div>
+        <div class="step-info">
+          <div class="step-info-label">Step 3 of 5</div>
+          <div class="step-info-title">Personality & Favorites</div>
+        </div>
+      </div>
+      <div class="sidebar-step" id="sbar-4">
+        <div class="step-dot">4</div>
+        <div class="step-info">
+          <div class="step-info-label">Step 4 of 5</div>
+          <div class="step-info-title">Where They Live</div>
+        </div>
+      </div>
+      <div class="sidebar-step" id="sbar-5">
+        <div class="step-dot">5</div>
+        <div class="step-info">
+          <div class="step-info-label">Step 5 of 5</div>
+          <div class="step-info-title">Their Milestone</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-preview">
+      <div class="preview-label">✨ Your story so far</div>
+      <div class="preview-row"><span class="preview-icon">🧒</span><span id="prev-name" class="preview-empty">Child's name…</span></div>
+      <div class="preview-row"><span class="preview-icon">🎂</span><span id="prev-age" class="preview-empty">Age…</span></div>
+      <div class="preview-row"><span class="preview-icon">🎨</span><span id="prev-trait" class="preview-empty">Personality…</span></div>
+      <div class="preview-row"><span class="preview-icon">📍</span><span id="prev-city" class="preview-empty">Hometown…</span></div>
+      <div class="preview-row"><span class="preview-icon">🎯</span><span id="prev-milestone" class="preview-empty">Milestone…</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN FORM -->
+  <main class="form-area">
+
+    <div class="progress-bar-wrap">
+      <div class="progress-meta">
+        <span id="progress-label">Step 1 of 5</span>
+        <span id="progress-pct">20%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:20%"></div>
+      </div>
+    </div>
+
+    <!-- STEP 1: BASICS -->
+    <div class="step-panel active" id="panel-1">
+      <div class="step-eyebrow">Step 1</div>
+      <h1 class="step-title">Let's start with the basics</h1>
+      <p class="step-subtitle">Tell us a little about the star of the story. This is going to be fun! 🌟</p>
+
+      <div style="background:var(--green);border-radius:16px;padding:1.5rem;margin-bottom:.5rem;">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem;">
+          <span style="font-size:1.4rem;">📬</span>
+          <label for="parent-email" style="color:white;font-weight:800;font-size:1rem;margin:0;">Where should we send the story?</label>
+        </div>
+        <p style="color:rgba(255,255,255,0.8);font-size:.85rem;margin:0 0 1rem 0;">We'll email the PDF the moment it's ready — usually within a few minutes of your order.</p>
+        <div class="field" style="margin:0;">
+          <input type="email" id="parent-email" placeholder="your@email.com" maxlength="120"
+            style="background:white;border:2px solid transparent;font-size:1rem;"/>
+        </div>
+      </div>
+      <div class="error-msg" id="err-email" style="margin-bottom:1rem;">Please enter a valid email address to continue.</div>
+
+      <div class="field">
+        <label for="child-name">What's your child's first name? <span class="opt"></span></label>
+        <input type="text" id="child-name" placeholder="e.g. Mia, Jake, Zara…" maxlength="30"/>
+        <div class="error-msg" id="err-name">Please enter your child's name.</div>
+      </div>
+
+      <div class="field">
+        <label for="prior-story-id">Family Story ID <span class="opt">(optional — from a previous order)</span></label>
+        <input type="text" id="prior-story-id" placeholder="e.g. story_1773029275842_vmum15" maxlength="60"/>
+        <p style="font-size:.8rem;color:var(--muted);margin-top:.3rem;">Have a previous story? Enter your ID to continue your family's world in this new adventure.</p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="child-age">How old are they?</label>
+          <select id="child-age" class="unselected" onchange="this.classList.toggle('unselected', !this.value)">
+            <option value="">Select age…</option>
+            <option value="3">3 years old</option>
+            <option value="4">4 years old</option>
+            <option value="5">5 years old</option>
+            <option value="6">6 years old</option>
+            <option value="7">7 years old</option>
+            <option value="8">8 years old</option>
+            <option value="9">9 years old</option>
+            <option value="10">10 years old</option>
+            <option value="11">11 years old</option>
+            <option value="12">12 years old</option>
+            <option value="13">13 years old</option>
+          </select>
+          <div class="error-msg" id="err-age">Please select their age.</div>
+        </div>
+        <div class="field">
+          <label>Gender <span class="opt">(optional)</span></label>
+          <select id="child-gender" class="unselected" onchange="this.classList.toggle('unselected', !this.value)">
+            <option value="">Prefer not to say</option>
+            <option value="boy">Boy</option>
+            <option value="girl">Girl</option>
+            <option value="nonbinary">Non-binary</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-nav">
+        <div></div>
+        <button class="btn-next" onclick="goTo(2)">Next: Their Look <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 2: LOOK -->
+    <div class="step-panel" id="panel-2">
+      <div class="step-eyebrow">Step 2</div>
+      <h1 class="step-title">What do they look like?</h1>
+      <p class="step-subtitle">These details help paint a vivid picture of your little hero in the story.</p>
+
+      <div class="field">
+        <label>Hair color</label>
+        <div class="swatch-group" id="hair-swatches">
+          <div class="swatch-wrap" data-val="Black" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#1a1a1a;"></div>
+            <div class="swatch-label">Black</div>
+          </div>
+          <div class="swatch-wrap" data-val="Dark Brown" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#3b1f0a;"></div>
+            <div class="swatch-label">Dark Brown</div>
+          </div>
+          <div class="swatch-wrap" data-val="Brown" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#7b4f2e;"></div>
+            <div class="swatch-label">Brown</div>
+          </div>
+          <div class="swatch-wrap" data-val="Blonde" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#f5d06e;"></div>
+            <div class="swatch-label">Blonde</div>
+          </div>
+          <div class="swatch-wrap" data-val="Red" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#c0392b;"></div>
+            <div class="swatch-label">Red</div>
+          </div>
+          <div class="swatch-wrap" data-val="Auburn" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#a0522d;"></div>
+            <div class="swatch-label">Auburn</div>
+          </div>
+          <div class="swatch-wrap" data-val="White/Grey" onclick="selectSwatch('hair', this)">
+            <div class="swatch" style="background:#d0d0d0;"></div>
+            <div class="swatch-label">White/Grey</div>
+          </div>
+        </div>
+        <div class="error-msg" id="err-hair">Please select a hair color.</div>
+      </div>
+
+      <div class="field" style="margin-top: 1.8rem;">
+        <label>Hair length</label>
+        <div class="card-group" id="hair-length-cards">
+          <div class="card-option" data-val="Short" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">✂️</div>
+            <div class="card-label">Short</div>
+          </div>
+          <div class="card-option" data-val="Medium" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">💇</div>
+            <div class="card-label">Medium</div>
+          </div>
+          <div class="card-option" data-val="Long" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">👱</div>
+            <div class="card-label">Long</div>
+          </div>
+        </div>
+        <div class="error-msg" id="err-hair-length">Please select a hair length.</div>
+      </div>
+
+      <div class="field" style="margin-top: 1.8rem;">
+        <label>Hair style</label>
+        <div class="card-group" id="hair-style-cards">
+          <div class="card-option" data-val="Straight" onclick="selectCard('hairStyle', this)">
+            <div class="card-icon">〰️</div>
+            <div class="card-label">Straight</div>
+          </div>
+          <div class="card-option" data-val="Wavy" onclick="selectCard('hairStyle', this)">
+            <div class="card-icon">🌊</div>
+            <div class="card-label">Wavy</div>
+          </div>
+          <div class="card-option" data-val="Curly" onclick="selectCard('hairStyle', this)">
+            <div class="card-icon">🌀</div>
+            <div class="card-label">Curly</div>
+          </div>
+        </div>
+        <div class="error-msg" id="err-hair-style">Please select a hair style.</div>
+      </div>
+
+      <div class="field" style="margin-top: 1.8rem;">
+        <label>Eye color</label>
+        <div class="swatch-group" id="eye-swatches">
+          <div class="swatch-wrap" data-val="Brown" onclick="selectSwatch('eye', this)">
+            <div class="swatch" style="background:#6b3a1f;"></div>
+            <div class="swatch-label">Brown</div>
+          </div>
+          <div class="swatch-wrap" data-val="Dark Brown" onclick="selectSwatch('eye', this)">
+            <div class="swatch" style="background:#2c1a0e;"></div>
+            <div class="swatch-label">Dark Brown</div>
+          </div>
+          <div class="swatch-wrap" data-val="Blue" onclick="selectSwatch('eye', this)">
+            <div class="swatch" style="background:#4b9fd5;"></div>
+            <div class="swatch-label">Blue</div>
+          </div>
+          <div class="swatch-wrap" data-val="Green" onclick="selectSwatch('eye', this)">
+            <div class="swatch" style="background:#3a8c4e;"></div>
+            <div class="swatch-label">Green</div>
+          </div>
+          <div class="swatch-wrap" data-val="Hazel" onclick="selectSwatch('eye', this)">
+            <div class="swatch" style="background:#8d7340;"></div>
+            <div class="swatch-label">Hazel</div>
+          </div>
+          <div class="swatch-wrap" data-val="Grey" onclick="selectSwatch('eye', this)">
+            <div class="swatch" style="background:#8a9099;"></div>
+            <div class="swatch-label">Grey</div>
+          </div>
+        </div>
+        <div class="error-msg" id="err-eye">Please select an eye color.</div>
+      </div>
+
+      <div class="form-nav">
+        <button class="btn-back" onclick="goTo(1)">← Back</button>
+        <button class="btn-next" onclick="goTo(3)">Next: Personality <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 3: PERSONALITY -->
+    <div class="step-panel" id="panel-3">
+      <div class="step-eyebrow">Step 3</div>
+      <h1 class="step-title">Personality & favorites</h1>
+      <p class="step-subtitle">This is the fun part — what makes your child uniquely <em>them</em>?</p>
+
+      <div class="field">
+        <label>Which word best describes them?</label>
+        <div class="card-group" id="trait-cards">
+          <div class="card-option" data-val="Adventurous" onclick="selectCard('trait', this)">
+            <div class="card-icon">🧗</div>
+            <div class="card-label">Adventurous</div>
+          </div>
+          <div class="card-option" data-val="Silly" onclick="selectCard('trait', this)">
+            <div class="card-icon">🤪</div>
+            <div class="card-label">Silly</div>
+          </div>
+          <div class="card-option" data-val="Kind" onclick="selectCard('trait', this)">
+            <div class="card-icon">💛</div>
+            <div class="card-label">Kind</div>
+          </div>
+          <div class="card-option" data-val="Brave" onclick="selectCard('trait', this)">
+            <div class="card-icon">🦁</div>
+            <div class="card-label">Brave</div>
+          </div>
+          <div class="card-option" data-val="Curious" onclick="selectCard('trait', this)">
+            <div class="card-icon">🔭</div>
+            <div class="card-label">Curious</div>
+          </div>
+        </div>
+        <div class="error-msg" id="err-trait">Please pick a personality trait.</div>
+      </div>
+
+      <div class="field">
+        <label for="fav-thing">What's their absolute favorite thing? <span class="opt">(1–3 words)</span></label>
+        <input type="text" id="fav-thing" placeholder="e.g. dinosaurs, soccer, drawing, dogs…" maxlength="40"/>
+        <div class="error-msg" id="err-fav">Please enter their favorite thing.</div>
+      </div>
+
+      <div class="field">
+        <label>Their best friend, pet or sibling <span class="opt">(optional)</span></label>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1.5fr;gap:.7rem;align-items:start;">
+          <div>
+            <input type="text" id="friend-name" placeholder="Name e.g. Max, Buddy…" maxlength="30" style="width:100%;"/>
+          </div>
+          <div>
+            <input type="text" id="friend-age" placeholder="Age e.g. 8" maxlength="5" style="width:100%;"/>
+          </div>
+          <div>
+            <select id="friend-relation" class="unselected" onchange="this.classList.toggle('unselected', !this.value); document.getElementById('friend-relation-other-wrap').style.display = this.value === 'other' ? 'block' : 'none';" style="width:100%;padding:.85rem 1.1rem;border:2px solid var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:600;background:var(--white);outline:none;appearance:none;">
+              <option value="">Relationship…</option>
+              <option value="best friend">Best friend</option>
+              <option value="dog">Dog</option>
+              <option value="cat">Cat</option>
+              <option value="other pet">Other pet</option>
+              <option value="brother">Brother</option>
+              <option value="sister">Sister</option>
+              <option value="cousin">Cousin</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div id="friend-relation-other-wrap" style="display:none;margin-top:.6rem;">
+          <input type="text" id="friend-relation-other" placeholder="Describe the relationship e.g. imaginary friend, neighbour…" maxlength="40" style="width:100%;"/>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="custom-details">Anything else we should know? <span class="opt">(optional)</span></label>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem;">The more you share, the more personal the story. Add nicknames, family details, special circumstances, inside jokes, fears, dreams — anything that makes your child unique.</p>
+        <textarea id="custom-details" placeholder="e.g. She calls her blanket 'Boo-Boo' and never goes anywhere without it. She has two dads — Papa and Daddy. She's scared of the dark but pretends she isn't. Her favourite saying is 'I can do hard things'…" maxlength="500" style="width:100%;padding:.85rem 1.1rem;border:2px solid var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:600;color:var(--text);background:var(--white);resize:vertical;min-height:110px;outline:none;transition:border-color .2s,box-shadow .2s;" onfocus="this.style.borderColor='var(--green)';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"></textarea>
+        <div style="text-align:right;font-size:.75rem;color:var(--muted);margin-top:.3rem;"><span id="custom-details-count">0</span>/500</div>
+      </div>
+
+      <div class="form-nav">
+        <button class="btn-back" onclick="goTo(2)">← Back</button>
+        <button class="btn-next" onclick="goTo(4)">Next: Hometown <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 4: LOCATION -->
+    <div class="step-panel" id="panel-4">
+      <div class="step-eyebrow">Step 4</div>
+      <h1 class="step-title">Where do they call home?</h1>
+      <p class="step-subtitle">We'll set the adventure in their own world — the places they know and love.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="child-city">City</label>
+          <input type="text" id="child-city" placeholder="e.g. Austin, Denver, Miami…" maxlength="60"/>
+          <div class="error-msg" id="err-city">Please enter their city.</div>
+        </div>
+        <div class="field">
+          <label for="child-state">State / Region</label>
+          <input type="text" id="child-state" placeholder="e.g. Texas, Colorado…" maxlength="60"/>
+          <div class="error-msg" id="err-state">Please enter their state or region.</div>
+        </div>
+      </div>
+
+      <div class="form-nav">
+        <button class="btn-back" onclick="goTo(3)">← Back</button>
+        <button class="btn-next" onclick="goTo(5)">Next: Milestone <span>→</span></button>
+      </div>
+    </div>
+
+    <!-- STEP 5: MILESTONE -->
+    <div class="step-panel" id="panel-5">
+      <div class="step-eyebrow">Step 5 — Final Step!</div>
+      <h1 class="step-title">What are they working on? 🎯</h1>
+      <p class="step-subtitle" id="milestone-subtitle">Choose the milestone that feels most true to your child right now. This is the heart of their story.</p>
+
+      <div class="field">
+        <div class="milestone-group" id="milestone-options">
+          <!-- populated by JS based on age -->
+        </div>
+        <div class="other-input-wrap" id="other-wrap">
+          <input type="text" id="other-milestone" placeholder="Describe their milestone in a few words…" maxlength="80"/>
+        </div>
+        <div class="error-msg" id="err-milestone">Please select or describe a milestone.</div>
+      </div>
+
+      <div style="margin-top:1.2rem;">
+        <label style="display:flex;align-items:flex-start;gap:.75rem;cursor:pointer;font-size:.88rem;color:var(--muted);font-weight:600;">
+          <input type="checkbox" id="consent-checkbox" style="margin-top:.2rem;width:18px;height:18px;accent-color:var(--green);flex-shrink:0;cursor:pointer;"/>
+          <span>I confirm I am a parent or guardian providing this information on behalf of my child, and I agree to the <a href="/privacy-policy" target="_blank" style="color:var(--green);">Privacy Policy</a> and <a href="/terms" target="_blank" style="color:var(--green);">Terms of Service</a>.</span>
+        </label>
+        <div class="error-msg" id="err-consent">Please agree to the Terms of Service and Privacy Policy to continue.</div>
+      </div>
+
+      <div class="form-nav">
+        <button class="btn-back" onclick="goTo(4)">← Back</button>
+        <button class="btn-submit" onclick="submitForm()">✨ Generate My Preview!</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  // ── DATA ──
+  const state = {
+    step: 1,
+    name: '', age: '', gender: '',
+    hair: '', eye: '',
+    trait: '', fav: '', friend: '',
+    city: '', region: '',
+    email: '', milestone: '', priorStoryId: '', customDetails: '',
+    milestone: ''
+  };
+
+  const milestones = {
+    '3-4': [
+      { icon: '🚽', text: 'Learning to use the potty' },
+      { icon: '🎒', text: 'Starting preschool or daycare' },
+      { icon: '👋', text: 'Making a new friend' },
+      { icon: '🤝', text: 'Sharing with others' },
+      { icon: '✏️', text: 'Something else…' },
+    ],
+    '5-6': [
+      { icon: '🏫', text: 'Starting kindergarten' },
+      { icon: '📖', text: 'Learning to read' },
+      { icon: '🦷', text: 'Losing a first tooth' },
+      { icon: '🚲', text: 'Riding a bike without training wheels' },
+      { icon: '✏️', text: 'Something else…' },
+    ],
+    '7-9': [
+      { icon: '⚽', text: 'Joining a sports team or club' },
+      { icon: '😤', text: 'Dealing with big feelings or frustration' },
+      { icon: '🛡️', text: 'Standing up for themselves or a friend' },
+      { icon: '🏠', text: 'Taking on a new responsibility at home' },
+      { icon: '✏️', text: 'Something else…' },
+    ],
+    '10-13': [
+      { icon: '🏫', text: 'Starting middle school' },
+      { icon: '👫', text: 'Navigating friendships and social dynamics' },
+      { icon: '😬', text: 'Trying something scary or new' },
+      { icon: '😰', text: 'Dealing with anxiety or school pressure' },
+      { icon: '✏️', text: 'Something else…' },
+    ]
+  };
+
+  // ── NAVIGATION ──
+  function goTo(step) {
+    if (step > state.step && !validateStep(state.step)) return;
+
+    // GA4 step tracking
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'form_step_complete', { step_number: state.step, step_name: ['', 'basics', 'look', 'personality', 'hometown', 'milestone'][state.step] || state.step });
+      if (step > state.step) {
+        gtag('event', 'form_step_start', { step_number: step, step_name: ['', 'basics', 'look', 'personality', 'hometown', 'milestone'][step] || step });
+      }
+    }
+
+    // Save email to Airtable when leaving step 1
+    if (state.step === 1 && step > 1 && state.email) {
+      fetch('/api/capture-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.email, childName: state.name || '', childAge: state.age || '', priorStoryId: state.priorStoryId || '' })
+      }).catch(() => {});
+
+      // Set GA4 User ID so we can track this person across the funnel
+      const userId = btoa(state.email).replace(/=/g, '');
+      if (typeof gtag !== 'undefined') {
+        gtag('config', 'G-P6FLSR57GV', { user_id: userId });
+      }
+      sessionStorage.setItem('gm_user_id', userId);
+    }
+
+    // update sidebar
+    const prev = document.getElementById(`sbar-${state.step}`);
+    prev.classList.remove('active');
+    if (step > state.step) prev.classList.add('done');
+    const prevDot = prev.querySelector('.step-dot');
+    if (step > state.step) prevDot.textContent = '✓';
+
+    document.getElementById(`panel-${state.step}`).classList.remove('active');
+
+    state.step = step;
+
+    document.getElementById(`panel-${step}`).classList.remove('active');
+    // force reflow for animation
+    void document.getElementById(`panel-${step}`).offsetWidth;
+    document.getElementById(`panel-${step}`).classList.add('active');
+
+    const sbar = document.getElementById(`sbar-${step}`);
+    sbar.classList.add('active');
+    sbar.classList.remove('done');
+    const dot = sbar.querySelector('.step-dot');
+    dot.textContent = step;
+
+    // progress
+    const pct = Math.round((step / 5) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = `Step ${step} of 5`;
+    document.getElementById('progress-pct').textContent = pct + '%';
+
+    // if going to step 5, populate milestones
+    if (step === 5) populateMilestones();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── VALIDATION ──
+  function validateStep(step) {
+    let ok = true;
+
+    if (step === 1) {
+      const email = document.getElementById('parent-email').value.trim();
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      showErr('err-email', !validEmail); if (!validEmail) ok = false;
+      if (validEmail) state.email = email;
+
+      const priorId = document.getElementById('prior-story-id').value.trim();
+      if (priorId) state.priorStoryId = priorId;
+
+      const name = document.getElementById('child-name').value.trim();
+      const age  = document.getElementById('child-age').value;
+      showErr('err-name', !name); if (!name) ok = false;
+      showErr('err-age', !age);   if (!age) ok = false;
+      if (name) { state.name = name; updatePreview('prev-name', name); }
+      if (age)  { state.age = age;   updatePreview('prev-age', age + ' years old'); }
+      state.gender = document.getElementById('child-gender').value;
+    }
+
+    if (step === 2) {
+      showErr('err-hair', !state.hair); if (!state.hair) ok = false;
+      showErr('err-hair-length', !state.hairLength); if (!state.hairLength) ok = false;
+      showErr('err-hair-style', !state.hairStyle); if (!state.hairStyle) ok = false;
+      showErr('err-eye',  !state.eye);  if (!state.eye)  ok = false;
+    }
+
+    if (step === 3) {
+      const fav = document.getElementById('fav-thing').value.trim();
+      showErr('err-trait', !state.trait); if (!state.trait) ok = false;
+      showErr('err-fav', !fav);           if (!fav) ok = false;
+      if (fav) { state.fav = fav; updatePreview('prev-trait', state.trait || '…'); }
+      const friendName     = document.getElementById('friend-name').value.trim();
+      const friendAge      = document.getElementById('friend-age').value.trim();
+      const friendRelation = document.getElementById('friend-relation').value;
+      const friendOther    = document.getElementById('friend-relation-other').value.trim();
+      const finalRelation  = friendRelation === 'other' ? (friendOther || 'other') : friendRelation;
+      if (friendName) {
+        const parts = [friendName];
+        if (friendAge) parts.push(`age ${friendAge}`);
+        if (finalRelation) parts.push(`(${finalRelation})`);
+        state.friend = parts.join(' ');
+      } else {
+        state.friend = '';
+      }
+      state.customDetails = document.getElementById('custom-details').value.trim();
+      if (state.trait) updatePreview('prev-trait', state.trait);
+    }
+
+    if (step === 4) {
+      const city  = document.getElementById('child-city').value.trim();
+      const region= document.getElementById('child-state').value.trim();
+      showErr('err-city',  !city);   if (!city)   ok = false;
+      showErr('err-state', !region); if (!region) ok = false;
+      if (city && region) {
+        state.city = city; state.region = region;
+        updatePreview('prev-city', city + ', ' + region);
+      }
+    }
+
+    if (step === 5) {
+      const otherVal = document.getElementById('other-milestone').value.trim();
+      if (!state.milestone && !otherVal) { showErr('err-milestone', true); ok = false; }
+      const consent = document.getElementById('consent-checkbox').checked;
+      showErr('err-consent', !consent); if (!consent) ok = false;
+    }
+
+    return ok;
+  }
+
+  // Character counter for custom details
+  const customDetailsEl = document.getElementById('custom-details');
+  if (customDetailsEl) {
+    customDetailsEl.addEventListener('input', function() {
+      document.getElementById('custom-details-count').textContent = this.value.length;
+    });
+  }
+
+  function showErr(id, show) {
+    const el = document.getElementById(id);
+    el.classList.toggle('show', show);
+  }
+
+  // ── PREVIEW SIDEBAR ──
+  function updatePreview(id, val) {
+    const el = document.getElementById(id);
+    el.textContent = val;
+    el.classList.remove('preview-empty');
+    el.classList.add('preview-val');
+  }
+
+  // ── SWATCH SELECT ──
+  function selectSwatch(type, el) {
+    // Walk up to find the .swatch-wrap in case user clicked the inner circle or label
+    const wrap = el.closest('.swatch-wrap');
+    if (!wrap) return;
+    const group = wrap.closest('.swatch-group');
+    group.querySelectorAll('.swatch-wrap').forEach(w => w.classList.remove('selected'));
+    wrap.classList.add('selected');
+    if (type === 'hair') { state.hair = wrap.dataset.val; showErr('err-hair', false); }
+    if (type === 'eye')  { state.eye  = wrap.dataset.val; showErr('err-eye',  false); }
+  }
+
+  // ── CARD SELECT ──
+  function selectCard(type, el) {
+    const group = el.closest('.card-group');
+    group.querySelectorAll('.card-option').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    if (type === 'trait') {
+      state.trait = el.dataset.val;
+      showErr('err-trait', false);
+      updatePreview('prev-trait', state.trait);
+    }
+    if (type === 'hairLength') {
+      state.hairLength = el.dataset.val;
+      showErr('err-hair-length', false);
+    }
+    if (type === 'hairStyle') {
+      state.hairStyle = el.dataset.val;
+      showErr('err-hair-style', false);
+    }
+  }
+
+  // ── MILESTONE ──
+  function getAgeGroup(age) {
+    age = parseInt(age);
+    if (age <= 4) return '3-4';
+    if (age <= 6) return '5-6';
+    if (age <= 9) return '7-9';
+    return '10-13';
+  }
+
+  function populateMilestones() {
+    const group = getAgeGroup(state.age);
+    const items = milestones[group];
+    const container = document.getElementById('milestone-options');
+    container.innerHTML = '';
+    state.milestone = '';
+    document.getElementById('other-wrap').classList.remove('show');
+    updatePreview('prev-milestone', '');
+    document.getElementById('prev-milestone').classList.add('preview-empty');
+    document.getElementById('prev-milestone').classList.remove('preview-val');
+    document.getElementById('prev-milestone').textContent = 'Milestone…';
+
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'milestone-option';
+      div.dataset.val = item.text;
+      div.innerHTML = `
+        <span class="milestone-icon">${item.icon}</span>
+        <span class="milestone-text">${item.text}</span>
+        <span class="milestone-check"></span>
+      `;
+      div.onclick = () => selectMilestone(div, item.text);
+      container.appendChild(div);
+    });
+  }
+
+  function selectMilestone(el, val) {
+    document.querySelectorAll('.milestone-option').forEach(m => {
+      m.classList.remove('selected');
+      m.querySelector('.milestone-check').textContent = '';
+    });
+    el.classList.add('selected');
+    el.querySelector('.milestone-check').textContent = '✓';
+    showErr('err-milestone', false);
+
+    if (val === 'Something else…') {
+      state.milestone = '';
+      document.getElementById('other-wrap').classList.add('show');
+      document.getElementById('other-milestone').focus();
+      document.getElementById('other-milestone').oninput = function() {
+        state.milestone = this.value.trim();
+        if (state.milestone) updatePreview('prev-milestone', state.milestone);
+      };
+    } else {
+      state.milestone = val;
+      document.getElementById('other-wrap').classList.remove('show');
+      updatePreview('prev-milestone', val);
+    }
+  }
+
+  // ── SUBMIT ──
+  async function submitForm() {
+    if (!validateStep(5)) return;
+
+    const otherVal = document.getElementById('other-milestone').value.trim();
+    const finalMilestone = state.milestone || otherVal;
+    if (!finalMilestone) {
+      showErr('err-milestone', true);
+      return;
+    }
+
+    // GA4 - form completed
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'form_complete', { milestone: finalMilestone, child_age: state.age });
+    }
+    state.milestone = finalMilestone;
+
+    const payload = {
+      name:       state.name,
+      age:        state.age,
+      gender:     state.gender || '',
+      hair:       state.hair,
+      hairLength: state.hairLength,
+      hairStyle:  state.hairStyle,
+      eye:        state.eye,
+      trait:      state.trait,
+      favorite:   state.fav,
+      friend:     state.friend || 'none',
+      city:       state.city,
+      region:     state.region,
+      milestone:  state.milestone,
+      email:        state.email,
+      priorStoryId: state.priorStoryId || '',
+      customDetails: state.customDetails || ''
+    };
+
+    // Show loading screen
+    document.querySelector('.form-area').innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; text-align:center; padding: 2rem;">
+        <div style="font-size:4rem; margin-bottom:1.5rem; animation: spin 2s linear infinite;">✨</div>
+        <h2 style="font-family:'Fraunces',serif; font-size:2rem; color:var(--text); margin-bottom:.75rem;">Writing ${state.name}'s story…</h2>
+        <p style="color:var(--muted); font-size:1rem; max-width:400px; line-height:1.7;">Our storyteller is weaving together a one-of-a-kind adventure just for ${state.name}. This will only take a moment!</p>
+        <div style="margin-top:2rem; display:flex; gap:.5rem;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--green);animation:bounce 1s .0s infinite;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--green);animation:bounce 1s .2s infinite;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--green);animation:bounce 1s .4s infinite;"></div>
+        </div>
+      </div>
+      <style>
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+      </style>
+    `;
+
+    try {
+      const response = await fetch('/api/generate-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Story generation failed');
+      }
+
+      const data = await response.json();
+
+      // Store result in sessionStorage so story-preview.html can read it
+      sessionStorage.setItem('storyPreview', JSON.stringify({
+        preview:    data.preview,
+        storyToken: data.storyToken,
+        storyId:    data.storyId,
+        childName:  data.childName,
+        childData:  payload
+      }));
+      // Also store storyId in localStorage so it survives Stripe redirect
+      localStorage.setItem('gm_last_story_id', data.storyId);
+      localStorage.setItem('gm_last_child_name', data.childName);
+
+      // Redirect to preview page
+      window.location.href = 'story-preview.html';
+
+    } catch (err) {
+      console.error(err);
+      document.querySelector('.form-area').innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70vh; text-align:center; padding:2rem;">
+          <div style="font-size:3rem; margin-bottom:1rem;">😔</div>
+          <h2 style="font-family:'Fraunces',serif; font-size:1.8rem; color:var(--text); margin-bottom:.75rem;">Something went wrong</h2>
+          <p style="color:var(--muted); margin-bottom:2rem;">${err.message || "We couldn't generate the story. Please try again."}</p>
+          <button onclick="window.location.reload()" style="background:var(--green);color:white;border:none;border-radius:50px;padding:.9rem 2rem;font-family:'Nunito',sans-serif;font-weight:800;font-size:1rem;cursor:pointer;">Try Again</button>
+        </div>
+      `;
+    }
+  }
+</script>
+
+</body>
+</html>

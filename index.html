@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — Personalized Story Books for Kids</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #2d6a4f;
+      --green-light: #52b788;
+      --green-pale:  #d8f3dc;
+      --yellow:      #f9c74f;
+      --yellow-pale: #fff9e6;
+      --sky:         #90e0ef;
+      --sky-pale:    #e8f7fb;
+      --cream:       #fefae0;
+      --brown:       #5c3d2e;
+      --text:        #1a1a2e;
+      --muted:       #6b7280;
+      --white:       #ffffff;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2.5rem;
+      background: rgba(254,250,224,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(45,106,79,0.1);
+    }
+    .nav-logo {
+      font-family: 'Fraunces', serif;
+      font-weight: 700; font-size: 1.5rem;
+      color: var(--green);
+      display: flex; align-items: center; gap: .5rem;
+      text-decoration: none;
+    }
+    .nav-logo span { font-size: 1.6rem; }
+    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .nav-links a {
+      text-decoration: none; color: var(--text);
+      font-weight: 600; font-size: .95rem;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--green); }
+    .nav-cta {
+      background: var(--green); color: var(--white);
+      border: none; border-radius: 50px;
+      padding: .6rem 1.5rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700; font-size: .95rem;
+      cursor: pointer; transition: background .2s, transform .15s;
+      text-decoration: none;
+    }
+    .nav-cta:hover { background: var(--green-light); transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center;
+      padding: 7rem 2.5rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* soft background blobs */
+    .hero::before {
+      content: '';
+      position: absolute; top: -120px; right: -180px;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(82,183,136,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute; bottom: -100px; left: -100px;
+      width: 500px; height: 500px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(249,199,79,0.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      max-width: 1200px; margin: 0 auto; width: 100%;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: var(--green-pale); color: var(--green);
+      border-radius: 50px; padding: .4rem 1rem;
+      font-size: .85rem; font-weight: 700;
+      margin-bottom: 1.5rem;
+      animation: fadeUp .6s ease both;
+    }
+
+    .hero h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2.6rem, 5vw, 4rem);
+      font-weight: 700; line-height: 1.15;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+      animation: fadeUp .6s .1s ease both;
+    }
+    .hero h1 em {
+      font-style: italic; color: var(--green);
+    }
+
+    .hero p {
+      font-size: 1.15rem; color: var(--muted);
+      line-height: 1.7; margin-bottom: 2.5rem;
+      max-width: 480px;
+      animation: fadeUp .6s .2s ease both;
+    }
+
+    .hero-actions {
+      display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap;
+      animation: fadeUp .6s .3s ease both;
+    }
+    .btn-primary {
+      background: var(--green); color: var(--white);
+      border: none; border-radius: 50px;
+      padding: 1rem 2.2rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800; font-size: 1.05rem;
+      cursor: pointer; transition: all .2s;
+      box-shadow: 0 4px 20px rgba(45,106,79,0.3);
+      text-decoration: none; display: inline-block;
+    }
+    .btn-primary:hover { background: var(--green-light); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(45,106,79,0.35); }
+
+    .btn-secondary {
+      color: var(--green); font-weight: 700; font-size: 1rem;
+      text-decoration: none; display: flex; align-items: center; gap: .4rem;
+      transition: gap .2s;
+    }
+    .btn-secondary:hover { gap: .7rem; }
+
+    .hero-trust {
+      margin-top: 2.5rem; display: flex; align-items: center; gap: 1rem;
+      font-size: .875rem; color: var(--muted);
+      animation: fadeUp .6s .4s ease both;
+    }
+    .trust-avatars { display: flex; }
+    .trust-avatars span {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; margin-left: -8px;
+    }
+    .trust-avatars span:first-child { margin-left: 0; }
+
+    /* ── BOOK MOCKUP ── */
+    .hero-visual {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      animation: fadeUp .7s .15s ease both;
+    }
+
+    .book-card {
+      background: var(--white);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06);
+      max-width: 380px; width: 100%;
+      position: relative;
+    }
+
+    .book-cover {
+      background: linear-gradient(135deg, var(--green) 0%, var(--green-light) 100%);
+      border-radius: 16px;
+      padding: 2rem 1.5rem;
+      color: white; text-align: center;
+      margin-bottom: 1.5rem;
+      position: relative; overflow: hidden;
+      min-height: 200px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .book-cover::before {
+      content: '';
+      position: absolute; top: -30px; right: -30px;
+      width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+    }
+    .book-cover::after {
+      content: '';
+      position: absolute; bottom: -20px; left: -20px;
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .book-emoji { font-size: 3.5rem; margin-bottom: .75rem; }
+    .book-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem; font-weight: 700;
+      line-height: 1.3;
+    }
+    .book-subtitle { font-size: .85rem; opacity: .8; margin-top: .4rem; }
+
+    .book-details { display: flex; flex-direction: column; gap: .75rem; }
+    .book-detail {
+      display: flex; align-items: center; gap: .75rem;
+      font-size: .9rem; color: var(--muted);
+    }
+    .book-detail-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .book-detail span { font-weight: 600; color: var(--text); }
+
+    .floating-tag {
+      position: absolute;
+      background: var(--yellow);
+      border-radius: 50px;
+      padding: .5rem 1rem;
+      font-size: .8rem; font-weight: 800;
+      color: var(--brown);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      animation: float 3s ease-in-out infinite;
+    }
+    .tag-1 { top: -16px; right: 20px; z-index: 10; }
+    .tag-2 { bottom: -14px; left: 10px; animation-delay: 1.5s; z-index: 10; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* ── HOW IT WORKS ── */
+    .section { padding: 6rem 2.5rem; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+
+    .section-label {
+      text-align: center;
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: var(--sky-pale); color: #0077b6;
+      border-radius: 50px; padding: .4rem 1rem;
+      font-size: .85rem; font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    .section-header { text-align: center; margin-bottom: 4rem; }
+    .section-header h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 700; color: var(--text);
+      line-height: 1.2; margin-bottom: 1rem;
+    }
+    .section-header p { font-size: 1.1rem; color: var(--muted); max-width: 560px; margin: 0 auto; line-height: 1.7; }
+
+    .steps {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;
+    }
+    .step {
+      background: var(--white);
+      border-radius: 20px; padding: 2rem;
+      border: 1px solid rgba(0,0,0,0.06);
+      transition: transform .2s, box-shadow .2s;
+      position: relative;
+    }
+    .step:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+    .step-num {
+      position: absolute; top: -14px; left: 2rem;
+      background: var(--green); color: white;
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 800;
+    }
+    .step-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .step h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.2rem; font-weight: 600;
+      margin-bottom: .6rem; color: var(--text);
+    }
+    .step p { font-size: .95rem; color: var(--muted); line-height: 1.65; }
+
+    /* ── FEATURES ── */
+    .features-bg { background: var(--green); }
+    .features-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;
+    }
+    .feature-card {
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 1.8rem;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: background .2s;
+    }
+    .feature-card:hover { background: rgba(255,255,255,0.16); }
+    .feature-icon { font-size: 2rem; margin-bottom: 1rem; }
+    .feature-card h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.15rem; font-weight: 600;
+      color: white; margin-bottom: .5rem;
+    }
+    .feature-card p { font-size: .9rem; color: rgba(255,255,255,0.75); line-height: 1.6; }
+
+    .features-headline {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      font-weight: 700; color: white;
+      line-height: 1.2; margin-bottom: 1.5rem;
+    }
+    .features-sub { font-size: 1.1rem; color: rgba(255,255,255,0.75); line-height: 1.7; margin-bottom: 3rem; }
+
+    .features-layout {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center;
+    }
+
+    /* ── PRICING ── */
+    .pricing-card {
+      background: var(--white);
+      border-radius: 28px; padding: 3rem;
+      border: 2px solid var(--green-pale);
+      max-width: 480px; margin: 0 auto;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(45,106,79,0.1);
+    }
+    .price-amount {
+      font-family: 'Fraunces', serif;
+      font-size: 4rem; font-weight: 700; color: var(--green);
+      line-height: 1;
+    }
+    .price-range { font-size: 1rem; color: var(--muted); margin-bottom: 2rem; }
+    .price-includes {
+      list-style: none; text-align: left;
+      display: flex; flex-direction: column; gap: .75rem;
+      margin-bottom: 2rem;
+    }
+    .price-includes li {
+      display: flex; align-items: center; gap: .75rem;
+      font-size: 1rem; font-weight: 600;
+    }
+    .price-includes li::before {
+      content: '✓';
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--green-pale); color: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 800; flex-shrink: 0;
+    }
+    .price-note { font-size: .875rem; color: var(--muted); margin-top: 1rem; }
+
+    /* ── AGES SECTION ── */
+    .ages-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;
+    }
+    .age-card {
+      background: var(--white);
+      border-radius: 20px; padding: 1.8rem;
+      text-align: center;
+      border: 1px solid rgba(0,0,0,0.06);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .age-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+    .age-emoji { font-size: 2.5rem; margin-bottom: .75rem; }
+    .age-range {
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem; font-weight: 700; color: var(--green);
+      margin-bottom: .4rem;
+    }
+    .age-label { font-size: .9rem; color: var(--muted); font-weight: 600; }
+
+    /* ── CTA STRIP ── */
+    .cta-strip {
+      background: linear-gradient(135deg, var(--yellow) 0%, #ffb347 100%);
+      border-radius: 28px;
+      padding: 4rem 3rem;
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .cta-strip::before {
+      content: '📚';
+      position: absolute; left: 2rem; top: 50%; transform: translateY(-50%);
+      font-size: 5rem; opacity: .15;
+    }
+    .cta-strip::after {
+      content: '⭐';
+      position: absolute; right: 2rem; top: 50%; transform: translateY(-50%);
+      font-size: 5rem; opacity: .15;
+    }
+    .cta-strip h2 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+      font-weight: 700; color: var(--brown);
+      margin-bottom: 1rem;
+    }
+    .cta-strip p { font-size: 1.1rem; color: var(--brown); opacity: .8; margin-bottom: 2rem; }
+    .btn-dark {
+      background: var(--brown); color: var(--white);
+      border: none; border-radius: 50px;
+      padding: 1rem 2.5rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800; font-size: 1.1rem;
+      cursor: pointer; transition: all .2s;
+      text-decoration: none; display: inline-block;
+      box-shadow: 0 4px 20px rgba(92,61,46,0.3);
+    }
+    .btn-dark:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(92,61,46,0.4); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--text);
+      color: rgba(255,255,255,0.6);
+      padding: 3rem 2.5rem;
+      text-align: center;
+    }
+    footer .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.4rem; font-weight: 700; color: white;
+      margin-bottom: .75rem;
+    }
+    footer p { font-size: .875rem; line-height: 1.6; }
+    footer a { color: var(--green-light); text-decoration: none; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 1; transform: translateY(0);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── FAQ ── */
+    /* FAQ — pure HTML, no JS */
+    .faq-item details { border-bottom: 1px solid #e5e7eb; }
+    .faq-item summary {
+      padding: 1.1rem 0;
+      font-family: 'Nunito', sans-serif; font-size: 1rem;
+      font-weight: 700; color: var(--text); cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+      list-style: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after {
+      content: '+';
+      font-size: 1.3rem; font-weight: 400; color: var(--green); flex-shrink: 0;
+    }
+    .faq-item details[open] summary::after { content: '\2212'; }
+    .faq-item summary:hover { color: var(--green); }
+    .faq-answer {
+      font-size: .95rem; line-height: 1.75; color: #4b5563;
+      padding-bottom: 1.1rem;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .hero p { margin: 0 auto 2.5rem; }
+      .hero-actions { justify-content: center; }
+      .hero-trust { justify-content: center; }
+      .hero-visual { display: none; }
+      .steps { grid-template-columns: 1fr; }
+      .features-layout { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .ages-grid { grid-template-columns: repeat(2, 1fr); }
+      nav { padding: 1rem 1.5rem; }
+      .nav-links { display: none; }
+    }
+  </style>
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+    gtag("config", "G-P6FLSR57GV");
+  </script>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo"><span>🌱</span> Growing Minds</a>
+    <ul class="nav-links">
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#ages">Ages</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a href="intake-form.html" class="nav-cta">Start Your Story →</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-badge">✨ Personalized for your child</div>
+        <h1>A story where <em>your child</em> is the hero</h1>
+        <p>Every Growing Minds book is written just for your child — featuring their name, personality, hometown, and the milestone they're working on right now. No two stories are ever the same.</p>
+        <div class="hero-actions">
+          <a href="intake-form.html" class="btn-primary">Create Their Story</a>
+          <a href="#how-it-works" class="btn-secondary">See how it works →</a>
+        </div>
+        <div class="hero-trust">
+          <div class="trust-avatars">
+            <span>👩</span><span>👨</span><span>👩</span><span>👨</span>
+          </div>
+          <span>Loved by parents of kids ages 3–13</span>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="floating-tag tag-1">📦 Ships to your door!</div>
+        <div class="book-card">
+          <div class="book-cover">
+            <div class="book-emoji">🦁</div>
+            <div class="book-title">Mia and the Brave New Day</div>
+            <div class="book-subtitle">A Growing Minds Story</div>
+          </div>
+          <div class="book-details">
+            <div class="book-detail">
+              <div class="book-detail-icon" style="background:#d8f3dc;">🧒</div>
+              <div>Child: <span>Mia, age 6 — Brave & Curious</span></div>
+            </div>
+            <div class="book-detail">
+              <div class="book-detail-icon" style="background:#fff9e6;">🎯</div>
+              <div>Milestone: <span>Starting kindergarten</span></div>
+            </div>
+            <div class="book-detail">
+              <div class="book-detail-icon" style="background:#e8f7fb;">📍</div>
+              <div>Set in: <span>Austin, Texas</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="floating-tag tag-2">📄 PDF included!</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how-it-works">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label">🪄 Simple & fun</span>
+        <h2>Three steps to their story</h2>
+        <p>From first click to printed book in your hands — the whole process is designed to be delightful.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="step-num">1</div>
+          <div class="step-icon">📝</div>
+          <h3>Tell us about your child</h3>
+          <p>Answer a quick, fun form — their name, personality, favorite things, where they live, and one milestone they're working on right now.</p>
+        </div>
+        <div class="step reveal" style="transition-delay:.1s">
+          <div class="step-num">2</div>
+          <div class="step-icon">✨</div>
+          <h3>Preview their story</h3>
+          <p>We'll generate the opening of their unique story instantly. Read the first exciting chapter — and discover the cliffhanger that awaits!</p>
+        </div>
+        <div class="step reveal" style="transition-delay:.2s">
+          <div class="step-num">3</div>
+          <div class="step-icon">📦</div>
+          <h3>Get the book</h3>
+          <p>Purchase to unlock the full story. Download the PDF instantly, and receive a beautifully printed book shipped right to your door.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGES -->
+  <section class="section" id="ages" style="background: var(--sky-pale);">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label" style="background:white;">🎈 For every stage</span>
+        <h2>Stories that grow with your child</h2>
+        <p>Our stories are crafted to match your child's reading level and the milestones that matter most at each age.</p>
+      </div>
+      <div class="ages-grid">
+        <div class="age-card reveal">
+          <div class="age-emoji">🧸</div>
+          <div class="age-range">Ages 3–4</div>
+          <div class="age-label">Read-aloud adventures</div>
+        </div>
+        <div class="age-card reveal" style="transition-delay:.1s">
+          <div class="age-emoji">🚲</div>
+          <div class="age-range">Ages 5–6</div>
+          <div class="age-label">First big milestones</div>
+        </div>
+        <div class="age-card reveal" style="transition-delay:.2s">
+          <div class="age-emoji">⚽</div>
+          <div class="age-range">Ages 7–9</div>
+          <div class="age-label">Building confidence</div>
+        </div>
+        <div class="age-card reveal" style="transition-delay:.3s">
+          <div class="age-emoji">🔭</div>
+          <div class="age-range">Ages 10–13</div>
+          <div class="age-label">Finding their place</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section features-bg" id="features">
+    <div class="section-inner">
+      <div class="features-layout">
+        <div class="reveal">
+          <h2 class="features-headline">Every detail, just for them</h2>
+          <p class="features-sub">Growing Minds stories aren't templates with a name swapped in. Every story is freshly written to weave in your child's world — from their hometown to their favorite things.</p>
+          <a href="intake-form.html" class="btn-primary" style="background: var(--yellow); color: var(--brown);">Start Their Story →</a>
+        </div>
+        <div class="features-grid reveal" style="transition-delay:.15s">
+          <div class="feature-card">
+            <div class="feature-icon">🧠</div>
+            <h3>Real milestones</h3>
+            <p>The story is built around something your child is actually working on right now — making it meaningful, not just fun.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📍</div>
+            <h3>Local setting</h3>
+            <p>Adventures happen in your child's world — their city, their landscape, their home environment.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🎨</div>
+            <h3>Their personality</h3>
+            <p>Adventurous? Silly? Kind? The character in the story truly feels like your child.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📬</div>
+            <h3>Print + digital</h3>
+            <p>Get an instant PDF download and a beautiful printed book shipped right to your door.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="section" id="pricing">
+    <div class="section-inner">
+      <div class="section-header reveal">
+        <span class="section-label">💛 Simple pricing</span>
+        <h2>One price, everything included</h2>
+        <p>No subscriptions. No surprises. One story, one price — delivered two ways.</p>
+      </div>
+      <div class="pricing-card reveal">
+        <div class="price-amount">$35</div>
+        <div class="price-range">per personalized story book</div>
+        <ul class="price-includes">
+          <li>A fully unique, AI-personalized novel — 30 chapters, ~24,000 words</li>
+          <li>Instant digital delivery to your inbox</li>
+          <li>Professionally printed hardcover book shipped to you</li>
+          <li>Tailored to your child's age, personality & milestone</li>
+          <li>Set in your child's hometown world</li>
+        </ul>
+        <a href="intake-form.html" class="btn-primary" style="width:100%; display:block; text-align:center;">Create Their Story Now</a>
+        <p class="price-note">📦 Free standard shipping · Usually arrives in 13–15 business days</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="section-inner">
+      <div class="section-label reveal">FAQ</div>
+      <h2 class="section-title reveal">Questions? We've got answers.</h2>
+
+      <div style="max-width:720px;margin:3rem auto 0;">
+
+        <div class="faq-group reveal">
+          <h3 style="color:var(--green);font-family:'Fraunces',serif;font-size:1.1rem;margin:0 0 1.2rem 0;padding-bottom:.6rem;border-bottom:2px solid #e5e7eb;">About the Book</h3>
+
+                    <div class="faq-item">
+            <details>
+              <summary>What exactly is included in my order? </summary>
+              <div class="faq-answer">You get two things: an instant digital copy of the full story emailed to you right after purchase, and a professionally printed hardcover book shipped to your door within 13–15 business days. The digital version arrives in minutes — perfect for reading together that same night.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>How long is the story? </summary>
+              <div class="faq-answer">Every story is a full 30-chapter novel — approximately 24,000 words. That's the length of a real published children's book. It's designed to be read together over many nights, one chapter at a time. Think of it as your child's very own bedtime series.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>What ages is this for? </summary>
+              <div class="faq-answer">Growing Minds stories are written for children aged 3–13. The writing style, vocabulary, and themes are automatically adjusted based on your child's age — from warm, lyrical read-aloud prose for toddlers to rich middle-grade storytelling for tweens. It's always written to be enjoyed together as a family.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>How is the story personalized? </summary>
+              <div class="faq-answer">We weave in your child's name, appearance (hair color, eye color), personality traits, favorite things, their hometown, their best friend or sibling, and a milestone they're currently working through — like starting school, learning to ride a bike, or making new friends. These details appear naturally throughout the story, not just bolted on. Every book is genuinely one of a kind.</div>
+            </details>
+          </div>
+        </div>
+
+        <div class="faq-group reveal" style="margin-top:2rem;">
+          <h3 style="color:var(--green);font-family:'Fraunces',serif;font-size:1.1rem;margin:0 0 1.2rem 0;padding-bottom:.6rem;border-bottom:2px solid #e5e7eb;">Ordering & Delivery</h3>
+
+                    <div class="faq-item">
+            <details>
+              <summary>When will I get the digital version? </summary>
+              <div class="faq-answer">Your personalized story is written by AI immediately after purchase and emailed to you — typically within 10–15 minutes. You'll receive the complete 30-chapter story in a beautifully formatted email, ready to read that same evening.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>How long does the printed book take? </summary>
+              <div class="faq-answer">Printed books are professionally produced and shipped within 13–15 business days to US addresses. We currently ship within the United States only.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>Do you ship internationally? </summary>
+              <div class="faq-answer">Not yet — we currently ship printed books within the United States only. The digital story is delivered by email and available instantly anywhere in the world. International shipping is on our roadmap!</div>
+            </details>
+          </div>
+        </div>
+
+        <div class="faq-group reveal" style="margin-top:2rem;">
+          <h3 style="color:var(--green);font-family:'Fraunces',serif;font-size:1.1rem;margin:0 0 1.2rem 0;padding-bottom:.6rem;border-bottom:2px solid #e5e7eb;">Payment & Refunds</h3>
+
+                    <div class="faq-item">
+            <details>
+              <summary>Why can't I get a refund? </summary>
+              <div class="faq-answer">Because every story is written uniquely for your child the moment you order — it can't be resold or reused. Like a commissioned piece of art, the work is done specifically for you. That said, if something goes wrong on our end (the email doesn't arrive, the book has a printing issue), we'll always make it right. Just email us at <a href="/cdn-cgi/l/email-protection#cba3aea7a7a48bacb9a4bca2a5aca6a2a5afb8e5a2a4" style="color:#2d6a4f;"><span class="__cf_email__" data-cfemail="8ee6ebe2e2e1cee9fce1f9e7e0e9e3e7e0eafda0e7e1">[email&#160;protected]</span></a>.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>Do you offer discount codes? </summary>
+              <div class="faq-answer">Yes! If you have a discount code, enter it on the story preview page before checkout. Codes are occasionally shared through our newsletter and social media — follow us to stay in the loop.</div>
+            </details>
+          </div>
+        </div>
+
+        <div class="faq-group reveal" style="margin-top:2rem;">
+          <h3 style="color:var(--green);font-family:'Fraunces',serif;font-size:1.1rem;margin:0 0 1.2rem 0;padding-bottom:.6rem;border-bottom:2px solid #e5e7eb;">The Story Itself</h3>
+
+                    <div class="faq-item">
+            <details>
+              <summary>Can I preview the story before buying? </summary>
+              <div class="faq-answer">Yes — fill out the form and we'll generate a free preview of the opening of your child's story. You'll see exactly how their name, personality, and world are woven into the narrative before you decide to purchase.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>Can I request changes to the story? </summary>
+              <div class="faq-answer">The story is generated fresh from the details you provide, so the best way to shape it is through the intake form — the more detail you give, the richer the story. If you're unhappy with how something came out, email us at <a href="/cdn-cgi/l/email-protection#58303d343437183f2a372f31363f3531363c2b763137" style="color:#2d6a4f;"><span class="__cf_email__" data-cfemail="c1a9a4adadae81a6b3aeb6a8afa6aca8afa5b2efa8ae">[email&#160;protected]</span></a> and we'll do our best to help.</div>
+            </details>
+          </div>
+
+                    <div class="faq-item">
+            <details>
+              <summary>What if I want to order for multiple children? </summary>
+              <div class="faq-answer">Just place a separate order for each child — each story is completely unique. If you're ordering for more than three children, email us at <a href="/cdn-cgi/l/email-protection#4129242d2d2e0126332e36282f262c282f25326f282e" style="color:#2d6a4f;"><span class="__cf_email__" data-cfemail="a6cec3cacac9e6c1d4c9d1cfc8c1cbcfc8c2d588cfc9">[email&#160;protected]</span></a> and we may be able to offer a bundle discount.</div>
+            </details>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA STRIP -->
+  <section class="section" id="start" style="padding-top: 0;">
+    <div class="section-inner">
+      <div class="cta-strip reveal">
+        <h2>Ready to make them the hero?</h2>
+        <p>It takes less than 3 minutes to fill out the form. Their adventure is waiting.</p>
+        <a href="intake-form.html" class="btn-dark">Start Their Story →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">🌱 Growing Minds</div>
+    <p>Personalized story books for curious kids, ages 3–13.<br/>
+    <a href="/cdn-cgi/l/email-protection#f098959c9c9fb097829f87999e979d999e9483de999f"><span class="__cf_email__" data-cfemail="f79f929b9b98b7908598809e99909a9e999384d99e98">[email&#160;protected]</span></a> · <a href="#">growingminds.io</a></p>
+    <p style="margin-top:1rem; font-size:.8rem;">© 2026 Growing Minds LLC. All rights reserved. · <a href="/privacy-policy" style="color:inherit;">Privacy Policy</a> · <a href="/terms" style="color:inherit;">Terms of Service</a></p>
+  </footer>
+
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    });
+
+    // Scroll reveal
+    const observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) e.target.classList.add('visible');
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(function(el) { observer.observe(el); });
+  </script>
+</body>
+</html>

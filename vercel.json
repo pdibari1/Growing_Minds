@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "buildCommand": "echo 'No build step required'",
+  "outputDirectory": ".",
+  "functions": {
+    "api/webhook.js":        { "maxDuration": 30 },
+    "api/inngest.js":        { "maxDuration": 800 },
+    "api/generate-preview.js": { "maxDuration": 30 },
+    "api/create-checkout.js":  { "maxDuration": 30 },
+    "api/capture-email.js":    { "maxDuration": 10 }
+  },
+  "rewrites": [
+    { "source": "/confirmation", "destination": "/confirmation.html" },
+    { "source": "/story-preview", "destination": "/story-preview.html" },
+    { "source": "/intake-form", "destination": "/intake-form.html" },
+    { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
+    { "source": "/terms", "destination": "/terms.html" }
+  ]
+}

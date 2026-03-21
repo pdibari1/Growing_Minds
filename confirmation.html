@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — Order Confirmed! 🎉</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:        #2d6a4f;
+      --green-light:  #52b788;
+      --green-pale:   #d8f3dc;
+      --yellow:       #f9c74f;
+      --yellow-dark:  #e9a800;
+      --cream:        #fefae0;
+      --brown:        #5c3d2e;
+      --text:         #1a1a2e;
+      --muted:        #6b7280;
+      --white:        #ffffff;
+      --border:       #e5e7eb;
+    }
+
+    html, body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2.5rem;
+      background: rgba(254,250,224,0.95);
+      border-bottom: 1px solid rgba(45,106,79,0.1);
+    }
+    .nav-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem; font-weight: 700; color: var(--green);
+      text-decoration: none; display: flex; align-items: center; gap: .4rem;
+    }
+
+    /* ── HERO CELEBRATION ── */
+    .celebration {
+      background: linear-gradient(135deg, var(--green) 0%, #1b4332 100%);
+      padding: 5rem 2rem 4rem;
+      text-align: center;
+      position: relative; overflow: hidden;
+    }
+
+    /* confetti dots */
+    .celebration::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        radial-gradient(circle at 10% 30%, rgba(249,199,79,0.2) 0%, transparent 30%),
+        radial-gradient(circle at 90% 20%, rgba(82,183,136,0.2) 0%, transparent 30%),
+        radial-gradient(circle at 50% 80%, rgba(249,199,79,0.15) 0%, transparent 30%);
+      pointer-events: none;
+    }
+
+    .confetti-ring {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px; height: 600px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.05);
+      animation: pulse 3s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .confetti-ring:nth-child(2) { width: 800px; height: 800px; animation-delay: .5s; }
+    .confetti-ring:nth-child(3) { width: 1000px; height: 1000px; animation-delay: 1s; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .4; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: .1; transform: translate(-50%, -50%) scale(1.05); }
+    }
+
+    .celebration-inner {
+      position: relative; max-width: 640px; margin: 0 auto;
+    }
+
+    .check-circle {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: var(--yellow);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; margin: 0 auto 1.5rem;
+      box-shadow: 0 8px 32px rgba(249,199,79,0.4);
+      animation: popIn .5s cubic-bezier(.175,.885,.32,1.275) both;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.5); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .celebration h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700; color: white;
+      line-height: 1.2; margin-bottom: .75rem;
+      animation: fadeUp .5s .2s ease both;
+    }
+    .celebration h1 em { font-style: italic; color: var(--yellow); }
+
+    .celebration p {
+      font-size: 1.1rem; color: rgba(255,255,255,0.75);
+      line-height: 1.7; margin-bottom: 2rem;
+      animation: fadeUp .5s .3s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      max-width: 720px; margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* what happens next */
+    .next-steps {
+      background: var(--white);
+      border-radius: 24px; padding: 2.5rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      margin-bottom: 2rem;
+    }
+    .next-steps-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.5rem; font-weight: 700;
+      color: var(--text); margin-bottom: 1.8rem;
+    }
+
+    .step-row {
+      display: flex; align-items: flex-start; gap: 1.2rem;
+      padding: 1.1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-row:last-child { border-bottom: none; }
+
+    .step-icon-wrap {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; flex-shrink: 0;
+    }
+    .step-row:nth-child(1) .step-icon-wrap { background: #fff9e6; }
+    .step-row:nth-child(2) .step-icon-wrap { background: var(--green-pale); }
+    .step-row:nth-child(3) .step-icon-wrap { background: #e8f7fb; }
+
+    .step-content {}
+    .step-title {
+      font-weight: 800; font-size: 1rem;
+      color: var(--text); margin-bottom: .25rem;
+    }
+    .step-desc {
+      font-size: .9rem; color: var(--muted);
+      line-height: 1.6; font-weight: 600;
+    }
+    .step-timing {
+      display: inline-flex; align-items: center; gap: .3rem;
+      background: var(--green-pale); color: var(--green);
+      border-radius: 50px; padding: .2rem .7rem;
+      font-size: .75rem; font-weight: 800;
+      margin-top: .4rem;
+    }
+
+    /* order summary */
+    .order-summary {
+      background: linear-gradient(135deg, var(--green), #1b4332);
+      border-radius: 24px; padding: 2rem;
+      margin-bottom: 2rem;
+      color: white;
+    }
+    .order-summary-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.1rem; font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 1.2rem;
+      text-transform: uppercase; letter-spacing: .08em; font-size: .8rem;
+    }
+    .order-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .6rem 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: .95rem;
+    }
+    .order-row:last-child { border-bottom: none; }
+    .order-row .label { color: rgba(255,255,255,0.7); font-weight: 600; }
+    .order-row .value { color: white; font-weight: 800; }
+    .order-total {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 1rem; margin-top: .5rem;
+      border-top: 2px solid rgba(255,255,255,0.2);
+    }
+    .order-total .label { color: white; font-weight: 800; font-size: 1rem; }
+    .order-total .value {
+      font-family: 'Fraunces', serif;
+      font-size: 1.6rem; font-weight: 700; color: var(--yellow);
+    }
+
+    /* share section */
+    .share-section {
+      background: var(--yellow);
+      border-radius: 24px; padding: 2rem;
+      text-align: center; margin-bottom: 2rem;
+    }
+    .share-section h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem; font-weight: 700;
+      color: var(--brown); margin-bottom: .5rem;
+    }
+    .share-section p {
+      font-size: .95rem; color: var(--brown);
+      opacity: .8; margin-bottom: 1.2rem; line-height: 1.6;
+    }
+    .share-btns { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+    .share-btn {
+      display: flex; align-items: center; gap: .4rem;
+      background: var(--brown); color: white;
+      border: none; border-radius: 50px;
+      padding: .65rem 1.4rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800; font-size: .9rem;
+      cursor: pointer; transition: all .15s;
+      text-decoration: none;
+    }
+    .share-btn:hover { transform: translateY(-2px); opacity: .9; }
+
+    /* another story CTA */
+    .another-story {
+      background: var(--white);
+      border-radius: 24px; padding: 2rem;
+      text-align: center; border: 2px solid var(--green-pale);
+    }
+    .another-story h3 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.2rem; font-weight: 700;
+      color: var(--text); margin-bottom: .5rem;
+    }
+    .another-story p {
+      font-size: .9rem; color: var(--muted);
+      margin-bottom: 1.2rem; line-height: 1.6;
+    }
+    .btn-green {
+      display: inline-block;
+      background: var(--green); color: white;
+      border: none; border-radius: 50px;
+      padding: .85rem 2rem;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800; font-size: 1rem;
+      cursor: pointer; transition: all .2s;
+      text-decoration: none;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.3);
+    }
+    .btn-green:hover { background: var(--green-light); transform: translateY(-2px); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--text); color: rgba(255,255,255,0.5);
+      padding: 2rem 2.5rem; text-align: center; font-size: .82rem;
+      margin-top: 3rem;
+    }
+    .footer-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.2rem; font-weight: 700; color: white; margin-bottom: .5rem;
+    }
+    footer a { color: var(--green-light); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      nav { padding: 1rem 1.2rem; }
+      .celebration { padding: 3rem 1.2rem; }
+      .main { padding: 2rem 1.2rem; }
+      .next-steps, .order-summary { padding: 1.5rem; }
+    }
+  </style>
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+    gtag("config", "G-P6FLSR57GV");
+    // Restore User ID from session for cross-page tracking
+    const gmUserId = sessionStorage.getItem('gm_user_id');
+    if (gmUserId && typeof gtag !== 'undefined') {
+      gtag('config', 'G-P6FLSR57GV', { user_id: gmUserId });
+    }
+  </script>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="index.html" class="nav-logo">🌱 Growing Minds</a>
+  </nav>
+
+  <!-- CELEBRATION HERO -->
+  <div class="celebration">
+    <div class="confetti-ring"></div>
+    <div class="confetti-ring"></div>
+    <div class="confetti-ring"></div>
+    <div class="celebration-inner">
+      <div class="check-circle">🎉</div>
+      <h1>You're all set! 🎉</h1>
+      <p id="confirm-subtitle">Their story is being written right now. Check your email for the PDF download link — it's on its way!</p>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- WHAT HAPPENS NEXT -->
+    <div class="next-steps">
+      <div class="next-steps-title">📬 What happens next</div>
+
+      <div class="step-row">
+        <div class="step-icon-wrap">📄</div>
+        <div class="step-content">
+          <div class="step-title">PDF arriving in your inbox</div>
+          <div class="step-desc">We're generating the full story right now and will email you a download link as soon as it's ready. Check your spam folder if you don't see it.</div>
+          <div class="step-timing">⚡ Within the next few minutes</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-icon-wrap">📦</div>
+        <div class="step-content">
+          <div class="step-title">Printed book on its way</div>
+          <div class="step-desc">Your beautifully printed softcover book has been sent to our print partner. It will be produced and shipped directly to the address you provided.</div>
+          <div class="step-timing">📮 13–15 business days</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-icon-wrap">🌟</div>
+        <div class="step-content">
+          <div class="step-title">Read it together tonight</div>
+          <div class="step-desc">Once you have the PDF, read it to your child before bed. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
+          <div class="step-timing">💛 The best part</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDER SUMMARY -->
+    <div class="order-summary">
+      <div class="order-summary-title">🧾 Order Summary</div>
+      <div class="order-row">
+        <span class="label">Story for</span>
+        <span class="value" id="summary-name">Your child</span>
+      </div>
+      <div class="order-row">
+        <span class="label">Digital Story</span>
+        <span class="value">✓ Emailed shortly</span>
+      </div>
+      <div class="order-row">
+        <span class="label">Printed Hardcover Book</span>
+        <span class="value">✓ Included</span>
+      </div>
+      <div class="order-row">
+        <span class="label">Shipping</span>
+        <span class="value">✓ Free</span>
+      </div>
+      <div class="order-total">
+        <span class="label">Total paid</span>
+        <span class="value">$35.00</span>
+      </div>
+    </div>
+
+    <!-- FAMILY STORY ID -->
+    <div style="background:#f0fdf4;border:2px solid #86efac;border-radius:16px;padding:1.5rem;margin-top:1.5rem;text-align:center;">
+      <div style="font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
+      <div id="family-story-id" style="font-family:monospace;font-size:1.2rem;font-weight:700;color:#14532d;letter-spacing:.05em;background:white;border:1px solid #bbf7d0;border-radius:8px;padding:.5rem 1rem;display:inline-block;margin:.5rem 0;">—</div>
+      <p style="font-size:.82rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID! Use it when ordering a sequel or a story for a sibling to continue your family's world.</p>
+      <button onclick="copyStoryId()" style="margin-top:.75rem;background:#16a34a;color:white;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.85rem;font-weight:700;cursor:pointer;">📋 Copy ID</button>
+    </div>
+
+    <!-- SHARE -->
+    <div class="share-section">
+      <h3>Know another parent who'd love this? 💛</h3>
+      <p>Share Growing Minds with a friend — every child deserves a story written just for them.</p>
+      <div class="share-btns">
+        <a href="https://www.facebook.com/sharer/sharer.php?u=https://growingminds.io" target="_blank" class="share-btn">
+          📘 Share on Facebook
+        </a>
+        <a href="https://twitter.com/intent/tweet?text=Just+got+a+personalized+story+book+for+my+child+from+%40growingminds+%F0%9F%8C%B1+Every+detail+is+about+them+%E2%80%94+check+it+out%21+growingminds.io" target="_blank" class="share-btn">
+          🐦 Share on X
+        </a>
+        <button class="share-btn" onclick="copyLink()">🔗 Copy Link</button>
+      </div>
+    </div>
+
+    <!-- ANOTHER STORY -->
+    <div class="another-story">
+      <h3>Have another child? Or want to give one as a gift?</h3>
+      <p>Every story is completely unique. Create one for a sibling, a grandchild, or a friend's little one.</p>
+      <a href="intake-form.html" class="btn-green">✨ Create Another Story</a>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">🌱 Growing Minds</div>
+    <p>Questions? Email us at <a href="/cdn-cgi/l/email-protection#4f272a2323200f283d20382621282226212b3c612620"><span class="__cf_email__" data-cfemail="b1d9d4dddddef1d6c3dec6d8dfd6dcd8dfd5c29fd8de">[email&#160;protected]</span></a></p>
+    <p style="margin-top:.5rem; font-size:.75rem;">© 2026 Growing Minds LLC. All rights reserved. · <a href="/privacy-policy" style="color:inherit;">Privacy Policy</a> · <a href="/terms" style="color:inherit;">Terms of Service</a></p>
+  </footer>
+
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+    // ── PERSONALIZE FROM SESSION OR URL ──
+    const params = new URLSearchParams(window.location.search);
+    const urlStoryId = params.get('sid');
+    const urlChildName = params.get('name');
+
+    const storyData = sessionStorage.getItem('storyPreview');
+    const parsed = storyData ? JSON.parse(storyData) : null;
+    const childName = urlChildName || (parsed ? parsed.childName : localStorage.getItem('gm_last_child_name'));
+    const storyId = urlStoryId || (parsed ? parsed.storyId : localStorage.getItem('gm_last_story_id'));
+
+    if (childName) {
+      document.getElementById('confirm-subtitle').textContent =
+        `${childName}'s story is being written right now. Check your email — it's on its way!`;
+      document.getElementById('summary-name').textContent = childName;
+
+      // GA4 - purchase complete
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'purchase', { currency: 'USD', value: 35, transaction_id: Date.now().toString() });
+      }
+
+      sessionStorage.removeItem('storyPreview');
+    }
+
+    if (storyId) {
+      document.getElementById('family-story-id').textContent = storyId;
+    }
+
+    function copyStoryId() {
+      const id = document.getElementById('family-story-id').textContent;
+      navigator.clipboard.writeText(id).then(() => {
+        const btn = event.target;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = '📋 Copy ID', 2000);
+      });
+    }
+
+    // ── COPY LINK ──
+    function copyLink() {
+      navigator.c
