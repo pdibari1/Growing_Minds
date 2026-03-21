@@ -707,16 +707,6 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     font-weight: 900;
     color: #ffffff;
     line-height: 1.1;
-    margin-bottom: 4px;
-  }
-
-  .cover-title-sub {
-    font-family: 'Playfair Display', serif;
-    font-size: 19pt;
-    font-weight: 700;
-    font-style: italic;
-    color: #f9c74f;
-    line-height: 1.2;
     margin-bottom: 20px;
   }
 
@@ -742,9 +732,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     text-transform: uppercase;
   }
 
-  .chapter { padding: 48px 60px; page-break-before: always; min-height: 100vh; position: relative; }
-
-  /* Chapter opener */
+  .chapter { padding: 48px 60px 80px; page-break-before: always; position: relative; }
   .chapter-number {
     font-family: 'Nunito', sans-serif;
     font-size: 8pt;
@@ -810,16 +798,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     opacity: 0.4;
   }
 
-  /* Page footer */
-  .page-footer {
-    position: fixed;
-    bottom: 20px;
-    left: 0; right: 0;
-    text-align: center;
-    font-family: 'Nunito', sans-serif;
-    font-size: 8pt;
-    color: #b0b8c1;
-  }
+  /* Page footer - removed, causes overlap with PDFShift */
 
   /* Title page (after cover) */
   .title-page {
@@ -885,8 +864,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>
       <div class="cover-title-line1">${childName} and the</div>
-      <div class="cover-title-main">${getMilestoneTitle(milestone).split(' ').slice(0,2).join(' ')}</div>
-      <div class="cover-title-sub">${getMilestoneTitle(milestone).split(' ').slice(2).join(' ') || getMilestoneTitle(milestone)}</div>
+      <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
       <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${wordCount} words</div>
     </div>
@@ -909,9 +887,6 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   <!-- CHAPTERS -->
   ${chaptersHtml}
-
-  <!-- PAGE NUMBERS -->
-  <div class="page-footer">— growingminds.io —</div>
 
 </body>
 </html>`;
