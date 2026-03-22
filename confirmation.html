@@ -352,8 +352,8 @@
         <span class="value" id="summary-name">Your child</span>
       </div>
       <div class="order-row">
-        <span class="label">Digital Story</span>
-        <span class="value">✓ Emailed shortly</span>
+        <span class="label">First Half — by Email</span>
+        <span class="value">✓ In your inbox within 30 min</span>
       </div>
       <div class="order-row">
         <span class="label">Printed Hardcover Book</span>
@@ -421,7 +421,7 @@
 
     if (childName) {
       document.getElementById('confirm-subtitle').textContent =
-        `${childName}'s story is being written right now. Check your email — it's on its way!`;
+        `${childName}'s story is being written right now. The first half of their story will be in your inbox within 30 minutes. The complete hardcover book ships within 13–15 business days.`;
       document.getElementById('summary-name').textContent = childName;
 
       // GA4 - purchase complete
@@ -447,4 +447,11 @@
 
     // ── COPY LINK ──
     function copyLink() {
-      navigator.c
+      navigator.clipboard.writeText('https://growingminds.io').then(() => {
+        const btn = document.querySelector('.share-btn:last-child');
+        if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = '🔗 Copy Link', 2000); }
+      });
+    }
+  </script>
+</body>
+</html>

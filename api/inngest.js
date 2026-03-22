@@ -14,9 +14,9 @@ const inngest = new Inngest({
 // ── STORY TIERS BY AGE ──
 function getStoryTier(age) {
   const a = parseInt(age);
-  if (a <= 5) return { chapCount: 30, wordsPerChap: 400, maxTokensPerChap: 800,  imageCount: 15, imagesPerChap: 0, label: "illustrated novel" };
-  if (a <= 9) return { chapCount: 30, wordsPerChap: 400, maxTokensPerChap: 800,  imageCount: 10, imagesPerChap: 0, label: "illustrated chapter book" };
-  return       { chapCount: 30, wordsPerChap: 400, maxTokensPerChap: 800,  imageCount: 5,  imagesPerChap: 0, label: "novel" };
+  if (a <= 5) return { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 15, imagesPerChap: 0, label: "illustrated novel" };
+  if (a <= 9) return { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 10, imagesPerChap: 0, label: "illustrated chapter book" };
+  return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -43,7 +43,7 @@ const generateStoryOrder = inngest.createFunction(
 
     // Step 2: Generate chapters in batches — save each batch to Airtable immediately
     // This means chapter text never lives in Inngest state
-    const BATCH_SIZE = 6;
+    const BATCH_SIZE = 4;
     const batches = Math.ceil(outline.length / BATCH_SIZE);
 
     for (let b = 0; b < batches; b++) {
@@ -124,17 +124,16 @@ const generateStoryOrder = inngest.createFunction(
       console.log("Skipping illustrations");
     }
 
-    // Step 4: Generate PDF — retrieve chapters and illustrations from Redis
+    // Step 4: Generate PDF with first 10 chapters only (stays under PDFShift 2MB limit)
     const pdfBase64 = await step.run("create-pdf", async () => {
-      console.log(`Retrieving chapters and illustrations from Redis for storyId: ${storyId}`);
+      console.log(`Building PDF (chapters 1-10)`);
       const chapters = await getChaptersFromRedis(storyId);
       const illustrations = await getIllustrationsFromRedis(storyId);
       console.log(`Retrieved ${chapters.length} chapters, ${Object.keys(illustrations).length} illustrations`);
-      console.log(`Illustration keys in PDF step: ${Object.keys(illustrations).join(', ')}`);
-      return await generatePDF(childName, chapters, childData, tier, illustrations);
+      return await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrations);
     });
 
-    // Step 4: Send email with PDF attached
+    // Step 5: Send email with PDF of first 15 chapters
     await step.run("send-email", async () => {
       console.log(`Sending email to ${customerEmail}`);
       await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
@@ -656,26 +655,26 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     `;
   }).join('');
 
-  // Build TOC rows — compact two-column layout to fit 30 chapters on one page
+  // Build TOC rows — two columns for 30 chapters
   const tocRowsLeft = chapters.slice(0, 15).map((chapText, ci) => {
     const firstLine = chapText.split(/\n+/)[0] || '';
     const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
     const num = match ? match[1] : String(ci + 1);
     const title = match ? match[2] : firstLine;
     return '<tr>' +
-      '<td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#9ca3af;font-weight:800;">' + num + '</td>' +
+      '<td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">' + num + '</td>' +
       '<td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">' + title + '</td>' +
       '</tr>';
   }).join('');
 
-  const tocRowsRight = chapters.slice(15).map((chapText, ci) => {
+  const tocRowsRight = chapters.slice(15, 30).map((chapText, ci) => {
     const firstLine = chapText.split(/\n+/)[0] || '';
     const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
     const num = match ? match[1] : String(ci + 16);
     const title = match ? match[2] : firstLine;
     return '<tr>' +
       '<td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#9ca3af;font-weight:800;">' + num + '</td>' +
-      '<td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">' + title + '</td>' +
+      '<td style="padding:5px 0;font-size:9pt;color:#9ca3af;font-weight:600;font-style:italic;">' + title + ' ✦</td>' +
       '</tr>';
   }).join('');
 
@@ -935,9 +934,10 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
         ${tocRowsRight}
       </table>
     </div>
+    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:'Nunito',sans-serif;font-size:8pt;color:#6b7280;">
+      ✦ Chapters 16–30 are included in your printed hardcover book, arriving in 13–15 business days.
+    </div>
   </div>
-
-  <!-- CHAPTERS -->
   ${chaptersHtml}
 
 </body>
@@ -1000,8 +1000,8 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
     from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
     to: email,
     bcc: "purchase@growingminds.io",
-    subject: `📖 ${childName}'s story is ready!`,
-    attachments: [{ filename: `${childName}-story.pdf`, content: pdfBase64 }],
+    subject: `📖 ${childName}'s story is on its way!`,
+    attachments: [{ filename: `${childName}-story-part1.pdf`, content: pdfBase64 }],
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
         <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
@@ -1009,14 +1009,13 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
         </div>
         <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
           <h2 style="color:#2d6a4f;">${storyTitle}</h2>
-          <p>Your personalized story is attached — <strong>${tier.chapCount} chapters</strong> and <strong>${wordCount} words</strong> written just for ${childName}.</p>
-          <p style="margin-top:1rem;">Open the PDF and read it together tonight!</p>
-          <p style="color:#6b7280;font-size:.9rem;margin-top:1.5rem;">Your printed book is on its way and will arrive in 13–15 business days.</p>
+          <p>The first 10 chapters of ${childName}'s story are attached — start reading together tonight!</p>
+          <p style="margin-top:1rem;color:#6b7280;font-size:.9rem;">The complete 30-chapter story arrives in your beautifully printed hardcover book within 13–15 business days.</p>
 
           <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1.5rem;text-align:center;">
             <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
             <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
-            <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID! When ordering a sequel or a story for a sibling, enter it in the "Family Story ID" field on the intake form to continue your family's world.</p>
+            <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID! Use it when ordering a sequel or a story for a sibling.</p>
           </div>
 
           <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
