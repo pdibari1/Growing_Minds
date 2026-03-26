@@ -69,7 +69,7 @@ const generateStoryOrder = inngest.createFunction(
     let illustrations = {};
     console.log(`ILLUSTRATIONS CHECK: OPENAI_API_KEY=${!!process.env.OPENAI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}`);
     if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
-      const IMG_BATCH = 10;
+      const IMG_BATCH = 4; // Keep batches short — Vercel Pro caps function execution at 300s
       // Retrieve outline fresh from Redis — Inngest state may be empty on replay
       const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
       const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
@@ -84,36 +84,82 @@ const generateStoryOrder = inngest.createFunction(
       const imgBatches = Math.ceil(allImageKeys.length / IMG_BATCH);
       console.log(`STARTING ${imgBatches} illustration batches`);
 
-      for (let b = 0; b < imgBatches; b++) {
+      const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
+      const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+      const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
+      const styleGuide = parseInt(age) <= 5
+        ? "Soft watercolor children's book illustration. 2D flat art. Warm pastel color palette — soft yellows, peaches, and sky blues. Gentle and whimsical, Studio Ghibli inspired. Every illustration in this book uses this exact same art style and color palette"
+        : parseInt(age) <= 9
+        ? "Vibrant 2D digital children's book illustration. Flat art style with bold outlines. Bright saturated color palette — warm reds, greens, and golden yellows. Slightly stylized characters, warm cheerful lighting. Every illustration in this book uses this exact same art style and color palette"
+        : "2D digital illustration with semi-realistic style. Rich color palette — deep blues, warm ambers, and forest greens. Like a YA novel cover with warm cinematic lighting. Every illustration in this book uses this exact same art style and color palette";
+
+      // Step A: Use Claude to design ALL recurring characters with consistent descriptions
+      const castDescriptions = await step.run("design-characters", async () => {
+        const cast = await designCharacters(childData, freshOutline);
+        await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(cast), "EX", 7200]);
+        console.log(`Designed ${Object.keys(cast).length} characters: ${Object.keys(cast).join(', ')}`);
+        return cast;
+      });
+
+      // Build cast reference string for prompts
+      const buildCastRef = (cast) => Object.entries(cast).map(([n, d]) => `${n}: ${d}`).join('. ');
+
+      // Step B: Generate cover image, then refine main character description via GPT-4o
+      const finalCast = await step.run("generate-cover-and-character-sheet", async () => {
+        // Pick a dramatic hero moment from ~65% through the story (climax area)
+        const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
+        const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
+        const mainCharDesc = castDescriptions[name] || `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes`;
+        const coverPrompt = `${styleGuide}. Book cover illustration. ${heroMomentChap.imagePrompt} The main character is ${name}: ${mainCharDesc}. Setting: ${city}, ${region}. Draw ${name} in ONE active joyful story scene — a single moment in the story, not a character lineup, not a group portrait, not multiple panels. Focus on ${name} doing something. All characters are young children with no facial hair. Full-color, warm, inviting. No text, no words, no letters anywhere in the image.`;
+        const coverUrl = await callDallE(coverPrompt);
+        const coverBytes = await fetchImageBytes(coverUrl);
+        const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
+        await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
+        console.log(`Cover image generated: ${blob.url.slice(0, 60)}`);
+
+        // Use GPT-4o to visually refine the main character description from the actual cover
+        try {
+          const refined = await generateCharacterSheet(blob.url, childData);
+          const merged = { ...castDescriptions, [name]: refined };
+          console.log(`Character sheet refined for ${name}`);
+          return merged;
+        } catch(e) {
+          console.error(`Character sheet refinement failed, using Claude descriptions: ${e.message}`);
+          return castDescriptions;
+        }
+      });
+
+      // Step C: Generate remaining illustrations using full cast reference
+      const remainingKeys = allImageKeys.filter(k => k !== '0-0');
+      const imgBatchesRemaining = Math.ceil(remainingKeys.length / IMG_BATCH);
+      const finalCastRef = buildCastRef(finalCast);
+      for (let b = 0; b < imgBatchesRemaining; b++) {
         await step.run(`generate-illustrations-${b + 1}`, async () => {
           const start = b * IMG_BATCH;
-          const keys = allImageKeys.slice(start, start + IMG_BATCH);
-          console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
+          const keys = remainingKeys.slice(start, start + IMG_BATCH);
+          console.log(`Generating illustration batch ${b + 1}/${imgBatchesRemaining}: ${keys.length} images`);
           const result = {};
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci];
-            const styleGuide = parseInt(childData.age) <= 5
-              ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
-              : parseInt(childData.age) <= 9
-              ? "vibrant digital children's book illustration, colorful and expressive, slightly stylized, warm lighting"
-              : "detailed digital illustration, cinematic lighting, slightly realistic, like a YA novel cover";
-            const { name, age, hair, hairLength, hairStyle, eye, city, region } = childData;
-            const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-            const charDesc = `a ${age}-year-old child named ${name} with ${hairDesc} hair and ${eye} eyes`;
-            const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text in the image.`;
+            const mainCharDesc = finalCast[name] || castDescriptions[name] || `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes`;
+            const prompt = `${styleGuide}. Children's book interior illustration. ${chap.imagePrompt} Setting: ${city}, ${region}. The main character is ${name}: ${mainCharDesc}. Draw ${name} actively doing something in this scene — a single story moment. NOT a character lineup, NOT a group portrait, NOT characters standing and posing. One scene, one action happening. All characters are young children with no facial hair. Warm, colorful, cheerful. No text or words in the image.`;
             try {
-              const imageUrl = await callDallE(prompt);
+              let imageUrl;
+              try {
+                imageUrl = await callDallE(prompt);
+              } catch(err) {
+                // First attempt failed — retry once with a safe fallback prompt
+                console.warn(`Image ${key} first attempt failed (${err.message}), retrying with fallback prompt`);
+                const fallbackPrompt = `${styleGuide}. Children's book interior illustration. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day. ${name} is ${castDescriptions[name] || `a ${age}-year-old ${genderDesc} with ${hairDesc} hair`}. Draw ${name} in motion — a single active scene. No lineup, no portrait. All characters are young children with no facial hair. Warm, colorful, cheerful. No text or words in the image.`;
+                imageUrl = await callDallE(fallbackPrompt);
+              }
               const imageBytes = await fetchImageBytes(imageUrl);
-              // Upload to Vercel Blob so PDFShift can fetch via URL
-              const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, {
-                access: 'public',
-                contentType: 'image/jpeg'
-              });
+              const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
               result[key] = blob.url;
               console.log(`Image ${key} uploaded to Blob: ${blob.url.slice(0, 60)}`);
             } catch(err) {
-              console.error(`Image ${key} failed: ${err.message}`);
+              console.error(`Image ${key} failed after retry: ${err.message}`);
             }
           }
           await saveIllustrationsToRedis(storyId, result);
@@ -124,22 +170,40 @@ const generateStoryOrder = inngest.createFunction(
       console.log("Skipping illustrations");
     }
 
-    // Step 4: Generate PDF with first 10 chapters only (stays under PDFShift 2MB limit)
-    const pdfBase64 = await step.run("create-pdf", async () => {
-      console.log(`Building PDF (chapters 1-10)`);
+    // Step 4: Generate PDF with first 10 chapters only and store to Blob
+    const pdfBlobUrl = await step.run("create-pdf-v4", async () => {
+      console.log(`STARTING PDF GENERATION v4`);
       const chapters = await getChaptersFromRedis(storyId);
-      const illustrations = await getIllustrationsFromRedis(storyId);
-      console.log(`Retrieved ${chapters.length} chapters, ${Object.keys(illustrations).length} illustrations`);
-      return await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrations);
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      console.log(`PDF v4: ${chapters.length} chapters, ${Object.keys(illustrationUrls).length} illustration URLs`);
+      console.log(`PDF v4: illustration keys: ${Object.keys(illustrationUrls).join(', ')}`);
+      // Pass Blob URLs directly — PDFShift fetches images by URL, no need to download/base64 encode
+      const pdfBase64 = await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
+      // Store PDF to Blob and return only the URL to avoid Inngest output_too_large
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const blob = await put(`pdfs/${storyId}/story-part1.pdf`, pdfBuffer, {
+        access: 'public',
+        contentType: 'application/pdf'
+      });
+      console.log(`PDF v3: stored to Blob: ${blob.url.slice(0, 60)}`);
+      return blob.url;
     });
-
-    // Step 5: Send email with PDF of first 15 chapters
+    // Step 5: Send email — fetch PDF from Blob, attach, then delete
     await step.run("send-email", async () => {
       console.log(`Sending email to ${customerEmail}`);
+      const pdfBytes = await fetchImageBytes(pdfBlobUrl);
+      const pdfBase64 = pdfBytes.toString('base64');
       await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
     });
 
-    // Step 6: Clean up Redis and Blob storage
+    // Step 6: Save full story to Airtable for training data
+    await step.run("save-story", async () => {
+      console.log(`Saving story to Airtable for ${childName}`);
+      const allChapters = await getChaptersFromRedis(storyId);
+      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters);
+    });
+
+    // Step 7: Clean up Redis and Blob storage
     await step.run("cleanup", async () => {
       await deleteChaptersFromRedis(storyId);
       // Delete illustration URLs from Redis and files from Blob
@@ -157,6 +221,9 @@ const generateStoryOrder = inngest.createFunction(
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
+      await redisRequest("DEL", [`cast:${storyId}`]);
+      // Delete the temporary PDF from Blob
+      try { await del([pdfBlobUrl]); } catch(e) { console.error("PDF blob cleanup error:", e.message); }
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
 
@@ -198,21 +265,32 @@ You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object must have:
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "summary": 2-3 sentence summary of what happens
-- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration)
+- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration) — describe only cheerful, positive, safe visual moments (e.g. exploring, discovering, celebrating, helping a friend). No danger, peril, conflict, or emotionally intense scenes.
 
 No markdown, no explanation, just the JSON array.`;
 
   const raw = await callClaude(prompt, 6000);
   try {
-    const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
-    // Ensure we always have exactly the right number of chapters
+    // Strip markdown, find the JSON array
+    let cleaned = raw.replace(/```json|```/g, "").trim();
+    // Find first [ and last ] to extract just the array
+    const start = cleaned.indexOf('[');
+    const end = cleaned.lastIndexOf(']');
+    if (start !== -1 && end !== -1) {
+      cleaned = cleaned.slice(start, end + 1);
+    }
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Not an array");
     if (parsed.length !== tier.chapCount) {
-      console.warn(`Outline returned ${parsed.length} chapters, expected ${tier.chapCount} — using fallback`);
-      throw new Error("Wrong chapter count");
+      console.warn(`Outline returned ${parsed.length} chapters, expected ${tier.chapCount} — trimming/padding`);
+      while (parsed.length < tier.chapCount) {
+        parsed.push({ title: `Chapter ${parsed.length + 1}`, summary: `The adventure continues`, imagePrompt: `${name} exploring ${city}` });
+      }
+      return parsed.slice(0, tier.chapCount);
     }
     return parsed;
   } catch(e) {
-    console.error("Outline parse failed, using fallback");
+    console.error("Outline parse failed, using fallback:", e.message);
     return Array.from({ length: tier.chapCount }, (_, i) => ({
       title: `Chapter ${i + 1}`,
       summary: `Part ${i + 1} of ${name}'s adventure`,
@@ -344,7 +422,7 @@ Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 async function generateIllustrations(child, outline, chapters, tier) {
   const { name, age, hair, hairLength, hairStyle, eye, city, region } = child;
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-  const charDesc = `a ${age}-year-old child named ${name} with ${hairDesc} hair and ${eye} eyes`;
+  const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
   const styleGuide = parseInt(age) <= 5
     ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
@@ -417,6 +495,97 @@ function callDallE(prompt) {
     });
     req.on("error", reject);
     req.on("timeout", () => reject(new Error("DALL-E timeout")));
+    req.write(payload);
+    req.end();
+  });
+}
+
+// Calls GPT-4o vision to extract a precise character description from the cover image
+async function designCharacters(childData, outline) {
+  const { name, age, gender, hair, hairLength, hairStyle, eye, friend } = childData;
+  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+  const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
+  const friendLine = friend && friend !== "none" ? `\nCompanion/pet: ${friend}.` : "";
+
+  const imagePrompts = outline.map((c, i) => `Ch${i + 1}: ${c.imagePrompt}`).join('\n');
+
+  const prompt = `You are designing characters for a children's illustrated book. Your job is to assign consistent physical descriptions to all recurring characters so an illustrator can draw them the same way every time.
+
+Known main character: ${name}, ${age}-year-old ${genderDesc}, ${hairDesc} hair, ${eye} eyes.${friendLine}
+
+Chapter scene descriptions (used to identify all characters):
+${imagePrompts}
+
+Task:
+1. Identify every distinct character who appears in 2 or more chapter scenes (siblings, friends, antagonists, pets, teachers, etc.)
+2. For each recurring character, create a specific, consistent physical description (hair, eyes, skin, clothing style, distinguishing features)
+3. Also write the definitive description for ${name} using their known details
+
+Return ONLY a valid JSON object. Keys are character names, values are 1-2 sentence physical descriptions. Example:
+{
+  "${name}": "a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing a blue hoodie and jeans",
+  "Jake": "a stocky 9-year-old boy with short red hair, pale freckled skin, and a green t-shirt",
+  "Biscuit": "a fluffy golden retriever with floppy ears and a red collar"
+}
+
+Only include characters appearing in multiple scenes. Keep descriptions warm and child-appropriate. No markdown, no explanation — just the JSON.`;
+
+  const raw = await callClaude(prompt, 800);
+  try {
+    let cleaned = raw.replace(/```json|```/g, "").trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1) cleaned = cleaned.slice(start, end + 1);
+    return JSON.parse(cleaned);
+  } catch(e) {
+    console.error("designCharacters parse failed:", e.message);
+    return { [name]: `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing casual everyday clothes` };
+  }
+}
+
+function generateCharacterSheet(imageUrl, childData) {
+  const { name, age, gender } = childData;
+  const payload = JSON.stringify({
+    model: "gpt-4o",
+    max_tokens: 300,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image_url", image_url: { url: imageUrl } },
+        { type: "text", text: `Describe all characters visible in this illustration in precise visual detail, for use as a consistent character reference across multiple illustrations. For each character, include: exact hair color, length, and style; eye color; skin tone; face shape; clothing colors and style; any distinguishing features. Be specific and use the kind of descriptive language an illustrator would use. Write 2-4 sentences total. Do not mention the background or setting. The main character is ${name}, age ${age}. If a companion, pet, or friend is visible, describe them too.` }
+      ]
+    }]
+  });
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.openai.com",
+      port: 443,
+      path: "/v1/chat/completions",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      timeout: 30000
+    };
+
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.error) return reject(new Error(data.error.message));
+          resolve(data.choices[0].message.content.trim());
+        } catch(e) {
+          reject(new Error("GPT-4o parse error: " + body.slice(0, 200)));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("GPT-4o timeout")));
     req.write(payload);
     req.end();
   });
@@ -635,9 +804,9 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
     const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
 
-    // Check if this chapter has an illustration — use URL directly
+    // Check if this chapter has an illustration — skip 0-0 (that's the cover, already shown)
     const key = `${ci}-0`;
-    const illustrationHtml = illustrations[key]
+    const illustrationHtml = (illustrations[key] && ci > 0)
       ? `<img src="${illustrations[key]}" />`
       : '';
 
@@ -683,9 +852,10 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 <head>
 <meta charset="utf-8"/>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Nunito:wght@400;600;700;800&family=Bubblegum+Sans&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Nunito', sans-serif; font-size: 13pt; line-height: 2; color: #1a1a2e; }
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
+  @page { margin: 18mm; }
+  @page :first { margin: 0; }
 
   /* ── COVER ── */
   .cover {
@@ -693,29 +863,27 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     background: #1a3a2a;
     position: relative; overflow: hidden;
     page-break-after: always;
-    display: flex; flex-direction: column;
   }
 
-  /* Full bleed illustration takes top 60% */
+  /* Full bleed illustration — fills entire cover */
   .cover-image {
     position: absolute; top: 0; left: 0;
-    width: 100%; height: 62%;
+    width: 100%; height: 100%;
     object-fit: cover;
   }
 
-  /* Gradient that bleeds illustration into bottom panel */
+  /* Dark gradient from bottom — gives text contrast over the image */
   .cover-gradient {
-    position: absolute; top: 50%; left: 0;
-    width: 100%; height: 20%;
-    background: linear-gradient(to bottom, transparent, #1a3a2a);
+    position: absolute; bottom: 0; left: 0;
+    width: 100%; height: 65%;
+    background: linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%);
   }
 
-  /* Bottom text panel */
+  /* Text panel sits over the gradient at the bottom */
   .cover-panel {
     position: absolute; bottom: 0; left: 0;
-    width: 100%; height: 45%;
-    background: #1a3a2a;
-    padding: 24px 48px 28px;
+    width: 100%;
+    padding: 28px 48px 36px;
     display: flex; flex-direction: column; justify-content: flex-end;
     gap: 0;
   }
@@ -724,7 +892,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     display: inline-block;
     background: #f9c74f;
     color: #1a1a2e;
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 7.5pt;
     font-weight: 800;
     letter-spacing: .12em;
@@ -736,7 +904,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-title-line1 {
-    font-family: 'Playfair Display', serif;
+    font-family: Georgia, serif;
     font-size: 12pt;
     font-weight: 700;
     color: rgba(255,255,255,0.75);
@@ -745,7 +913,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-title-main {
-    font-family: 'Playfair Display', serif;
+    font-family: Georgia, serif;
     font-size: 28pt;
     font-weight: 900;
     color: #ffffff;
@@ -760,7 +928,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-meta {
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 8pt;
     color: rgba(255,255,255,0.45);
     line-height: 1.5;
@@ -768,16 +936,16 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-publisher {
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 7.5pt;
     color: rgba(255,255,255,0.25);
     letter-spacing: .08em;
     text-transform: uppercase;
   }
 
-  .chapter { padding: 48px 60px 80px; page-break-before: always; position: relative; }
+  .chapter { padding: 24px 24px 40px; page-break-before: always; position: relative; }
   .chapter-number {
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 8pt;
     font-weight: 800;
     letter-spacing: .18em;
@@ -786,7 +954,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     margin-bottom: 6px;
   }
   .chapter-title {
-    font-family: ${parseInt(age) <= 9 ? "'Bubblegum Sans', cursive" : "'Playfair Display', serif"};
+    font-family: ${parseInt(age) <= 9 ? "Georgia, serif" : "Georgia, serif"};
     font-size: ${parseInt(age) <= 5 ? '22pt' : '18pt'};
     color: #1a1a2e;
     margin-bottom: 28px;
@@ -801,7 +969,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   /* Body text */
   .chapter-body p {
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: ${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'};
     line-height: ${parseInt(age) <= 5 ? '2.2' : '2.0'};
     font-weight: ${parseInt(age) <= 9 ? '600' : '500'};
@@ -812,7 +980,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   /* Drop cap on first paragraph of each chapter */
   .chapter-body p:first-child::first-letter {
-    font-family: 'Playfair Display', serif;
+    font-family: Georgia, serif;
     font-size: 4em;
     font-weight: 900;
     color: #2d6a4f;
@@ -855,7 +1023,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     page-break-after: always;
   }
   .title-page-name {
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 10pt;
     font-weight: 800;
     letter-spacing: .15em;
@@ -864,7 +1032,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     margin-bottom: 1.5rem;
   }
   .title-page-title {
-    font-family: 'Playfair Display', serif;
+    font-family: Georgia, serif;
     font-size: 28pt;
     font-weight: 900;
     color: #1a1a2e;
@@ -875,7 +1043,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     width: 60px; height: 2px; background: #e5e7eb; margin: 0 auto 2.5rem;
   }
   .title-page-dedication {
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 11pt;
     font-style: italic;
     color: #6b7280;
@@ -883,7 +1051,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
   .title-page-publisher {
     margin-top: 2rem;
-    font-family: 'Nunito', sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 8pt;
     color: #b0b8c1;
     letter-spacing: .06em;
@@ -918,23 +1086,23 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
         Every adventure in these pages belongs to you.
       </div>
     </div>
-    <div style="font-family:'Nunito',sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
+    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
   </div>
 
   <!-- TABLE OF CONTENTS -->
   <div style="padding:50px 60px;page-break-before:always;page-break-after:always;">
-    <div style="font-family:'Nunito',sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
-    <div style="font-family:'Playfair Display',serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
+    <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
+    <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
     <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">
-      <table style="width:100%;border-collapse:collapse;font-family:'Nunito',sans-serif;">
+      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
         ${tocRowsLeft}
       </table>
-      <table style="width:100%;border-collapse:collapse;font-family:'Nunito',sans-serif;">
+      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
         ${tocRowsRight}
       </table>
     </div>
-    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:'Nunito',sans-serif;font-size:8pt;color:#6b7280;">
+    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:Arial,sans-serif;font-size:8pt;color:#6b7280;">
       ✦ Chapters 16–30 are included in your printed hardcover book, arriving in 13–15 business days.
     </div>
   </div>
@@ -943,11 +1111,14 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 </body>
 </html>`;
 
+  console.log(`HTML size before PDFShift: ${Math.round(html.length / 1024)}KB`);
   const payload = JSON.stringify({
     source: html,
     landscape: false,
     use_print: false,
-    margin: "0"
+    margin: "18mm",
+    format: "Letter",
+    sandbox: false
   });
 
   return new Promise((resolve, reject) => {
@@ -1161,4 +1332,54 @@ async function getIllustrationsFromRedis(storyId) {
 function decodeStoryData(token) {
   try { return JSON.parse(Buffer.from(token, "base64url").toString("utf-8")); }
   catch { return null; }
+}
+
+async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters) {
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const token  = process.env.AIRTABLE_TOKEN;
+  if (!baseId || !token) { console.log("No Airtable credentials — skipping story save"); return; }
+
+  const { age, milestone, city, region } = child;
+  const fullStory = chapters.join('\n\n---\n\n');
+  const wordCount = fullStory.split(/\s+/).length;
+
+  const payload = JSON.stringify({
+    records: [{
+      fields: {
+        "Story ID":   storyId,
+        "Child Age":  parseInt(age) || 0,
+        "Milestone":  milestone || "",
+        "City":       `${city}, ${region}`,
+        "Full Story": fullStory.slice(0, 100000), // Airtable long text limit
+        "Word Count": wordCount,
+        "Created At": new Date().toISOString().split("T")[0]
+      }
+    }]
+  });
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.airtable.com",
+      port: 443,
+      path: `/v0/${baseId}/Stories`,
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload)
+      },
+      timeout: 30000
+    };
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        console.log(`Airtable Stories ${res.statusCode}: ${body.slice(0, 80)}`);
+        resolve();
+      });
+    });
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
 }
