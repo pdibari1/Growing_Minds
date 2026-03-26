@@ -93,6 +93,9 @@ const generateStoryOrder = inngest.createFunction(
         ? "Vibrant 2D digital children's book illustration. Flat art style with bold outlines. Bright saturated color palette — warm reds, greens, and golden yellows. Slightly stylized characters, warm cheerful lighting. Every illustration in this book uses this exact same art style and color palette"
         : "2D digital illustration with semi-realistic style. Rich color palette — deep blues, warm ambers, and forest greens. Like a YA novel cover with warm cinematic lighting. Every illustration in this book uses this exact same art style and color palette";
 
+      // Locked physical description built directly from user form data — never overridden
+      const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes`;
+
       // Step A: Use Claude to design ALL recurring characters with consistent descriptions
       const castDescriptions = await step.run("design-characters", async () => {
         const cast = await designCharacters(childData, freshOutline);
@@ -109,23 +112,24 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const mainCharDesc = castDescriptions[name] || `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes`;
-        const coverPrompt = `${styleGuide}. Book cover illustration. ${heroMomentChap.imagePrompt} The main character is ${name}: ${mainCharDesc}. Setting: ${city}, ${region}. Draw ${name} in ONE active joyful story scene — a single moment in the story, not a character lineup, not a group portrait, not multiple panels. Focus on ${name} doing something. All characters are young children with no facial hair. Full-color, warm, inviting. No text, no words, no letters anywhere in the image.`;
+        const coverPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. Scene: ${heroMomentChap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively doing something in this scene — one joyful story moment, NOT a character lineup, NOT a group portrait. All characters are young children with no facial hair. Warm, full-color. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
         console.log(`Cover image generated: ${blob.url.slice(0, 60)}`);
 
-        // Use GPT-4o to visually refine the main character description from the actual cover
+        // Use GPT-4o to refine secondary character descriptions from the cover
+        // BUT always keep the user's specified physical attributes for the main character
         try {
           const refined = await generateCharacterSheet(blob.url, childData);
-          const merged = { ...castDescriptions, [name]: refined };
-          console.log(`Character sheet refined for ${name}`);
+          // Lock main character to user-specified attrs — GPT-4o can only help with secondary chars
+          const merged = { ...castDescriptions, [name]: lockedCharDesc };
+          console.log(`Character sheet done — ${name} locked to user attrs: ${lockedCharDesc}`);
           return merged;
         } catch(e) {
-          console.error(`Character sheet refinement failed, using Claude descriptions: ${e.message}`);
-          return castDescriptions;
+          console.error(`Character sheet refinement failed, using locked attrs: ${e.message}`);
+          return { ...castDescriptions, [name]: lockedCharDesc };
         }
       });
 
@@ -142,8 +146,7 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci];
-            const mainCharDesc = finalCast[name] || castDescriptions[name] || `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes`;
-            const prompt = `${styleGuide}. Children's book interior illustration. ${chap.imagePrompt} Setting: ${city}, ${region}. The main character is ${name}: ${mainCharDesc}. Draw ${name} actively doing something in this scene — a single story moment. NOT a character lineup, NOT a group portrait, NOT characters standing and posing. One scene, one action happening. All characters are young children with no facial hair. Warm, colorful, cheerful. No text or words in the image.`;
+            const prompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively doing something in this scene — one story moment, NOT a lineup, NOT a group portrait, NOT characters standing and posing. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
             try {
               let imageUrl;
               try {
@@ -151,7 +154,7 @@ const generateStoryOrder = inngest.createFunction(
               } catch(err) {
                 // First attempt failed — retry once with a safe fallback prompt
                 console.warn(`Image ${key} first attempt failed (${err.message}), retrying with fallback prompt`);
-                const fallbackPrompt = `${styleGuide}. Children's book interior illustration. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day. ${name} is ${castDescriptions[name] || `a ${age}-year-old ${genderDesc} with ${hairDesc} hair`}. Draw ${name} in motion — a single active scene. No lineup, no portrait. All characters are young children with no facial hair. Warm, colorful, cheerful. No text or words in the image.`;
+                const fallbackPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day. Draw ${name} in motion — one active scene, not a lineup, not a portrait. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words anywhere in the image.`;
                 imageUrl = await callDallE(fallbackPrompt);
               }
               const imageBytes = await fetchImageBytes(imageUrl);
