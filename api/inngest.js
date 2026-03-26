@@ -270,6 +270,13 @@ Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
 Milestone/theme: ${milestone}
 
+AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
+- Derive every character's school grade strictly from their age: age 4–5 = Pre-K/Kindergarten, age 6–7 = Grades 1–2, age 8–9 = Grades 2–3, age 10–11 = Grades 4–5, age 12–13 = Grades 6–7
+- Children of different ages are NEVER in the same grade unless they are twins or the custom details explicitly state otherwise
+- "Going to school together" means attending the same school building — not the same classroom or grade
+- Never invent a grade level for any character that conflicts with their stated age
+- If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
+
 This is a full ${tier.chapCount}-chapter novel (~24,000 words total). Structure the arc like a proper novel:
 - Chapters 1–5: Introduce ${name} and their world, establish the milestone challenge
 - Chapters 6–15: Rising action, complications, adventures, setbacks
@@ -411,7 +418,11 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 ` : "";
 
   const customReminder = customDetails ? `
-FINAL CHECK before you finish: Re-read the CRITICAL CUSTOM REQUIREMENTS above. Verify every nickname is used by the correct character, in the correct direction, exactly as specified. Correct any errors before outputting.` : "";
+FINAL CHECK before you finish: Re-read the CRITICAL CUSTOM REQUIREMENTS above. Verify:
+1. Every nickname is used by the correct character, in the correct direction, exactly as specified.
+2. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
+3. "Going to school together" means the same school building, not the same classroom or grade.
+Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
 ${customBlock}
@@ -431,6 +442,7 @@ RULES:
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first.
+- AGE & GRADE LOGIC: Derive school grades strictly from age (age 5 = Kindergarten, age 6–7 = Grade 1–2, etc.). Children of different ages are never in the same grade unless they are twins or custom details say otherwise. "Going to school together" = same school building, not same grade. Never write that a younger child is joining or catching up to an older child's grade.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
