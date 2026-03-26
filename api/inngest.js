@@ -248,14 +248,27 @@ async function generateOutline(child, tier) {
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
-  const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these must be followed precisely:\n${customDetails}\nIMPORTANT NICKNAME RULE: If a nickname is provided for any character, use ONLY that nickname — never invent a different one, never shorten it, never substitute it with another name. Characters may be referred to by their full name OR a provided nickname, but never a made-up alternative.` : "";
+  const customBlock = customDetails ? `
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+CRITICAL CUSTOM REQUIREMENTS — READ FIRST
+These override all defaults. Follow exactly.
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+${customDetails}
+
+NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
+- Every nickname above is directional. "A calls B 'X'" means ONLY A uses X for B — no one else.
+- Never swap, reverse, or mix up which character uses which nickname for whom.
+- Never invent, shorten, or alter any nickname — use it letter-for-letter as written.
+- Each character's nickname(s) must appear consistently throughout every chapter.
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+` : "";
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
-
+${customBlock}
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
-Milestone/theme: ${milestone}${customLine}
+Milestone/theme: ${milestone}
 
 This is a full ${tier.chapCount}-chapter novel (~24,000 words total). Structure the arc like a proper novel:
 - Chapters 1–5: Introduce ${name} and their world, establish the milestone challenge
@@ -382,14 +395,29 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
 
   const isLastBatch = endIdx >= outline.length;
 
-  const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these MUST be followed exactly in every chapter:\n${customDetails}\nPay special attention to any nicknames — use them EVERY time that character is addressed or referenced. Never use a different name for a character who has been given a nickname.` : "";
+  const customBlock = customDetails ? `
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+CRITICAL CUSTOM REQUIREMENTS — READ FIRST
+These override all defaults. Follow exactly.
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+${customDetails}
+
+NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
+- Every nickname is directional. "A calls B 'X'" means ONLY A uses X for B — no one else ever uses it.
+- Never swap, reverse, or mix up which character uses which nickname for whom.
+- Never invent, shorten, or alter any nickname — use it letter-for-letter as written.
+- Use each character's nickname(s) consistently every single time they are addressed.
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+` : "";
+
+  const customReminder = customDetails ? `
+FINAL CHECK before you finish: Re-read the CRITICAL CUSTOM REQUIREMENTS above. Verify every nickname is used by the correct character, in the correct direction, exactly as specified. Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
-
+${customBlock}
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Setting: ${city}, ${region} — use the city name and regional geography (mountains, rivers, weather, landscape) naturally, but NEVER use specific street names, addresses, or neighbourhood names.
-${customLine}
 ${arcContext}
 ${priorText}
 
@@ -406,7 +434,7 @@ RULES:
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
-
+${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
   const raw = await callClaude(prompt, tier.maxTokensPerChap * (endIdx - startIdx) + 500);
