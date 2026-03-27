@@ -94,7 +94,13 @@ const generateStoryOrder = inngest.createFunction(
         : "2D digital illustration with semi-realistic style. Rich color palette — deep blues, warm ambers, and forest greens. Like a YA novel cover with warm cinematic lighting. Every illustration in this book uses this exact same art style and color palette";
 
       // Locked physical description built directly from user form data — never overridden
-      const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes`;
+      // Expand hair length so DALL-E renders it accurately (e.g. "long" → "long, shoulder-length or longer")
+      const hairLengthExpanded = hairLength === 'long' ? 'long (shoulder-length or longer)'
+        : hairLength === 'short' ? 'short (above the ears)'
+        : hairLength === 'medium' ? 'medium-length (chin to shoulder)'
+        : hairLength || '';
+      const hairDescExpanded = [hairLengthExpanded, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+      const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
 
       // Step A: Use Claude to design ALL recurring characters with consistent descriptions
       const castDescriptions = await step.run("design-characters", async () => {
@@ -112,7 +118,7 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. Scene: ${heroMomentChap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively doing something in this scene — one joyful story moment, NOT a character lineup, NOT a group portrait. All characters are young children with no facial hair. Warm, full-color. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
+        const coverPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name}'s hair is ${hairDescExpanded} — this must be clearly visible. Show ONLY ${name} in this image — ${name} is the ONLY person in the scene, completely alone. No other characters, no other people, no other children appear anywhere in the frame. ${name} is alone, actively doing something joyful — exploring, building, running, or discovering. Setting: ${city}, ${region}. NOT a lineup, NOT a group portrait, NOT multiple people. One child only. All characters are young children with no facial hair. Warm, full-color. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -146,7 +152,7 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci];
-            const prompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively doing something in this scene — one story moment, NOT a lineup, NOT a group portrait, NOT characters standing and posing. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
+            const prompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name}'s hair is ${hairDescExpanded} — this must be clearly visible and match exactly. Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively doing something in this scene — one story moment, NOT a lineup, NOT a group portrait, NOT characters standing and posing. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
             try {
               let imageUrl;
               try {
@@ -154,7 +160,7 @@ const generateStoryOrder = inngest.createFunction(
               } catch(err) {
                 // First attempt failed — retry once with a safe fallback prompt
                 console.warn(`Image ${key} first attempt failed (${err.message}), retrying with fallback prompt`);
-                const fallbackPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day. Draw ${name} in motion — one active scene, not a lineup, not a portrait. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words anywhere in the image.`;
+                const fallbackPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name}'s hair is ${hairDescExpanded} — this must be clearly visible and match exactly. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day. Draw ${name} in motion — one active scene, not a lineup, not a portrait. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words anywhere in the image.`;
                 imageUrl = await callDallE(fallbackPrompt);
               }
               const imageBytes = await fetchImageBytes(imageUrl);
@@ -256,10 +262,11 @@ These override all defaults. Follow exactly.
 ${customDetails}
 
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- Every nickname above is directional. "A calls B 'X'" means ONLY A uses X for B — no one else.
+- Every nickname is directional. "A calls B 'X'" means ONLY A uses X for B — no one else ever uses it.
 - Never swap, reverse, or mix up which character uses which nickname for whom.
 - Never invent, shorten, or alter any nickname — use it letter-for-letter as written.
-- Each character's nickname(s) must appear consistently throughout every chapter.
+- If no nickname is listed FROM character A TO character B, character A must use character B's FULL NAME — always. Do not create, assume, or use any nickname that is not explicitly listed above.
+- Characters may ONLY address others by names explicitly assigned above. Any character without an assigned nickname must always be called by their full name.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
 
@@ -413,7 +420,8 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Every nickname is directional. "A calls B 'X'" means ONLY A uses X for B — no one else ever uses it.
 - Never swap, reverse, or mix up which character uses which nickname for whom.
 - Never invent, shorten, or alter any nickname — use it letter-for-letter as written.
-- Use each character's nickname(s) consistently every single time they are addressed.
+- If no nickname is listed FROM character A TO character B, character A must use character B's FULL NAME — always. Do not create, assume, or use any nickname that is not explicitly listed above.
+- Characters may ONLY address others by names explicitly assigned above. Any character without an assigned nickname must always be called by their full name.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
 
