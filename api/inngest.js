@@ -205,16 +205,45 @@ const generateStoryOrder = inngest.createFunction(
       await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
     });
 
-    // Step 6: Save full story to Airtable for training data
+    // Step 6: Generate full 30-chapter print PDF — stored permanently in Blob
+    const fullBookUrl = await step.run("create-full-book-v1", async () => {
+      const allChapters = await getChaptersFromRedis(storyId);
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+
+      // Pre-fetch every illustration from Blob and base64-encode individually.
+      // Per-image try/catch means one failure never kills the whole PDF.
+      const illustrationsB64 = {};
+      for (const [key, url] of Object.entries(illustrationUrls)) {
+        try {
+          const bytes = await fetchImageBytes(url);
+          illustrationsB64[key] = `data:image/jpeg;base64,${bytes.toString('base64')}`;
+          console.log(`Full book image ${key} encoded (${Math.round(bytes.length / 1024)}KB)`);
+        } catch(e) {
+          console.error(`Full book: image ${key} fetch failed — skipping: ${e.message}`);
+        }
+      }
+      console.log(`Full book: embedded ${Object.keys(illustrationsB64).length}/${Object.keys(illustrationUrls).length} images`);
+
+      const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, {
+        access: 'public',
+        contentType: 'application/pdf'
+      });
+      console.log(`Full book PDF stored permanently: ${blob.url.slice(0, 80)} (${Math.round(pdfBuffer.length / 1024)}KB)`);
+      return blob.url;
+    });
+
+    // Step 7: Save full story to Airtable for training data
     await step.run("save-story", async () => {
       console.log(`Saving story to Airtable for ${childName}`);
       const allChapters = await getChaptersFromRedis(storyId);
-      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters);
+      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, fullBookUrl);
     });
 
-    // Step 7: Notify admin that a new story is ready for fulfillment
+    // Step 8: Notify admin that a new story is ready for fulfillment
     await step.run("notify-admin", async () => {
-      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier);
+      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl);
     });
 
     // Step 8: Clean up Redis and Blob storage
@@ -1227,6 +1256,195 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 }
 
 // ════════════════════════════════════════════
+// FULL 30-CHAPTER PRINT PDF
+// ════════════════════════════════════════════
+
+async function generateFullBookPDF(childName, chapters, child, tier, illustrationsB64 = {}) {
+  const { milestone, city, region, age } = child;
+  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
+
+  // Build all chapter HTML blocks
+  const chaptersHtml = chapters.map((chapText, ci) => {
+    const lines = chapText.split(/\n+/).filter(l => l.trim());
+    const fullTitle = lines[0] || `Chapter ${ci + 1}`;
+    const match = fullTitle.match(/^(Chapter \d+):\s*(.+)$/);
+    const chapterNum = match ? match[1] : `Chapter ${ci + 1}`;
+    const chapterTitle = match ? match[2] : fullTitle;
+    const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
+    const key = `${ci}-0`;
+    // illustrationsB64 values are data URIs — embed directly, no network fetch by PDFShift
+    const illustrationHtml = (illustrationsB64[key] && ci > 0)
+      ? `<img src="${illustrationsB64[key]}" />`
+      : '';
+    return `
+      <div class="chapter">
+        <div class="chapter-number">${chapterNum}</div>
+        <div class="chapter-title">${chapterTitle}</div>
+        <div class="chapter-divider"></div>
+        <div class="chapter-body">
+          ${illustrationHtml}
+          ${body}
+        </div>
+        <div class="chapter-end">✦</div>
+      </div>
+    `;
+  }).join('');
+
+  // Full TOC — all 30 chapters active, no grayed-out entries
+  const tocRowsLeft = chapters.slice(0, 15).map((chapText, ci) => {
+    const firstLine = chapText.split(/\n+/)[0] || '';
+    const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
+    const num = match ? match[1] : String(ci + 1);
+    const title = match ? match[2] : firstLine;
+    return `<tr><td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">${num}</td><td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">${title}</td></tr>`;
+  }).join('');
+  const tocRowsRight = chapters.slice(15, 30).map((chapText, ci) => {
+    const firstLine = chapText.split(/\n+/)[0] || '';
+    const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
+    const num = match ? match[1] : String(ci + 16);
+    const title = match ? match[2] : firstLine;
+    return `<tr><td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">${num}</td><td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">${title}</td></tr>`;
+  }).join('');
+
+  // Cover image — data URI or fallback gradient
+  const coverImgHtml = illustrationsB64['0-0']
+    ? `<img class="cover-image" src="${illustrationsB64['0-0']}" />`
+    : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
+
+  /* 6×9" trim size */
+  @page { size: 6in 9in; margin: 19mm 19mm 22mm 25mm; }
+  @page :left  { margin: 19mm 25mm 22mm 19mm; }
+  @page :right { margin: 19mm 19mm 22mm 25mm; }
+  @page :first { size: 6in 9in; margin: 0; }
+  @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+
+  /* ── COVER ── */
+  .cover { width:100%; height:100vh; background:#1a3a2a; position:relative; overflow:hidden; page-break-after:always; }
+  .cover-image { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+  .cover-gradient { position:absolute; bottom:0; left:0; width:100%; height:65%; background:linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%); }
+  .cover-panel { position:absolute; bottom:0; left:0; width:100%; padding:28px 48px 36px; display:flex; flex-direction:column; justify-content:flex-end; gap:0; }
+  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:Arial,sans-serif; font-size:7.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:12px; width:fit-content; }
+  .cover-title-line1 { font-family:Georgia,serif; font-size:12pt; font-weight:700; color:rgba(255,255,255,0.75); letter-spacing:.04em; margin-bottom:2px; }
+  .cover-title-main { font-family:Georgia,serif; font-size:28pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:12px; }
+  .cover-divider { width:40px; height:2px; background:rgba(255,255,255,0.25); margin-bottom:10px; }
+  .cover-meta { font-family:Arial,sans-serif; font-size:8pt; color:rgba(255,255,255,0.45); line-height:1.5; margin-bottom:10px; }
+  .cover-publisher { font-family:Arial,sans-serif; font-size:7.5pt; color:rgba(255,255,255,0.25); letter-spacing:.08em; text-transform:uppercase; }
+
+  /* ── CHAPTERS ── */
+  .chapter { padding:8px 0 40px; page-break-before:always; position:relative; }
+  .chapter-number { font-family:Arial,sans-serif; font-size:8pt; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:#2d6a4f; margin-bottom:6px; }
+  .chapter-title { font-family:Georgia,serif; font-size:${parseInt(age) <= 5 ? '22pt' : '18pt'}; color:#1a1a2e; margin-bottom:28px; line-height:1.2; }
+  .chapter-divider { width:40px; height:3px; background:#2d6a4f; margin-bottom:28px; border-radius:2px; }
+  .chapter-body p { font-family:Arial,sans-serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '600' : '500'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
+  .chapter-body p:first-child::first-letter { font-family:Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
+  .chapter-body img { width:100%; max-width:380px; display:block; margin:2rem auto; border-radius:8px; box-shadow:0 3px 16px rgba(0,0,0,0.13); }
+  .chapter-end { text-align:center; color:#2d6a4f; font-size:16pt; margin-top:2rem; opacity:0.4; }
+
+  /* ── TITLE PAGE ── */
+  .title-page { height:100vh; display:flex; flex-direction:column; justify-content:space-between; align-items:center; text-align:center; padding:36px 0; page-break-after:always; }
+  .title-page-name { font-family:Arial,sans-serif; font-size:10pt; font-weight:800; letter-spacing:.15em; text-transform:uppercase; color:#2d6a4f; margin-bottom:1.5rem; }
+  .title-page-title { font-family:Georgia,serif; font-size:28pt; font-weight:900; color:#1a1a2e; line-height:1.2; margin-bottom:1rem; }
+  .title-page-divider { width:60px; height:2px; background:#e5e7eb; margin:0 auto 2.5rem; }
+  .title-page-dedication { font-family:Arial,sans-serif; font-size:11pt; font-style:italic; color:#6b7280; line-height:1.8; }
+</style>
+</head>
+<body>
+
+  <!-- COVER -->
+  <div class="cover">
+    ${coverImgHtml}
+    <div class="cover-gradient"></div>
+    <div class="cover-panel">
+      <div class="cover-badge">A Growing Minds Original Story</div>
+      <div class="cover-title-line1">${childName} and the</div>
+      <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
+      <div class="cover-divider"></div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; Complete Edition</div>
+      <div class="cover-publisher">🌱 growingminds.io</div>
+    </div>
+  </div>
+
+  <!-- TITLE PAGE -->
+  <div class="title-page">
+    <div>
+      <div class="title-page-name">A story written for</div>
+      <div class="title-page-title">${childName} and the ${getMilestoneTitle(milestone)}</div>
+      <div class="title-page-divider"></div>
+      <div class="title-page-dedication">
+        This story was written just for ${childName},<br/>
+        age ${age}, of ${city}, ${region}.<br/>
+        Every adventure in these pages belongs to you.
+      </div>
+    </div>
+    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
+  </div>
+
+  <!-- TABLE OF CONTENTS (all 30 chapters) -->
+  <div style="padding:32px 0;page-break-before:always;page-break-after:always;">
+    <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
+    <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
+    <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">
+      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">${tocRowsLeft}</table>
+      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">${tocRowsRight}</table>
+    </div>
+  </div>
+
+  ${chaptersHtml}
+
+</body>
+</html>`;
+
+  console.log(`Full book HTML size: ${Math.round(html.length / 1024)}KB`);
+
+  // Longer timeout for the larger document
+  const payload = JSON.stringify({ source: html, landscape: false, use_print: false, sandbox: false });
+
+  return new Promise((resolve, reject) => {
+    const auth = Buffer.from(`api:${process.env.PDFSHIFT_API_KEY}`).toString('base64');
+    const options = {
+      hostname: "api.pdfshift.io",
+      port: 443,
+      path: "/v3/convert/pdf",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+        "Authorization": `Basic ${auth}`
+      },
+      timeout: 240000  // 4 min — larger doc needs more time
+    };
+    const req = https.request(options, (res) => {
+      const chunks = [];
+      res.on("data", chunk => chunks.push(chunk));
+      res.on("end", () => {
+        if (res.statusCode === 200 || res.statusCode === 201) {
+          const pdfBuffer = Buffer.concat(chunks);
+          console.log(`Full book PDF generated: ${Math.round(pdfBuffer.length / 1024)}KB`);
+          resolve(pdfBuffer.toString("base64"));
+        } else {
+          const body = Buffer.concat(chunks).toString();
+          reject(new Error(`PDFShift full-book error ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("PDFShift full-book timeout")));
+    req.write(payload);
+    req.end();
+  });
+}
+
+// ════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════
 
@@ -1265,11 +1483,15 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
   });
 }
 
-async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier) {
+async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier, fullBookUrl = null) {
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const { age, city, region, milestone, hair, hairLength, gender } = child;
+  const { age, city, region, milestone, gender } = child;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
   const airtableUrl = `https://airtable.com/${process.env.AIRTABLE_BASE_ID || ''}`;
+
+  const fullBookButton = fullBookUrl
+    ? `<a href="${fullBookUrl}" style="display:inline-block;background:#1a3a2a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;margin-left:10px;">⬇ Download Full Book PDF</a>`
+    : `<p style="color:#9ca3af;font-size:.8rem;margin-top:.5rem;">Full book PDF not available — check Inngest logs.</p>`;
 
   try {
     await resend.emails.send({
@@ -1284,14 +1506,17 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
           <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
             <table style="border-collapse:collapse;width:100%;margin-bottom:1.5rem;">
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;width:130px;font-size:.85rem;">STORY</td><td style="padding:8px 4px;font-weight:700;">${storyTitle}</td></tr>
-              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td><td style="padding:8px 4px;">${childName}, age ${age} &nbsp;·&nbsp; ${gender || 'child'}</td></tr>
+              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td><td style="padding:8px 4px;">${childName}, age ${age} · ${gender || 'child'}</td></tr>
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">LOCATION</td><td style="padding:8px 4px;">${city}, ${region}</td></tr>
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CUSTOMER</td><td style="padding:8px 4px;"><a href="mailto:${customerEmail}" style="color:#2d6a4f;">${customerEmail}</a></td></tr>
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">STORY ID</td><td style="padding:8px 4px;font-family:monospace;font-size:.9rem;">${storyId}</td></tr>
               <tr><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHAPTERS</td><td style="padding:8px 4px;">${tier.chapCount} chapters · ${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words</td></tr>
             </table>
-            <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View Full Story in Airtable →</a>
-            <p style="margin-top:1rem;color:#6b7280;font-size:.8rem;">The customer has already received their 10-chapter PDF preview. Find the full 30-chapter story in Airtable by searching Story ID: <strong>${storyId}</strong></p>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+              <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View in Airtable →</a>
+              ${fullBookButton}
+            </div>
+            <p style="margin-top:1rem;color:#6b7280;font-size:.8rem;">The customer has received their 10-chapter preview. The full print-ready PDF is linked above — download it, review it, then submit to your print partner when ready.</p>
           </div>
         </div>
       `
@@ -1441,7 +1666,7 @@ function decodeStoryData(token) {
   catch { return null; }
 }
 
-async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters) {
+async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters, fullBookUrl = null) {
   const baseId = process.env.AIRTABLE_BASE_ID;
   const token  = process.env.AIRTABLE_TOKEN;
   if (!baseId || !token) { console.log("No Airtable credentials — skipping story save"); return; }
@@ -1450,19 +1675,19 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
   const fullStory = chapters.join('\n\n---\n\n');
   const wordCount = fullStory.split(/\s+/).length;
 
-  const payload = JSON.stringify({
-    records: [{
-      fields: {
-        "Story ID":   storyId,
-        "Child Age":  parseInt(age) || 0,
-        "Milestone":  milestone || "",
-        "City":       `${city}, ${region}`,
-        "Full Story": fullStory.slice(0, 100000), // Airtable long text limit
-        "Word Count": wordCount,
-        "Created At": new Date().toISOString().split("T")[0]
-      }
-    }]
-  });
+  const fields = {
+    "Story ID":   storyId,
+    "Child Age":  parseInt(age) || 0,
+    "Milestone":  milestone || "",
+    "City":       `${city}, ${region}`,
+    "Full Story": fullStory.slice(0, 100000), // Airtable long text limit — first ~20 chapters
+    "Word Count": wordCount,
+    "Created At": new Date().toISOString().split("T")[0]
+  };
+  // Full book PDF URL — complete 30-chapter print-ready file
+  if (fullBookUrl) fields["Story PDF"] = fullBookUrl;
+
+  const payload = JSON.stringify({ records: [{ fields }] });
 
   return new Promise((resolve, reject) => {
     const options = {
