@@ -94,13 +94,14 @@ const generateStoryOrder = inngest.createFunction(
         : "2D digital illustration with semi-realistic style. Rich color palette — deep blues, warm ambers, and forest greens. Like a YA novel cover with warm cinematic lighting. Every illustration in this book uses this exact same art style and color palette";
 
       // Locked physical description built directly from user form data — never overridden
-      // Expand hair length so DALL-E renders it accurately (e.g. "long" → "long, shoulder-length or longer")
-      const hairLengthExpanded = hairLength === 'long' ? 'long (shoulder-length or longer)'
-        : hairLength === 'short' ? 'short (above the ears)'
-        : hairLength === 'medium' ? 'medium-length (chin to shoulder)'
+      // Expand hair length with very explicit phrasing so DALL-E can't default to short hair
+      const hairLengthExpanded = hairLength === 'long' ? 'very long — flowing well past the shoulders, noticeably long'
+        : hairLength === 'short' ? 'very short, close-cropped, above the ears'
+        : hairLength === 'medium' ? 'medium-length, reaching from chin to shoulder'
         : hairLength || '';
       const hairDescExpanded = [hairLengthExpanded, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-      const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
+      // Use "child" not "boy/girl" in image descriptions — DALL-E maps "boy" → short hair by default
+      const lockedCharDesc = `a ${age}-year-old child named ${name} with ${hairDescExpanded} hair and ${eye} eyes`;
 
       // Step A: Use Claude to design ALL recurring characters with consistent descriptions
       const castDescriptions = await step.run("design-characters", async () => {
@@ -114,11 +115,11 @@ const generateStoryOrder = inngest.createFunction(
       const buildCastRef = (cast) => Object.entries(cast).map(([n, d]) => `${n}: ${d}`).join('. ');
 
       // Step B: Generate cover image, then refine main character description via GPT-4o
-      const finalCast = await step.run("generate-cover-and-character-sheet", async () => {
+      const finalCast = await step.run("generate-cover-and-character-sheet-v2", async () => {
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name}'s hair is ${hairDescExpanded} — this must be clearly visible. Show ONLY ${name} in this image — ${name} is the ONLY person in the scene, completely alone. No other characters, no other people, no other children appear anywhere in the frame. ${name} is alone, actively doing something joyful — exploring, building, running, or discovering. Setting: ${city}, ${region}. NOT a lineup, NOT a group portrait, NOT multiple people. One child only. All characters are young children with no facial hair. Warm, full-color. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
+        const coverPrompt = `${styleGuide}. ONE single seamless scene — absolutely NO split panels, NO inset images, NO frames within the frame, NO pictures within pictures, NO books or photos being displayed, NO multiple scenes side by side. The main character is ${name}: ${lockedCharDesc}. MOST IMPORTANT PHYSICAL FEATURE: ${name} has ${hairDescExpanded} hair — this must be unmistakably visible, rendered with full length clearly shown. ${name} is the ONLY person in this image — completely alone, no other people anywhere in the scene. ${name} is actively doing something joyful — exploring, running, or discovering — in ${city}, ${region}. Warm, full-color illustration. Absolutely NO text, NO letters, NO words, NO signs anywhere in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -144,7 +145,7 @@ const generateStoryOrder = inngest.createFunction(
       const imgBatchesRemaining = Math.ceil(remainingKeys.length / IMG_BATCH);
       const finalCastRef = buildCastRef(finalCast);
       for (let b = 0; b < imgBatchesRemaining; b++) {
-        await step.run(`generate-illustrations-${b + 1}`, async () => {
+        await step.run(`generate-illustrations-v2-${b + 1}`, async () => {
           const start = b * IMG_BATCH;
           const keys = remainingKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatchesRemaining}: ${keys.length} images`);
@@ -152,7 +153,7 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci];
-            const prompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name}'s hair is ${hairDescExpanded} — this must be clearly visible and match exactly. Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively doing something in this scene — one story moment, NOT a lineup, NOT a group portrait, NOT characters standing and posing. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words, NO signs with writing anywhere in the image.`;
+            const prompt = `${styleGuide}. ONE single seamless scene — no split panels, no inset images, no frames within frames. The main character is ${name}: ${lockedCharDesc}. CRITICAL: ${name} has ${hairDescExpanded} hair — clearly visible and rendered at full length. Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Draw ${name} actively engaged in this scene — one story moment in motion, not a portrait, not a lineup. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words, NO signs anywhere in the image.`;
             try {
               let imageUrl;
               try {
@@ -160,7 +161,7 @@ const generateStoryOrder = inngest.createFunction(
               } catch(err) {
                 // First attempt failed — retry once with a safe fallback prompt
                 console.warn(`Image ${key} first attempt failed (${err.message}), retrying with fallback prompt`);
-                const fallbackPrompt = `${styleGuide}. The main character is ${name}: ${lockedCharDesc}. ${name}'s hair is ${hairDescExpanded} — this must be clearly visible and match exactly. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day. Draw ${name} in motion — one active scene, not a lineup, not a portrait. All characters are young children with no facial hair. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words anywhere in the image.`;
+                const fallbackPrompt = `${styleGuide}. ONE single seamless scene — no split panels, no inset images. The main character is ${name}: ${lockedCharDesc}. CRITICAL: ${name} has ${hairDescExpanded} hair — clearly visible and rendered at full length. ${name} is running and exploring outdoors in ${city}, ${region} on a bright sunny day — one active scene, not a lineup, not a portrait. Warm, colorful, cheerful. Absolutely NO text, NO letters, NO words anywhere in the image.`;
                 imageUrl = await callDallE(fallbackPrompt);
               }
               const imageBytes = await fetchImageBytes(imageUrl);
