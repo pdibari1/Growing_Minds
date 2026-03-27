@@ -212,7 +212,12 @@ const generateStoryOrder = inngest.createFunction(
       await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters);
     });
 
-    // Step 7: Clean up Redis and Blob storage
+    // Step 7: Notify admin that a new story is ready for fulfillment
+    await step.run("notify-admin", async () => {
+      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier);
+    });
+
+    // Step 8: Clean up Redis and Blob storage
     await step.run("cleanup", async () => {
       await deleteChaptersFromRedis(storyId);
       // Delete illustration URLs from Redis and files from Blob
@@ -905,8 +910,18 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
-  @page { margin: 18mm; }
-  @page :first { margin: 0; }
+  /* 6×9" trim size — standard children's hardcover */
+  @page {
+    size: 6in 9in;
+    margin: 19mm 19mm 22mm 25mm; /* top outside bottom gutter(left on odd) */
+  }
+  @page :left {
+    margin: 19mm 25mm 22mm 19mm; /* gutter on right for even pages */
+  }
+  @page :right {
+    margin: 19mm 19mm 22mm 25mm; /* gutter on left for odd pages */
+  }
+  @page :first { size: 6in 9in; margin: 0; }
 
   /* ── COVER ── */
   .cover {
@@ -994,7 +1009,11 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     text-transform: uppercase;
   }
 
-  .chapter { padding: 24px 24px 40px; page-break-before: always; position: relative; }
+  .chapter { padding: 8px 0 40px; page-break-before: always; position: relative; }
+
+  /* Page numbers */
+  @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   .chapter-number {
     font-family: Arial, sans-serif;
     font-size: 8pt;
@@ -1070,7 +1089,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     justify-content: space-between;
     align-items: center;
     text-align: center;
-    padding: 60px;
+    padding: 36px 0;
     page-break-after: always;
   }
   .title-page-name {
@@ -1141,7 +1160,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   </div>
 
   <!-- TABLE OF CONTENTS -->
-  <div style="padding:50px 60px;page-break-before:always;page-break-after:always;">
+  <div style="padding:32px 0;page-break-before:always;page-break-after:always;">
     <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
     <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
     <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
@@ -1163,12 +1182,11 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 </html>`;
 
   console.log(`HTML size before PDFShift: ${Math.round(html.length / 1024)}KB`);
+  // Page size and margins are controlled entirely by CSS @page rules above (6×9" trim)
   const payload = JSON.stringify({
     source: html,
     landscape: false,
     use_print: false,
-    margin: "18mm",
-    format: "Letter",
     sandbox: false
   });
 
@@ -1245,6 +1263,44 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
       </div>
     `
   });
+}
+
+async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { age, city, region, milestone, hair, hairLength, gender } = child;
+  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
+  const airtableUrl = `https://airtable.com/${process.env.AIRTABLE_BASE_ID || ''}`;
+
+  try {
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: "hello@growingminds.io",
+      subject: `📚 New story ready: ${storyTitle}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+          <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:10px 10px 0 0;">
+            <h2 style="color:white;margin:0;font-size:1.2rem;">📚 New Story Ready for Fulfillment</h2>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
+            <table style="border-collapse:collapse;width:100%;margin-bottom:1.5rem;">
+              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;width:130px;font-size:.85rem;">STORY</td><td style="padding:8px 4px;font-weight:700;">${storyTitle}</td></tr>
+              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td><td style="padding:8px 4px;">${childName}, age ${age} &nbsp;·&nbsp; ${gender || 'child'}</td></tr>
+              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">LOCATION</td><td style="padding:8px 4px;">${city}, ${region}</td></tr>
+              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CUSTOMER</td><td style="padding:8px 4px;"><a href="mailto:${customerEmail}" style="color:#2d6a4f;">${customerEmail}</a></td></tr>
+              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">STORY ID</td><td style="padding:8px 4px;font-family:monospace;font-size:.9rem;">${storyId}</td></tr>
+              <tr><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHAPTERS</td><td style="padding:8px 4px;">${tier.chapCount} chapters · ${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words</td></tr>
+            </table>
+            <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View Full Story in Airtable →</a>
+            <p style="margin-top:1rem;color:#6b7280;font-size:.8rem;">The customer has already received their 10-chapter PDF preview. Find the full 30-chapter story in Airtable by searching Story ID: <strong>${storyId}</strong></p>
+          </div>
+        </div>
+      `
+    });
+    console.log(`Admin notification sent for ${childName} (${storyId})`);
+  } catch(e) {
+    console.error(`Admin notification failed: ${e.message}`);
+    // Don't throw — this is non-critical
+  }
 }
 
 // ════════════════════════════════════════════
