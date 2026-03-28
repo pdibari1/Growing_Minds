@@ -33,6 +33,14 @@ const generateStoryOrder = inngest.createFunction(
     const tier = getStoryTier(childData.age);
     console.log(`Starting ${tier.label} for ${childName} (${tier.chapCount} chapters)`);
 
+    // Step 0: Parse custom details into a structured nickname table so models never mis-read directions
+    if (childData.customDetails) {
+      const parsedCustomDetails = await step.run("parse-custom-details", async () => {
+        return await parseCustomDetails(childData.customDetails, childName);
+      });
+      if (parsedCustomDetails) childData.parsedCustomDetails = parsedCustomDetails;
+    }
+
     // Step 1: Generate chapter outline — save to Redis immediately
     const outline = await step.run("generate-outline", async () => {
       const result = await generateOutline(childData, tier);
@@ -286,8 +294,44 @@ module.exports = handler;
 // STORY GENERATION
 // ════════════════════════════════════════════
 
+async function parseCustomDetails(customDetails, heroName) {
+  const prompt = `A parent wrote free-text notes for a personalized children's story. Extract every nickname assignment into a precise structured table.
+
+Parent's notes:
+"${customDetails}"
+
+Hero's name: ${heroName}
+
+Instructions:
+- A "nickname" is any name other than a character's full given name.
+- For EACH nickname, identify exactly WHO speaks it and WHO they are addressing.
+- Include conditional rules (e.g. "he calls her X only when she calls him Y").
+- Do NOT invent or infer any nickname not clearly stated in the text.
+- If the text says "her nickname is X" it means OTHER characters call her X — not that she uses it herself.
+
+Output ONLY this structured block, nothing else:
+
+NICKNAME TABLE:
+[Speaker] calls [Receiver] → "[nickname]"
+(one line per assignment — repeat for each)
+
+CONDITIONAL NICKNAMES (if any):
+[Speaker] calls [Receiver] → "[nickname]" — ONLY WHEN [exact condition]
+
+DEFAULT: Any character not listed above must use the other character's full name only.`;
+
+  try {
+    const result = await callClaude(prompt, 400);
+    console.log(`Parsed nickname table:\n${result}`);
+    return result.trim();
+  } catch(e) {
+    console.error(`parseCustomDetails failed: ${e.message}`);
+    return null;
+  }
+}
+
 async function generateOutline(child, tier) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
@@ -297,13 +341,15 @@ CRITICAL CUSTOM REQUIREMENTS — READ FIRST
 These override all defaults. Follow exactly.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ${customDetails}
-
+${parsedCustomDetails ? `
+STRUCTURED NICKNAME TABLE (authoritative — use this, not the prose above):
+${parsedCustomDetails}
+` : ''}
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- Every nickname is directional. "A calls B 'X'" means ONLY A uses X for B — no one else ever uses it.
-- Never swap, reverse, or mix up which character uses which nickname for whom.
-- Never invent, shorten, or alter any nickname — use it letter-for-letter as written.
-- If no nickname is listed FROM character A TO character B, character A must use character B's FULL NAME — always. Do not create, assume, or use any nickname that is not explicitly listed above.
-- Characters may ONLY address others by names explicitly assigned above. Any character without an assigned nickname must always be called by their full name.
+- Use ONLY the nicknames in the table above. Never invent others.
+- Every nickname is directional — only the listed speaker may use it for the listed receiver.
+- Any character not assigned a nickname must use the other character's full name only.
+- Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
 
@@ -421,7 +467,7 @@ FORMAT:
 // ════════════════════════════════════════════
 
 async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion: ${friend}.` : "";
@@ -452,19 +498,21 @@ CRITICAL CUSTOM REQUIREMENTS — READ FIRST
 These override all defaults. Follow exactly.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ${customDetails}
-
+${parsedCustomDetails ? `
+STRUCTURED NICKNAME TABLE (authoritative — use this, not the prose above):
+${parsedCustomDetails}
+` : ''}
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- Every nickname is directional. "A calls B 'X'" means ONLY A uses X for B — no one else ever uses it.
-- Never swap, reverse, or mix up which character uses which nickname for whom.
-- Never invent, shorten, or alter any nickname — use it letter-for-letter as written.
-- If no nickname is listed FROM character A TO character B, character A must use character B's FULL NAME — always. Do not create, assume, or use any nickname that is not explicitly listed above.
-- Characters may ONLY address others by names explicitly assigned above. Any character without an assigned nickname must always be called by their full name.
+- Use ONLY the nicknames in the table above. Never invent others.
+- Every nickname is directional — only the listed speaker may use it for the listed receiver.
+- Any character not assigned a nickname must use the other character's full name only.
+- Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
 
   const customReminder = customDetails ? `
-FINAL CHECK before you finish: Re-read the CRITICAL CUSTOM REQUIREMENTS above. Verify:
-1. Every nickname is used by the correct character, in the correct direction, exactly as specified.
+FINAL CHECK before you finish: Re-read the STRUCTURED NICKNAME TABLE above. Verify:
+1. Every nickname matches the table exactly — correct speaker, correct receiver, correct word.
 2. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
 3. "Going to school together" means the same school building, not the same classroom or grade.
 Correct any errors before outputting.` : "";
