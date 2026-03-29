@@ -1361,10 +1361,10 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
     return `<tr><td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">${num}</td><td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">${title}</td></tr>`;
   }).join('');
 
-  // Cover image — data URI or fallback gradient
+  // Cover image — data URI or solid fallback (no transparency for print)
   const coverImgHtml = illustrationsB64['0-0']
     ? `<img class="cover-image" src="${illustrationsB64['0-0']}" />`
-    : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`;
+    : `<div style="display:block;width:100%;height:57%;background:#1a3a2a;flex-shrink:0;"></div>`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -1374,25 +1374,26 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
-  /* 5.5×8.5" digest trim size */
+  /* 5.5x8.5" digest — Lulu interior print spec */
+  /* Interior pages at trim size */
   @page { size: 5.5in 8.5in; margin: 19mm 19mm 22mm 25mm; }
   @page :left  { margin: 19mm 25mm 22mm 19mm; }
   @page :right { margin: 19mm 19mm 22mm 25mm; }
-  @page :first { size: 5.5in 8.5in; margin: 0; }
+  /* Cover: 0.125in bleed on all sides = 5.75x8.75 */
+  @page :first { size: 5.75in 8.75in; margin: 0; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
 
-  /* ── COVER ── */
-  .cover { width:100%; height:100vh; background:#1a3a2a; position:relative; overflow:hidden; page-break-after:always; }
-  .cover-image { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
-  .cover-gradient { position:absolute; bottom:0; left:0; width:100%; height:65%; background:linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%); }
-  .cover-panel { position:absolute; bottom:0; left:0; width:100%; padding:28px 48px 36px; display:flex; flex-direction:column; justify-content:flex-end; gap:0; }
-  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:Arial,sans-serif; font-size:7.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:12px; width:fit-content; }
-  .cover-title-line1 { font-family:Georgia,serif; font-size:12pt; font-weight:700; color:rgba(255,255,255,0.75); letter-spacing:.04em; margin-bottom:2px; }
-  .cover-title-main { font-family:Georgia,serif; font-size:28pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:12px; }
-  .cover-divider { width:40px; height:2px; background:rgba(255,255,255,0.25); margin-bottom:10px; }
-  .cover-meta { font-family:Arial,sans-serif; font-size:8pt; color:rgba(255,255,255,0.45); line-height:1.5; margin-bottom:10px; }
-  .cover-publisher { font-family:Arial,sans-serif; font-size:7.5pt; color:rgba(255,255,255,0.25); letter-spacing:.08em; text-transform:uppercase; }
+  /* ── COVER (print-safe: no transparency, no rgba, no gradients) ── */
+  .cover { width:100%; height:100vh; background:#0d2018; display:flex; flex-direction:column; page-break-after:always; overflow:hidden; }
+  .cover-image { display:block; width:100%; height:57%; object-fit:cover; object-position:center top; flex-shrink:0; }
+  .cover-panel { flex:1; background:#0d2018; padding:18px 40px 26px; display:flex; flex-direction:column; justify-content:center; }
+  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:Arial,sans-serif; font-size:7pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:3px 10px; border-radius:3px; margin-bottom:10px; width:fit-content; }
+  .cover-title-line1 { font-family:Georgia,serif; font-size:11pt; font-weight:700; color:#c8c8c8; letter-spacing:.04em; margin-bottom:2px; }
+  .cover-title-main { font-family:Georgia,serif; font-size:26pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:10px; }
+  .cover-divider { width:36px; height:2px; background:#3a3a3a; margin-bottom:8px; }
+  .cover-meta { font-family:Arial,sans-serif; font-size:7.5pt; color:#888888; line-height:1.5; margin-bottom:8px; }
+  .cover-publisher { font-family:Arial,sans-serif; font-size:7pt; color:#555555; letter-spacing:.08em; text-transform:uppercase; }
 
   /* ── CHAPTERS ── */
   .chapter { padding:8px 0 40px; page-break-before:always; position:relative; }
@@ -1401,8 +1402,8 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   .chapter-divider { width:40px; height:3px; background:#2d6a4f; margin-bottom:28px; border-radius:2px; }
   .chapter-body p { font-family:Arial,sans-serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '600' : '500'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
   .chapter-body p:first-child::first-letter { font-family:Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
-  .chapter-body img { width:100%; max-width:380px; display:block; margin:2rem auto; border-radius:8px; box-shadow:0 3px 16px rgba(0,0,0,0.13); }
-  .chapter-end { text-align:center; color:#2d6a4f; font-size:16pt; margin-top:2rem; opacity:0.4; }
+  .chapter-body img { width:100%; max-width:380px; display:block; margin:2rem auto; border-radius:4px; }
+  .chapter-end { text-align:center; color:#abc3b9; font-size:16pt; margin-top:2rem; }
 
   /* ── TITLE PAGE ── */
   .title-page { height:100vh; display:flex; flex-direction:column; justify-content:space-between; align-items:center; text-align:center; padding:36px 0; page-break-after:always; }
@@ -1417,14 +1418,13 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   <!-- COVER -->
   <div class="cover">
     ${coverImgHtml}
-    <div class="cover-gradient"></div>
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>
       <div class="cover-title-line1">${childName} and the</div>
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; Complete Edition</div>
-      <div class="cover-publisher">🌱 growingminds.io</div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;&middot;&nbsp; ${city}, ${region} &nbsp;&middot;&nbsp; Complete Edition</div>
+      <div class="cover-publisher">GROWINGMINDS.IO</div>
     </div>
   </div>
 
@@ -1440,7 +1440,7 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
         Every adventure in these pages belongs to you.
       </div>
     </div>
-    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
+    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">Growing Minds &middot; growingminds.io &middot; &copy; ${new Date().getFullYear()}</div>
   </div>
 
   <!-- TABLE OF CONTENTS (all 30 chapters) -->
