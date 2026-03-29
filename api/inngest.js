@@ -254,7 +254,9 @@ const generateStoryOrder = inngest.createFunction(
 
     // Step 8: Notify admin that a new story is ready for fulfillment
     await step.run("notify-admin", async () => {
-      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl);
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      const coverImageUrl = illustrationUrls['0-0'] || null;
+      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl);
     });
 
     // Step 8: Clean up Redis and Blob storage
@@ -1361,11 +1363,6 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
     return `<tr><td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">${num}</td><td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">${title}</td></tr>`;
   }).join('');
 
-  // Cover image — data URI or solid fallback (no transparency for print)
-  const coverImgHtml = illustrationsB64['0-0']
-    ? `<img class="cover-image" src="${illustrationsB64['0-0']}" />`
-    : `<div style="display:block;width:100%;height:57%;background:#1a3a2a;flex-shrink:0;"></div>`;
-
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -1374,26 +1371,12 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
-  /* 5.5x8.5" digest — Lulu interior print spec */
-  /* Interior pages at trim size */
+  /* 5.5x8.5" digest — Lulu interior print spec (uniform size, no cover page) */
   @page { size: 5.5in 8.5in; margin: 19mm 19mm 22mm 25mm; }
   @page :left  { margin: 19mm 25mm 22mm 19mm; }
   @page :right { margin: 19mm 19mm 22mm 25mm; }
-  /* Cover: 0.125in bleed on all sides = 5.75x8.75 */
-  @page :first { size: 5.75in 8.75in; margin: 0; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
-
-  /* ── COVER (print-safe: no transparency, no rgba, no gradients) ── */
-  .cover { width:100%; height:100vh; background:#0d2018; display:flex; flex-direction:column; page-break-after:always; overflow:hidden; }
-  .cover-image { display:block; width:100%; height:57%; object-fit:cover; object-position:center top; flex-shrink:0; }
-  .cover-panel { flex:1; background:#0d2018; padding:18px 40px 26px; display:flex; flex-direction:column; justify-content:center; }
-  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:Arial,sans-serif; font-size:7pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:3px 10px; border-radius:3px; margin-bottom:10px; width:fit-content; }
-  .cover-title-line1 { font-family:Georgia,serif; font-size:11pt; font-weight:700; color:#c8c8c8; letter-spacing:.04em; margin-bottom:2px; }
-  .cover-title-main { font-family:Georgia,serif; font-size:26pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:10px; }
-  .cover-divider { width:36px; height:2px; background:#3a3a3a; margin-bottom:8px; }
-  .cover-meta { font-family:Arial,sans-serif; font-size:7.5pt; color:#888888; line-height:1.5; margin-bottom:8px; }
-  .cover-publisher { font-family:Arial,sans-serif; font-size:7pt; color:#555555; letter-spacing:.08em; text-transform:uppercase; }
 
   /* ── CHAPTERS ── */
   .chapter { padding:8px 0 40px; page-break-before:always; position:relative; }
@@ -1414,19 +1397,6 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 </style>
 </head>
 <body>
-
-  <!-- COVER -->
-  <div class="cover">
-    ${coverImgHtml}
-    <div class="cover-panel">
-      <div class="cover-badge">A Growing Minds Original Story</div>
-      <div class="cover-title-line1">${childName} and the</div>
-      <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
-      <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;&middot;&nbsp; ${city}, ${region} &nbsp;&middot;&nbsp; Complete Edition</div>
-      <div class="cover-publisher">GROWINGMINDS.IO</div>
-    </div>
-  </div>
 
   <!-- TITLE PAGE -->
   <div class="title-page">
@@ -1538,25 +1508,34 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
   });
 }
 
-async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier, fullBookUrl = null) {
+async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier, fullBookUrl = null, coverImageUrl = null) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { age, city, region, milestone, gender } = child;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
   const airtableUrl = `https://airtable.com/${process.env.AIRTABLE_BASE_ID || ''}`;
 
   const fullBookButton = fullBookUrl
-    ? `<a href="${fullBookUrl}" style="display:inline-block;background:#1a3a2a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;margin-left:10px;">⬇ Download Full Book PDF</a>`
-    : `<p style="color:#9ca3af;font-size:.8rem;margin-top:.5rem;">Full book PDF not available — check Inngest logs.</p>`;
+    ? `<a href="${fullBookUrl}" style="display:inline-block;background:#1a3a2a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">Download Full Book PDF</a>`
+    : `<span style="color:#9ca3af;font-size:.8rem;">Full book PDF not available — check Inngest logs.</span>`;
+
+  const coverBlock = coverImageUrl ? `
+    <div style="margin-bottom:1.5rem;">
+      <p style="font-weight:700;color:#6b7280;font-size:.85rem;margin:0 0 8px;">COVER IMAGE</p>
+      <a href="${coverImageUrl}" target="_blank">
+        <img src="${coverImageUrl}" alt="Cover illustration" style="width:100%;max-width:320px;border-radius:6px;display:block;margin-bottom:6px;" />
+      </a>
+      <a href="${coverImageUrl}" style="font-size:.8rem;color:#2d6a4f;word-break:break-all;">${coverImageUrl}</a>
+    </div>` : '';
 
   try {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
       to: "hello@growingminds.io",
-      subject: `📚 New story ready: ${storyTitle}`,
+      subject: `New story ready: ${storyTitle}`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
           <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:10px 10px 0 0;">
-            <h2 style="color:white;margin:0;font-size:1.2rem;">📚 New Story Ready for Fulfillment</h2>
+            <h2 style="color:white;margin:0;font-size:1.2rem;">New Story Ready for Fulfillment</h2>
           </div>
           <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
             <table style="border-collapse:collapse;width:100%;margin-bottom:1.5rem;">
@@ -1567,11 +1546,12 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">STORY ID</td><td style="padding:8px 4px;font-family:monospace;font-size:.9rem;">${storyId}</td></tr>
               <tr><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHAPTERS</td><td style="padding:8px 4px;">${tier.chapCount} chapters · ${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words</td></tr>
             </table>
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
-              <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View in Airtable →</a>
+            ${coverBlock}
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:1rem;">
+              <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View in Airtable</a>
               ${fullBookButton}
             </div>
-            <p style="margin-top:1rem;color:#6b7280;font-size:.8rem;">The customer has received their 10-chapter preview. The full print-ready PDF is linked above — download it, review it, then submit to your print partner when ready.</p>
+            <p style="color:#6b7280;font-size:.8rem;margin:0;">The customer has received their 10-chapter preview. The full print-ready PDF is linked above — download it, review it, then submit to Lulu when ready.</p>
           </div>
         </div>
       `
