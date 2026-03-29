@@ -191,7 +191,7 @@ const generateStoryOrder = inngest.createFunction(
     }
 
     // Step 4: Generate PDF with first 10 chapters only and store to Blob
-    const pdfBlobUrl = await step.run("create-pdf-v4", async () => {
+    const pdfBlobUrl = await step.run("create-pdf-v5", async () => {
       console.log(`STARTING PDF GENERATION v4`);
       const chapters = await getChaptersFromRedis(storyId);
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
@@ -1371,11 +1371,11 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
-  /* 6×9" trim size */
-  @page { size: 6in 9in; margin: 19mm 19mm 22mm 25mm; }
+  /* 5.5×8.5" digest trim size */
+  @page { size: 5.5in 8.5in; margin: 19mm 19mm 22mm 25mm; }
   @page :left  { margin: 19mm 25mm 22mm 19mm; }
   @page :right { margin: 19mm 19mm 22mm 25mm; }
-  @page :first { size: 6in 9in; margin: 0; }
+  @page :first { size: 5.5in 8.5in; margin: 0; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
 
