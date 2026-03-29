@@ -125,11 +125,11 @@ const generateStoryOrder = inngest.createFunction(
       const buildCastRef = (cast) => Object.entries(cast).map(([n, d]) => `${n}: ${d}`).join('. ');
 
       // Step B: Generate cover image, then refine main character description via GPT-4o
-      const finalCast = await step.run("generate-cover-and-character-sheet-v3", async () => {
+      const finalCast = await step.run("generate-cover-and-character-sheet-v4", async () => {
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide}. A single full-bleed illustration of ${name}, ${lockedCharDesc}, joyfully exploring outdoors in ${city}, ${region}.${longHairBoyNote} ${name} is the only person in the scene. The landscape of ${region} is visible in the background. No other characters. No panels, no frames, no inset images, no color swatches, no reference sheets — just one seamless outdoor scene. No text, no words, no letters, no labels anywhere in the image.`;
+        const coverPrompt = `${styleGuide}. A single full-bleed scene painting: ${name}, ${lockedCharDesc}, joyfully exploring outdoors in ${city}, ${region}.${longHairBoyNote} ${name} is the only person in the scene. The landscape of ${region} fills the background. This is a painted scene, not a design document — the entire canvas is filled with the environment and character. CRITICAL: do not include any color strips, color bars, color swatches, palette rows, or color chips anywhere in the image — not at the top, bottom, or sides. No panels, no frames, no inset images, no reference sheets, no film strips. No text, words, letters, or labels anywhere.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
