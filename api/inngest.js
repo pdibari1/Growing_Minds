@@ -348,7 +348,8 @@ ${parsedCustomDetails}
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Use ONLY the nicknames in the table above. Never invent others.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
-- Any character not assigned a nickname must use the other character's full name only.
+- Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
+- SHORTENINGS COUNT AS INVENTED NICKNAMES. "Jules" for "Julianna", "Ben" for "Benjamin", "Ju" for "Julianna" — any variation that is not the full name and not in the table is forbidden.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
@@ -505,7 +506,8 @@ ${parsedCustomDetails}
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Use ONLY the nicknames in the table above. Never invent others.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
-- Any character not assigned a nickname must use the other character's full name only.
+- Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
+- SHORTENINGS COUNT AS INVENTED NICKNAMES. "Jules" for "Julianna", "Ben" for "Benjamin", "Ju" for "Julianna" — any variation that is not the full name and not in the table is forbidden.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
@@ -513,8 +515,9 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
   const customReminder = customDetails ? `
 FINAL CHECK before you finish: Re-read the STRUCTURED NICKNAME TABLE above. Verify:
 1. Every nickname matches the table exactly — correct speaker, correct receiver, correct word.
-2. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
-3. "Going to school together" means the same school building, not the same classroom or grade.
+2. No character has been given a shortened or abbreviated name that is not in the table (e.g. "Jules" for "Julianna", "Ben" for "Benjamin" are forbidden unless they appear in the table).
+3. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
+4. "Going to school together" means the same school building, not the same classroom or grade.
 Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
