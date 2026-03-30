@@ -64,7 +64,14 @@ const generateStoryOrder = inngest.createFunction(
         const priorChapters = await getChaptersFromRedis(storyId);
 
         // Generate this batch
-        const batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier);
+        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier);
+
+        // Correct any nickname violations before saving
+        if (childData.parsedCustomDetails) {
+          batchChapters = await Promise.all(
+            batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails))
+          );
+        }
 
         // Save to Redis immediately
         await saveChaptersToRedis(storyId, priorChapters, batchChapters);
@@ -333,6 +340,30 @@ DEFAULT: Any character not listed above must use the other character's full name
   }
 }
 
+async function correctNicknames(chapterText, parsedCustomDetails) {
+  if (!parsedCustomDetails || !chapterText) return chapterText;
+  const prompt = `You are a copy editor. The chapter text below may contain nickname errors — characters being called abbreviated or invented names that were not approved.
+
+AUTHORITATIVE NICKNAME TABLE (the only names allowed):
+${parsedCustomDetails}
+
+RULES:
+- If a character is addressed or referred to by a name not in the table and not their full given name, replace it with either the correct nickname from the table or their full given name.
+- Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
+- If there are no errors, return the text unchanged.
+- Return the corrected chapter text only. No explanation, no commentary.
+
+CHAPTER TEXT:
+${chapterText}`;
+  try {
+    const corrected = await callClaude(prompt, 3000);
+    return corrected.trim();
+  } catch(e) {
+    console.error(`correctNicknames failed: ${e.message}`);
+    return chapterText;
+  }
+}
+
 async function generateOutline(child, tier) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
@@ -352,7 +383,7 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Use ONLY the nicknames in the table above. Never invent others.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
 - Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS COUNT AS INVENTED NICKNAMES. "Jules" for "Julianna", "Ben" for "Benjamin", "Ju" for "Julianna" — any variation that is not the full name and not in the table is forbidden.
+- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is forbidden — even if it sounds natural in English.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
@@ -510,7 +541,7 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Use ONLY the nicknames in the table above. Never invent others.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
 - Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS COUNT AS INVENTED NICKNAMES. "Jules" for "Julianna", "Ben" for "Benjamin", "Ju" for "Julianna" — any variation that is not the full name and not in the table is forbidden.
+- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is forbidden — even if it sounds natural in English.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
@@ -518,7 +549,7 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
   const customReminder = customDetails ? `
 FINAL CHECK before you finish: Re-read the STRUCTURED NICKNAME TABLE above. Verify:
 1. Every nickname matches the table exactly — correct speaker, correct receiver, correct word.
-2. No character has been given a shortened or abbreviated name that is not in the table (e.g. "Jules" for "Julianna", "Ben" for "Benjamin" are forbidden unless they appear in the table).
+2. No character has been given a shortened, abbreviated, or diminutive name that does not appear in the table — any such variation is forbidden even if it sounds natural.
 3. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
 4. "Going to school together" means the same school building, not the same classroom or grade.
 Correct any errors before outputting.` : "";
