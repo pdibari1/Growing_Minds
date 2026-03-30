@@ -272,8 +272,9 @@ const generateStoryOrder = inngest.createFunction(
             if (url) urls.push(url);
             await redisRequest("DEL", [k]);
           }
-          // Delete from Vercel Blob
-          if (urls.length > 0) await del(urls);
+          // Delete chapter illustrations from Vercel Blob — but keep the cover (0-0.jpg) permanently
+          const urlsToDelete = urls.filter(u => !u.includes('/0-0.jpg'));
+          if (urlsToDelete.length > 0) await del(urlsToDelete);
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
@@ -1371,10 +1372,10 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
-  /* 5.5x8.5" digest — Lulu interior print spec (uniform size, no cover page) */
-  @page { size: 5.5in 8.5in; margin: 19mm 19mm 22mm 25mm; }
-  @page :left  { margin: 19mm 25mm 22mm 19mm; }
-  @page :right { margin: 19mm 19mm 22mm 25mm; }
+  /* 5.25x8" chapter book trim — Lulu interior print spec (uniform size, no cover page) */
+  @page { size: 5.25in 8in; margin: 16mm 16mm 19mm 22mm; }
+  @page :left  { margin: 16mm 22mm 19mm 16mm; }
+  @page :right { margin: 16mm 16mm 19mm 22mm; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
 
@@ -1385,7 +1386,7 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   .chapter-divider { width:40px; height:3px; background:#2d6a4f; margin-bottom:28px; border-radius:2px; }
   .chapter-body p { font-family:Arial,sans-serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '600' : '500'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
   .chapter-body p:first-child::first-letter { font-family:Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
-  .chapter-body img { width:100%; max-width:380px; display:block; margin:2rem auto; border-radius:4px; }
+  .chapter-body img { width:100%; max-width:320px; display:block; margin:2rem auto; border-radius:4px; }
   .chapter-end { text-align:center; color:#abc3b9; font-size:16pt; margin-top:2rem; }
 
   /* ── TITLE PAGE ── */
