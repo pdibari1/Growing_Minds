@@ -403,8 +403,8 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
 
 STORY RULES — apply to every chapter summary:
-- No named character in ${name}'s circle (friends, siblings, pets, family) may be mean, cruel, mocking, or exclusionary toward ${name}. Conflict must come from unnamed characters, external challenges, or circumstances — never from ${name}'s named people.
-- No child character owns or uses a cell phone or sends text messages. Communication between children happens in person or by note.
+- NAMED CHARACTERS ARE KIND: Every named character in this story (anyone given a name in the child's profile or custom details) must be portrayed as a good person. They must not be mean, cruel, mocking, dismissive, or unkind toward anyone — not the hero, not each other, not unnamed characters. They may have their own worries, make honest mistakes, or face challenges, but they are fundamentally warm and well-intentioned. The ONLY exception is if the custom details above explicitly describe a character as having a mean or difficult personality.
+- NO PHONES FOR KIDS: Children in this story do not have cell phones, smartphones, or any personal devices. No child sends or receives text messages, group chats, or messages of any kind via a device. This rule has no exceptions — not for older kids, not for plot convenience. If children need to communicate, they talk in person, pass a note, or ask a parent to make a call.
 
 This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
 - Opening (first 20%): Introduce ${name} and their world, establish the milestone challenge
@@ -592,8 +592,8 @@ RULES:
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
-- NAMED CHARACTERS: The following named characters must NEVER be mean, cruel, mocking, dismissive, or exclusionary toward ${name}: ${namedCharactersStr}. They may disagree, feel worried, or face their own challenges — but they must never bully, belittle, or deliberately hurt ${name}. Any conflict or antagonism in the story must come from unnamed or incidental characters, or from external challenges (weather, competition, accidents), never from ${name}'s named circle.
-- NO CELL PHONES: No child character in this story owns or uses a cell phone, smartphone, or sends text messages. This applies to all children regardless of age. If characters need to communicate, they do so in person, by note, or through a parent's phone used by an adult.
+- NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every one of them must be portrayed as a good, warm person throughout the story. They must not act mean, cruel, mocking, dismissive, or unkind toward anyone at any point — not toward ${name}, not toward each other, not toward unnamed characters. They may have worries, make honest mistakes, or face their own challenges, but they are never a source of cruelty. Any antagonism in the story must come from unnamed characters, bad luck, or external obstacles only. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
+- NO PHONES FOR KIDS: No child in this story owns, carries, or uses a cell phone, smartphone, tablet for messaging, or any personal device. No child sends or receives texts, group chats, or digital messages of any kind. This has no exceptions. Children communicate face to face, by handwritten note, or by asking a parent to make a phone call on their behalf.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
