@@ -378,6 +378,22 @@ async function generateOutline(child, tier) {
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
+
+  // Build named characters list for outline kindness rule (same logic as chapter batch)
+  const namedCharacters = [name];
+  if (friend && friend !== "none") {
+    friend.split(',').forEach(f => {
+      const t = f.trim();
+      if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
+    });
+  }
+  if (customDetails) {
+    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
+    const nameMatches = customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
+    nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
+  }
+  const namedCharactersStr = namedCharacters.join(', ');
+
   const customBlock = customDetails ? `
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 CRITICAL CUSTOM REQUIREMENTS — READ FIRST
@@ -412,7 +428,7 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
 
 STORY RULES — apply to every chapter summary:
-- NAMED CHARACTERS ARE KIND: Every named character in this story (anyone given a name in the child's profile or custom details) must be portrayed as a good person. They must not be mean, cruel, mocking, dismissive, or unkind toward anyone — not the hero, not each other, not unnamed characters. They may have their own worries, make honest mistakes, or face challenges, but they are fundamentally warm and well-intentioned. The ONLY exception is if the custom details above explicitly describe a character as having a mean or difficult personality.
+- NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person in EVERY chapter summary. They must not act mean, cruel, mocking, dismissive, or unkind toward anyone — not the hero, not each other, not unnamed characters. DO NOT write a chapter summary where any of these characters bullies, teases, belittles, threatens, or antagonizes anyone. If the story needs an antagonist, conflict, or source of meanness, invent an UNNAMED character (e.g. "a classmate", "another kid", "a rival") — never assign that role to a named character from this list. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO PHONES FOR KIDS: Children in this story do not have cell phones, smartphones, or any personal devices. No child sends or receives text messages, group chats, or messages of any kind via a device. This rule has no exceptions — not for older kids, not for plot convenience. If children need to communicate, they talk in person, pass a note, or ask a parent to make a call.
 
 This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
@@ -520,9 +536,14 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion: ${friend}.` : "";
 
-  // Build a list of all named characters from the order (hero + friend field + custom details names)
+  // Build a list of all named characters from the order (hero + ALL friends + custom details names)
   const namedCharacters = [name];
-  if (friend && friend !== "none") namedCharacters.push(friend.split(',')[0].trim());
+  if (friend && friend !== "none") {
+    friend.split(',').forEach(f => {
+      const t = f.trim();
+      if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
+    });
+  }
   if (customDetails) {
     // Extract capitalised words that look like names (2+ capital-first words, not common words)
     const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
@@ -596,12 +617,12 @@ RULES:
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. Within a single paragraph, a character's location must be internally consistent — if they are inside, every detail in that paragraph must reflect being inside; if they are outside, every detail must reflect being outside. Never write a sentence where a character is simultaneously inside (e.g. looking through a window) and outside (e.g. "staying outside") in the same breath.
-- DIALOGUE COHERENCE: Every line of dialogue must logically follow from the line before it. A reply must make sense as a direct response to what was just said. Read each exchange as a back-and-forth conversation and verify that it flows naturally before moving on. Never generate a response that would only make sense as a reply to a different question or statement than the one actually asked. If a character calls out to get another character's attention ("Ben! Look!"), the other character must acknowledge that bid before launching into their own agenda — they cannot simply ignore it and start showing something of their own as if the first character hadn't spoken.
+- DIALOGUE COHERENCE: Every line of dialogue must logically follow from the line before it. A reply must make sense as a direct response to what was just said. Read each exchange as a back-and-forth conversation and verify that it flows naturally before moving on. Never generate a response that would only make sense as a reply to a different question or statement than the one actually asked. If a character calls out to get another character's attention ("Ben! Look!"), the other character must acknowledge that bid before launching into their own agenda — they cannot simply ignore it and start showing something of their own as if the first character hadn't spoken. If a family member (sibling, parent) speaks directly to ${name}, ${name} must respond to what they said — never skip past it as if it were unheard.
 - AGE & GRADE LOGIC: Derive school grades strictly from age (age 5 = Kindergarten, age 6–7 = Grade 1–2, etc.). Children of different ages are never in the same grade unless they are twins or custom details say otherwise. "Going to school together" = same school building, not same grade. Never write that a younger child is joining or catching up to an older child's grade.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
-- NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every one of them must be portrayed as a good, warm person throughout the story. They must not act mean, cruel, mocking, dismissive, or unkind toward anyone at any point — not toward ${name}, not toward each other, not toward unnamed characters. They may have worries, make honest mistakes, or face their own challenges, but they are never a source of cruelty. Any antagonism in the story must come from unnamed characters, bad luck, or external obstacles only. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
+- NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person in every scene. They must NEVER bully, tease, belittle, threaten, knock things over, laugh at someone's pain, or act unkind toward anyone — not toward ${name}, not toward each other, not toward unnamed characters. If this chapter outline includes one of these characters acting mean, rewrite that character as an UNNAMED character (e.g. "a classmate", "another kid", "a rival"). Named characters may have worries or make honest mistakes, but they are never cruel or antagonistic. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO PHONES FOR KIDS: No child in this story owns, carries, or uses a cell phone, smartphone, tablet for messaging, or any personal device. No child sends or receives texts, group chats, or digital messages of any kind. This has no exceptions. Children communicate face to face, by handwritten note, or by asking a parent to make a phone call on their behalf.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
