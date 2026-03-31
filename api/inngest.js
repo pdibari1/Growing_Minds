@@ -315,9 +315,12 @@ Hero's name: ${heroName}
 Instructions:
 - A "nickname" is any name other than a character's full given name.
 - For EACH nickname, identify exactly WHO speaks it and WHO they are addressing.
+- Nicknames are ONE-DIRECTIONAL. If A calls B "puppy", that does NOT mean B calls A "puppy". They are different people with different nicknames.
 - Include conditional rules (e.g. "he calls her X only when she calls him Y").
 - Do NOT invent or infer any nickname not clearly stated in the text.
 - If the text says "her nickname is X" it means OTHER characters call her X — not that she uses it herself.
+
+After the NICKNAME TABLE, output a FORBIDDEN USAGE section that explicitly states the reverse of every nickname — i.e. what is NOT allowed.
 
 Output ONLY this structured block, nothing else:
 
@@ -328,10 +331,14 @@ NICKNAME TABLE:
 CONDITIONAL NICKNAMES (if any):
 [Speaker] calls [Receiver] → "[nickname]" — ONLY WHEN [exact condition]
 
-DEFAULT: Any character not listed above must use the other character's full name only.`;
+FORBIDDEN USAGE (the reverse of every nickname above — explicitly prohibited):
+[Speaker] must NEVER call [Receiver] → "[nickname]" — this nickname belongs to a different speaker
+(one line per forbidden reversal)
+
+DEFAULT: Any character not listed in the NICKNAME TABLE must use the other character's full name only.`;
 
   try {
-    const result = await callClaude(prompt, 400);
+    const result = await callClaude(prompt, 600);
     console.log(`Parsed nickname table:\n${result}`);
     return result.trim();
   } catch(e) {
@@ -342,13 +349,15 @@ DEFAULT: Any character not listed above must use the other character's full name
 
 async function correctNicknames(chapterText, parsedCustomDetails) {
   if (!parsedCustomDetails || !chapterText) return chapterText;
-  const prompt = `You are a copy editor. The chapter text below may contain nickname errors — characters being called abbreviated or invented names that were not approved.
+  const prompt = `You are a copy editor. The chapter text below may contain nickname errors.
 
-AUTHORITATIVE NICKNAME TABLE (the only names allowed):
+AUTHORITATIVE NICKNAME TABLE:
 ${parsedCustomDetails}
 
 RULES:
-- If a character is addressed or referred to by a name not in the table and not their full given name, replace it with either the correct nickname from the table or their full given name.
+- Fix any nickname that violates the NICKNAME TABLE — including both invented names AND reversed usage (e.g. if the table says A calls B "puppy", then B must never call A "puppy" — that reversal is forbidden and must be replaced with the correct name).
+- Check both dialogue AND narrative text (e.g. "he called her puppy" is also an error if that nickname belongs to the other direction).
+- Replace any forbidden or incorrect nickname with either the correct approved nickname or the character's full given name.
 - Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
 - If there are no errors, return the text unchanged.
 - Return the corrected chapter text only. No explanation, no commentary.
