@@ -402,6 +402,10 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - Never invent a grade level for any character that conflicts with their stated age
 - If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
 
+STORY RULES — apply to every chapter summary:
+- No named character in ${name}'s circle (friends, siblings, pets, family) may be mean, cruel, mocking, or exclusionary toward ${name}. Conflict must come from unnamed characters, external challenges, or circumstances — never from ${name}'s named people.
+- No child character owns or uses a cell phone or sends text messages. Communication between children happens in person or by note.
+
 This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
 - Opening (first 20%): Introduce ${name} and their world, establish the milestone challenge
 - Rising action (middle 50%): Complications, adventures, new friends, setbacks
@@ -507,6 +511,17 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion: ${friend}.` : "";
 
+  // Build a list of all named characters from the order (hero + friend field + custom details names)
+  const namedCharacters = [name];
+  if (friend && friend !== "none") namedCharacters.push(friend.split(',')[0].trim());
+  if (customDetails) {
+    // Extract capitalised words that look like names (2+ capital-first words, not common words)
+    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
+    const nameMatches = customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
+    nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
+  }
+  const namedCharactersStr = namedCharacters.join(', ');
+
   // Full outline for arc awareness
   const arcContext = outline.map((c, i) =>
     `  Chapter ${i + 1}: "${c.title}" — ${c.summary}`
@@ -576,7 +591,9 @@ RULES:
 - AGE & GRADE LOGIC: Derive school grades strictly from age (age 5 = Kindergarten, age 6–7 = Grade 1–2, etc.). Children of different ages are never in the same grade unless they are twins or custom details say otherwise. "Going to school together" = same school building, not same grade. Never write that a younger child is joining or catching up to an older child's grade.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
-- SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
+- SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
+- NAMED CHARACTERS: The following named characters must NEVER be mean, cruel, mocking, dismissive, or exclusionary toward ${name}: ${namedCharactersStr}. They may disagree, feel worried, or face their own challenges — but they must never bully, belittle, or deliberately hurt ${name}. Any conflict or antagonism in the story must come from unnamed or incidental characters, or from external challenges (weather, competition, accidents), never from ${name}'s named circle.
+- NO CELL PHONES: No child character in this story owns or uses a cell phone, smartphone, or sends text messages. This applies to all children regardless of age. If characters need to communicate, they do so in person, by note, or through a parent's phone used by an adult.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
