@@ -14,8 +14,8 @@ const inngest = new Inngest({
 // ── STORY TIERS BY AGE ──
 function getStoryTier(age) {
   const a = parseInt(age);
-  if (a <= 5) return { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 15, imagesPerChap: 0, label: "illustrated novel" };
-  if (a <= 9) return { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 10, imagesPerChap: 0, label: "illustrated chapter book" };
+  if (a <= 5) return { chapCount: 15, wordsPerChap: 500, maxTokensPerChap: 1000, imageCount: 15, imagesPerChap: 0, label: "illustrated chapter book" };
+  if (a <= 9) return { chapCount: 20, wordsPerChap: 700, maxTokensPerChap: 1400, imageCount: 10, imagesPerChap: 0, label: "chapter book" };
   return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
 }
 
@@ -402,11 +402,11 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - Never invent a grade level for any character that conflicts with their stated age
 - If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
 
-This is a full ${tier.chapCount}-chapter novel (~24,000 words total). Structure the arc like a proper novel:
-- Chapters 1–5: Introduce ${name} and their world, establish the milestone challenge
-- Chapters 6–15: Rising action, complications, adventures, setbacks
-- Chapters 16–24: Climax builds, highest stakes, darkest moment
-- Chapters 25–30: Resolution, triumph over the milestone, heartwarming ending
+This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
+- Opening (first 20%): Introduce ${name} and their world, establish the milestone challenge
+- Rising action (middle 50%): Complications, adventures, new friends, setbacks
+- Climax (next 20%): Highest stakes, darkest moment, breakthrough
+- Resolution (final 10%): Triumph over the milestone, heartwarming ending
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
