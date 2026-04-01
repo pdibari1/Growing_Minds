@@ -45,7 +45,7 @@ const generateStoryOrder = inngest.createFunction(
     const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
     const namedCharacters = [childName];
     if (childData.friend && childData.friend !== "none") {
-      childData.friend.split(',').forEach(f => {
+      childData.friend.split(/,|\band\b/i).forEach(f => {
         const t = f.trim();
         if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
       });
@@ -475,17 +475,17 @@ ${chapterText}`;
 
 async function correctKindness(chapterText, namedCharacters) {
   if (!namedCharacters || namedCharacters.length === 0 || !chapterText) return chapterText;
+  const charList = namedCharacters.join(', ');
   const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
 
-PROTECTED CHARACTERS — must always be portrayed as kind and warm:
-${namedCharacters.join(', ')}
+PROTECTED CHARACTERS: ${charList}
 
-RULE: Named characters must never say anything negative about another person — not in dialogue, not in narration, not in past-tense backstory. This means they cannot insult, exclude, criticize, mock, or speak unkindly about anyone, in any tense or framing.
+Go through each protected character one at a time. For each one, find every sentence or line of dialogue where that character speaks or acts. Ask: does this character say or do something negative toward another person? "Negative" means: insults, put-downs, excluding someone, mocking, criticizing, laughing at someone, saying someone isn't good enough, or any unkind words or actions directed at another character.
 
-If you find a violation, rewrite ONLY that sentence or passage — replace the named character with an unnamed one (e.g. "a classmate", "another kid", "someone from class"). Keep all other plot, dialogue, tone, and structure exactly the same.
+If yes — rewrite only that sentence or passage, replacing the named character with "a classmate" or "another kid". Do not change anything else.
 
-If there are no violations, return the text unchanged.
-Return the corrected chapter text only. No explanation.
+If no violations are found, return the text unchanged.
+Return the corrected chapter text only. No explanation.`;
 
 CHAPTER TEXT:
 ${chapterText}`;
@@ -507,7 +507,7 @@ async function generateOutline(child, tier) {
   // Build named characters list for outline kindness rule (same logic as chapter batch)
   const namedCharacters = [name];
   if (friend && friend !== "none") {
-    friend.split(',').forEach(f => {
+    friend.split(/,|\band\b/i).forEach(f => {
       const t = f.trim();
       if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
     });
@@ -557,10 +557,12 @@ STORY RULES — apply to every chapter summary:
 - NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person — in present scenes AND in any referenced past events or backstory. They must not act mean, cruel, mocking, dismissive, or unkind toward anyone, in any tense or framing. DO NOT write a chapter summary where any of these characters bullies, teases, belittles, threatens, or antagonizes anyone — including past-tense references like "Corbin had made fun of..." or "Holden used to...". If the story needs an antagonist or a past mean act, invent an UNNAMED character (e.g. "a classmate", "another kid", "a rival") — never assign that role to a named character from this list. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO PHONES FOR KIDS: Children in this story do not have cell phones, smartphones, or any personal devices. No child sends or receives text messages, group chats, or messages of any kind via a device. This rule has no exceptions — not for older kids, not for plot convenience. If children need to communicate, they talk in person, pass a note, or ask a parent to make a call.
 
+CONFLICT SOURCE — this is critical: The conflict and challenge in this story must come from the milestone itself and external obstacles only (difficulty of the task, weather, bad luck, self-doubt, time pressure, a misunderstanding). Named friends are always on ${name}'s side. They help, encourage, and participate. They are never the source of conflict. Any social friction or unkindness must come only from characters with no name — write them as "a classmate", "another kid", "a voice in the crowd", never giving them a name.
+
 This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
 - Opening (first 20%): Introduce ${name} and their world, establish the milestone challenge
-- Rising action (middle 50%): Complications, adventures, new friends, setbacks
-- Climax (next 20%): Highest stakes, darkest moment, breakthrough
+- Rising action (middle 50%): Complications, obstacles, self-doubt, setbacks — driven by the challenge itself, not by friends being unkind
+- Climax (next 20%): Highest stakes, darkest moment of doubt, breakthrough
 - Resolution (final 10%): Triumph over the milestone, heartwarming ending
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
@@ -665,7 +667,7 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
   // Build a list of all named characters from the order (hero + ALL friends + custom details names)
   const namedCharacters = [name];
   if (friend && friend !== "none") {
-    friend.split(',').forEach(f => {
+    friend.split(/,|\band\b/i).forEach(f => {
       const t = f.trim();
       if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
     });
@@ -743,6 +745,7 @@ RULES:
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
+- CONFLICT SOURCE: All difficulty and tension in this story comes from the milestone challenge itself — self-doubt, the difficulty of the task, bad luck, or external obstacles. Named friends are always supportive and on ${name}'s side. If a chapter outline calls for social conflict or unkindness, it must come from an unnamed character only ("a classmate", "another kid") — never from a named friend
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. Within a single paragraph, a character's location must be internally consistent — if they are inside, every detail in that paragraph must reflect being inside; if they are outside, every detail must reflect being outside. Never write a sentence where a character is simultaneously inside (e.g. looking through a window) and outside (e.g. "staying outside") in the same breath.
 - DIALOGUE COHERENCE: Every line of dialogue must logically follow from the line before it. A reply must make sense as a direct response to what was just said. Read each exchange as a back-and-forth conversation and verify that it flows naturally before moving on. Never generate a response that would only make sense as a reply to a different question or statement than the one actually asked. If a character calls out to get another character's attention ("Ben! Look!"), the other character must acknowledge that bid before launching into their own agenda — they cannot simply ignore it and start showing something of their own as if the first character hadn't spoken. If a family member (sibling, parent) speaks directly to ${name}, ${name} must respond to what they said — never skip past it as if it were unheard.
 - AGE & GRADE LOGIC: Derive school grades strictly from age (age 5 = Kindergarten, age 6–7 = Grade 1–2, etc.). Children of different ages are never in the same grade unless they are twins or custom details say otherwise. "Going to school together" = same school building, not same grade. Never write that a younger child is joining or catching up to an older child's grade.
