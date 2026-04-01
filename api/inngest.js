@@ -93,6 +93,11 @@ const generateStoryOrder = inngest.createFunction(
           batchChapters.map(ch => correctKindness(ch, childData.namedCharacters))
         );
 
+        // Correct any digital-message-between-children violations before saving
+        batchChapters = await Promise.all(
+          batchChapters.map(ch => correctPhones(ch))
+        );
+
         // Save to Redis immediately
         await saveChaptersToRedis(storyId, priorChapters, batchChapters);
 
@@ -402,6 +407,36 @@ ${chapterText}`;
   }
 }
 
+async function correctPhones(chapterText) {
+  if (!chapterText) return chapterText;
+  const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
+
+RULE: No child in this story may send or receive any digital message from another child — on their own device, on a parent's device, or on any screen. This includes: texts, messages, notifications, group chats, or any digital communication between children. It does not matter whose phone it appears on.
+
+The only permitted child-to-child communication is: talking in person, passing a handwritten note, or a parent making a voice call to another parent.
+
+Violations include (but are not limited to):
+- A child's phone buzzing with a message from another child
+- A message from a child appearing on a parent's screen or phone
+- A child reading a text sent by another child
+- Any notification, buzz, or ping connecting one child to another digitally
+
+If you find a violation, rewrite ONLY that passage so the same information is conveyed through an allowed method — e.g. a friend shows up in person, a parent relays a message after a phone call, or a handwritten note is passed. Keep all other plot, dialogue, tone, and structure exactly the same.
+
+If there are no violations, return the text unchanged.
+Return the corrected chapter text only. No explanation.
+
+CHAPTER TEXT:
+${chapterText}`;
+  try {
+    const corrected = await callClaude(prompt, 3000);
+    return corrected.trim();
+  } catch(e) {
+    console.error(`correctPhones failed: ${e.message}`);
+    return chapterText;
+  }
+}
+
 async function correctKindness(chapterText, namedCharacters) {
   if (!namedCharacters || namedCharacters.length === 0 || !chapterText) return chapterText;
   const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
@@ -685,7 +720,7 @@ ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
 - STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
 - NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person — in present scenes AND in any past-tense narration, flashback, or backstory reference. They must NEVER bully, tease, belittle, threaten, knock things over, laugh at someone's pain, or act unkind toward anyone — not toward ${name}, not toward each other, not toward unnamed characters — in any tense or framing. This includes sentences like "Corbin had made fun of..." or "Holden used to tease..." — those are equally forbidden. If a scene needs a past mean act or a present antagonist, replace that character with an UNNAMED character (e.g. "a classmate", "another kid", "a rival"). Named characters may have worries or make honest mistakes, but they are never cruel or antagonistic. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
-- NO PHONES FOR KIDS: No child in this story owns, carries, or uses a cell phone, smartphone, tablet for messaging, or any personal device. No child sends or receives texts, group chats, or digital messages of any kind. This has no exceptions. Children communicate face to face, by handwritten note, or by asking a parent to make a phone call on their behalf.
+- NO DIGITAL MESSAGES BETWEEN CHILDREN: No child in this story sends or receives any digital message from another child — not on their own device, not on a parent's device, not on any screen. It does not matter whose phone or tablet it appears on: if a child is the sender or receiver of a digital message, it is forbidden. The only permitted forms of child-to-child communication are: talking in person, passing a handwritten note, or a parent placing a voice call to another parent. Never write a scene where a child learns about another child's message, text, notification, or digital communication through any device or screen.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
