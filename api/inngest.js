@@ -480,14 +480,9 @@ async function correctKindness(chapterText, namedCharacters) {
 PROTECTED CHARACTERS — must always be portrayed as kind and warm:
 ${namedCharacters.join(', ')}
 
-RULE: None of the above characters may be portrayed as mean, cruel, unkind, dismissive, or antagonistic toward anyone — in present scenes OR in past-tense narration, flashback, or backstory. Violations include:
-- Direct mean actions: "Corbin knocked over her blocks", "Holden called her name silly"
-- Past-tense references: "Corbin had made fun of...", "Holden used to tease...", "his friends had been mean..."
-- Laughing at someone's discomfort or pain
-- Intimidating, threatening, or belittling anyone
-- Being dismissive or walking away coldly
+RULE: Named characters must never say anything negative about another person — not in dialogue, not in narration, not in past-tense backstory. This means they cannot insult, exclude, criticize, mock, or speak unkindly about anyone, in any tense or framing.
 
-If you find a violation, rewrite ONLY that sentence or passage — replace the named character with an unnamed one (e.g. "a classmate", "another kid", "someone from class", "a kid she didn't know well"). Keep all other plot, dialogue, tone, and structure exactly the same.
+If you find a violation, rewrite ONLY that sentence or passage — replace the named character with an unnamed one (e.g. "a classmate", "another kid", "someone from class"). Keep all other plot, dialogue, tone, and structure exactly the same.
 
 If there are no violations, return the text unchanged.
 Return the corrected chapter text only. No explanation.
@@ -755,7 +750,7 @@ RULES:
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
 - STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
-- NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person — in present scenes AND in any past-tense narration, flashback, or backstory reference. They must NEVER bully, tease, belittle, threaten, knock things over, laugh at someone's pain, or act unkind toward anyone — not toward ${name}, not toward each other, not toward unnamed characters — in any tense or framing. This includes sentences like "Corbin had made fun of..." or "Holden used to tease..." — those are equally forbidden. If a scene needs a past mean act or a present antagonist, replace that character with an UNNAMED character (e.g. "a classmate", "another kid", "a rival"). Named characters may have worries or make honest mistakes, but they are never cruel or antagonistic. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
+- NAMED CHARACTERS NEVER SAY NEGATIVE THINGS: The following characters are named in this child's profile: ${namedCharactersStr}. None of them may say anything negative about another person — not in dialogue, not in narration, not in past-tense backstory. They cannot insult, exclude, criticize, mock, or speak unkindly about anyone, in any tense or framing. If the story needs someone to say something negative, use an UNNAMED character (e.g. "a classmate", "another kid", "a rival"). The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO DIGITAL MESSAGES BETWEEN CHILDREN: No child in this story sends or receives any digital message from another child — not on their own device, not on a parent's device, not on any screen. It does not matter whose phone or tablet it appears on: if a child is the sender or receiver of a digital message, it is forbidden. The only permitted forms of child-to-child communication are: talking in person, passing a handwritten note, or a parent placing a voice call to another parent. Never write a scene where a child learns about another child's message, text, notification, or digital communication through any device or screen.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
