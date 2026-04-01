@@ -68,8 +68,13 @@ const generateStoryOrder = inngest.createFunction(
 
         // Correct any nickname violations before saving
         if (childData.parsedCustomDetails) {
+          // Build full given names list so the correction pass can catch invented diminutives
+          const fullNamesForCorrection = [childName];
+          if (childData.friend && childData.friend !== "none") {
+            childData.friend.split(',').forEach(f => { const t = f.trim(); if (t) fullNamesForCorrection.push(t); });
+          }
           batchChapters = await Promise.all(
-            batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails))
+            batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails, fullNamesForCorrection))
           );
         }
 
@@ -347,17 +352,20 @@ DEFAULT: Any character not listed in the NICKNAME TABLE must use the other chara
   }
 }
 
-async function correctNicknames(chapterText, parsedCustomDetails) {
+async function correctNicknames(chapterText, parsedCustomDetails, fullNames = []) {
   if (!parsedCustomDetails || !chapterText) return chapterText;
+  const fullNamesLine = fullNames.length > 0
+    ? `\nFULL GIVEN NAMES IN THIS STORY: ${fullNames.join(', ')}\nAny shortened, informal, or diminutive form of these names (e.g. "Jules" for "Julianna", "Ben" for "Benjamin", "Cor" for "Corbin") that does NOT appear as an approved nickname in the NICKNAME TABLE above is an invented nickname — replace it with the character's full given name.`
+    : "";
   const prompt = `You are a copy editor. The chapter text below may contain nickname errors.
 
 AUTHORITATIVE NICKNAME TABLE:
-${parsedCustomDetails}
+${parsedCustomDetails}${fullNamesLine}
 
 RULES:
-- Fix any nickname that violates the NICKNAME TABLE — including both invented names AND reversed usage (e.g. if the table says A calls B "puppy", then B must never call A "puppy" — that reversal is forbidden and must be replaced with the correct name).
-- Check both dialogue AND narrative text (e.g. "he called her puppy" is also an error if that nickname belongs to the other direction).
-- Replace any forbidden or incorrect nickname with either the correct approved nickname or the character's full given name.
+- Fix any nickname that violates the NICKNAME TABLE — including reversed usage (e.g. if A calls B "puppy", then B must never call A "puppy") AND invented nicknames not in the table.
+- Any shortened or informal form of a character's full given name that is NOT in the NICKNAME TABLE is an invented nickname and must be replaced with the character's full given name.
+- Check both dialogue AND narrative text.
 - Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
 - If there are no errors, return the text unchanged.
 - Return the corrected chapter text only. No explanation, no commentary.
@@ -408,7 +416,7 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Use ONLY the nicknames in the table above. Never invent others.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
 - Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is forbidden — even if it sounds natural in English.
+- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Examples of forbidden inventions: "Jules" for "Julianna", "Ben" or "Benny" for "Benjamin", "Cor" for "Corbin", "Hol" for "Holden". If the table does not list it, it does not exist in this story.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
@@ -586,7 +594,7 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 - Use ONLY the nicknames in the table above. Never invent others.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
 - Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is forbidden — even if it sounds natural in English.
+- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Examples of forbidden inventions: "Jules" for "Julianna", "Ben" or "Benny" for "Benjamin", "Cor" for "Corbin", "Hol" for "Holden". If the table does not list it, it does not exist in this story.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
