@@ -71,7 +71,13 @@ const generateStoryOrder = inngest.createFunction(
           // Build full given names list so the correction pass can catch invented diminutives
           const fullNamesForCorrection = [childName];
           if (childData.friend && childData.friend !== "none") {
-            childData.friend.split(',').forEach(f => { const t = f.trim(); if (t) fullNamesForCorrection.push(t); });
+            childData.friend.split(',').forEach(f => { const t = f.trim(); if (t && !fullNamesForCorrection.includes(t)) fullNamesForCorrection.push(t); });
+          }
+          // Also extract names from customDetails (e.g. siblings like Julianna who aren't in the friend field)
+          if (childData.customDetails) {
+            const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
+            const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
+            nameMatches.forEach(w => { if (!skipWords.has(w) && !fullNamesForCorrection.includes(w)) fullNamesForCorrection.push(w); });
           }
           batchChapters = await Promise.all(
             batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails, fullNamesForCorrection))
@@ -340,6 +346,11 @@ FORBIDDEN USAGE (the reverse of every nickname above — explicitly prohibited):
 [Speaker] must NEVER call [Receiver] → "[nickname]" — this nickname belongs to a different speaker
 (one line per forbidden reversal)
 
+DIALOGUE ATTRIBUTION CHECKS:
+For each nickname, state who may and may not say it in dialogue:
+"[nickname]": only [Speaker] may say this. ✗ Wrong if [Receiver] or anyone else says it. Example of a violation: '[Receiver] said, "...[nickname]..."'
+(one line per nickname)
+
 DEFAULT: Any character not listed in the NICKNAME TABLE must use the other character's full name only.`;
 
   try {
@@ -363,12 +374,13 @@ AUTHORITATIVE NICKNAME TABLE:
 ${parsedCustomDetails}${fullNamesLine}
 
 RULES:
-- Fix any nickname that violates the NICKNAME TABLE — including reversed usage (e.g. if A calls B "puppy", then B must never call A "puppy") AND invented nicknames not in the table.
-- Any shortened or informal form of a character's full given name that is NOT in the NICKNAME TABLE is an invented nickname and must be replaced with the character's full given name.
-- Check both dialogue AND narrative text.
-- Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
-- If there are no errors, return the text unchanged.
-- Return the corrected chapter text only. No explanation, no commentary.
+1. DIALOGUE ATTRIBUTION: For every line of dialogue containing a nickname, identify the speaker (look for "[Name] said", "said [Name]", "[Name] called", "[Name] whispered", "[Name] replied", etc.). Then check: is that speaker authorized to use that nickname per the NICKNAME TABLE? If not, it is a violation — replace the nickname with the character's full given name.
+2. REVERSED USAGE: If the table says A calls B "[nickname]", then B calling A "[nickname]" is always wrong — even if the exchange seems like a fun callback or joke.
+3. INVENTED NICKNAMES: Any shortened or informal form of a character's full given name that is NOT in the NICKNAME TABLE is forbidden — replace it with the full given name.
+4. NARRATIVE TEXT: Also check narrator text (e.g. "he called her puppy" is wrong if Benjamin is the subject and "puppy" belongs to Julianna's direction).
+5. Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
+6. If there are no errors, return the text unchanged.
+7. Return the corrected chapter text only. No explanation, no commentary.
 
 CHAPTER TEXT:
 ${chapterText}`;
@@ -601,10 +613,11 @@ NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
 
   const customReminder = customDetails ? `
 FINAL CHECK before you finish: Re-read the STRUCTURED NICKNAME TABLE above. Verify:
-1. Every nickname matches the table exactly — correct speaker, correct receiver, correct word.
-2. No character has been given a shortened, abbreviated, or diminutive name that does not appear in the table — any such variation is forbidden even if it sounds natural.
-3. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
-4. "Going to school together" means the same school building, not the same classroom or grade.
+1. DIALOGUE ATTRIBUTION: For every line of dialogue containing a nickname, identify who is speaking (look for "said [Name]", "[Name] said", "[Name] called", etc.). Then verify that speaker is listed in the NICKNAME TABLE as authorized to use that nickname. If not, replace the nickname with the character's full given name.
+2. REVERSAL CHECK: Nicknames are one-directional. If the table says A calls B "puppy", then B calling A "puppy" is always wrong — even if it seems like a playful echo. Replace any reversed usage with the speaker's correct nickname or full name.
+3. No character has been given a shortened, abbreviated, or diminutive name that does not appear in the table — any such variation is forbidden even if it sounds natural.
+4. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
+5. "Going to school together" means the same school building, not the same classroom or grade.
 Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
