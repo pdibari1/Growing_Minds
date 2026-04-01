@@ -41,6 +41,21 @@ const generateStoryOrder = inngest.createFunction(
       if (parsedCustomDetails) childData.parsedCustomDetails = parsedCustomDetails;
     }
 
+    // Build named characters list once — used by both generation prompts and correction passes
+    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
+    const namedCharacters = [childName];
+    if (childData.friend && childData.friend !== "none") {
+      childData.friend.split(',').forEach(f => {
+        const t = f.trim();
+        if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
+      });
+    }
+    if (childData.customDetails) {
+      const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
+      nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
+    }
+    childData.namedCharacters = namedCharacters;
+
     // Step 1: Generate chapter outline — save to Redis immediately
     const outline = await step.run("generate-outline", async () => {
       const result = await generateOutline(childData, tier);
@@ -68,21 +83,15 @@ const generateStoryOrder = inngest.createFunction(
 
         // Correct any nickname violations before saving
         if (childData.parsedCustomDetails) {
-          // Build full given names list so the correction pass can catch invented diminutives
-          const fullNamesForCorrection = [childName];
-          if (childData.friend && childData.friend !== "none") {
-            childData.friend.split(',').forEach(f => { const t = f.trim(); if (t && !fullNamesForCorrection.includes(t)) fullNamesForCorrection.push(t); });
-          }
-          // Also extract names from customDetails (e.g. siblings like Julianna who aren't in the friend field)
-          if (childData.customDetails) {
-            const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
-            const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
-            nameMatches.forEach(w => { if (!skipWords.has(w) && !fullNamesForCorrection.includes(w)) fullNamesForCorrection.push(w); });
-          }
           batchChapters = await Promise.all(
-            batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails, fullNamesForCorrection))
+            batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails, childData.namedCharacters))
           );
         }
+
+        // Correct any named-character kindness violations before saving
+        batchChapters = await Promise.all(
+          batchChapters.map(ch => correctKindness(ch, childData.namedCharacters))
+        );
 
         // Save to Redis immediately
         await saveChaptersToRedis(storyId, priorChapters, batchChapters);
@@ -393,6 +402,36 @@ ${chapterText}`;
   }
 }
 
+async function correctKindness(chapterText, namedCharacters) {
+  if (!namedCharacters || namedCharacters.length === 0 || !chapterText) return chapterText;
+  const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
+
+PROTECTED CHARACTERS — must always be portrayed as kind and warm:
+${namedCharacters.join(', ')}
+
+RULE: None of the above characters may be portrayed as mean, cruel, unkind, dismissive, or antagonistic toward anyone — in present scenes OR in past-tense narration, flashback, or backstory. Violations include:
+- Direct mean actions: "Corbin knocked over her blocks", "Holden called her name silly"
+- Past-tense references: "Corbin had made fun of...", "Holden used to tease...", "his friends had been mean..."
+- Laughing at someone's discomfort or pain
+- Intimidating, threatening, or belittling anyone
+- Being dismissive or walking away coldly
+
+If you find a violation, rewrite ONLY that sentence or passage — replace the named character with an unnamed one (e.g. "a classmate", "another kid", "someone from class", "a kid she didn't know well"). Keep all other plot, dialogue, tone, and structure exactly the same.
+
+If there are no violations, return the text unchanged.
+Return the corrected chapter text only. No explanation.
+
+CHAPTER TEXT:
+${chapterText}`;
+  try {
+    const corrected = await callClaude(prompt, 3000);
+    return corrected.trim();
+  } catch(e) {
+    console.error(`correctKindness failed: ${e.message}`);
+    return chapterText;
+  }
+}
+
 async function generateOutline(child, tier) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
@@ -448,6 +487,7 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
 
 STORY RULES — apply to every chapter summary:
+- STICK TO KNOWN DETAILS: Only reference specific real-world details — teacher names, school names, pet names, sibling names, home layout, routines, hobbies, family traditions — if they are explicitly provided in the child's profile or custom details. For anything not specified, keep it general so it cannot clash with the child's real life. Write "his teacher" not an invented name. Write "a place he loved" not an invented location. If it's not in the profile, leave it vague.
 - NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person — in present scenes AND in any referenced past events or backstory. They must not act mean, cruel, mocking, dismissive, or unkind toward anyone, in any tense or framing. DO NOT write a chapter summary where any of these characters bullies, teases, belittles, threatens, or antagonizes anyone — including past-tense references like "Corbin had made fun of..." or "Holden used to...". If the story needs an antagonist or a past mean act, invent an UNNAMED character (e.g. "a classmate", "another kid", "a rival") — never assign that role to a named character from this list. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO PHONES FOR KIDS: Children in this story do not have cell phones, smartphones, or any personal devices. No child sends or receives text messages, group chats, or messages of any kind via a device. This rule has no exceptions — not for older kids, not for plot convenience. If children need to communicate, they talk in person, pass a note, or ask a parent to make a call.
 
@@ -643,6 +683,7 @@ RULES:
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
+- STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
 - NAMED CHARACTERS ARE KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as a good, warm person — in present scenes AND in any past-tense narration, flashback, or backstory reference. They must NEVER bully, tease, belittle, threaten, knock things over, laugh at someone's pain, or act unkind toward anyone — not toward ${name}, not toward each other, not toward unnamed characters — in any tense or framing. This includes sentences like "Corbin had made fun of..." or "Holden used to tease..." — those are equally forbidden. If a scene needs a past mean act or a present antagonist, replace that character with an UNNAMED character (e.g. "a classmate", "another kid", "a rival"). Named characters may have worries or make honest mistakes, but they are never cruel or antagonistic. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO PHONES FOR KIDS: No child in this story owns, carries, or uses a cell phone, smartphone, tablet for messaging, or any personal device. No child sends or receives texts, group chats, or digital messages of any kind. This has no exceptions. Children communicate face to face, by handwritten note, or by asking a parent to make a phone call on their behalf.
 ${customReminder}
