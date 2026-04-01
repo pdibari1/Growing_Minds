@@ -128,10 +128,10 @@ const generateStoryOrder = inngest.createFunction(
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
       const styleGuide = parseInt(age) <= 5
-        ? "Soft watercolor 2D illustration. Warm pastel palette — soft yellows, peaches, sky blues. Gentle and whimsical, Studio Ghibli inspired"
+        ? "Soft watercolor 2D children's book illustration. Warm pastel colors — soft yellows, peaches, sky blues. Gentle and whimsical, Studio Ghibli inspired"
         : parseInt(age) <= 9
-        ? "Vibrant 2D digital illustration. Flat art style with bold outlines. Bright saturated palette — warm reds, greens, golden yellows. Slightly stylized characters, warm cheerful lighting"
-        : "2D digital illustration, semi-realistic style. Rich palette — deep blues, warm ambers, forest greens. Warm cinematic lighting";
+        ? "Vibrant 2D digital children's book illustration. Flat art style with bold outlines. Bright saturated colors — warm reds, greens, golden yellows. Slightly stylized characters, warm cheerful lighting"
+        : "2D digital children's book illustration, semi-realistic style. Rich deep colors — blues, warm ambers, forest greens. Warm cinematic lighting";
 
       // Locked physical description built directly from user form data — never overridden
       const hairLengthExpanded = hairLength === 'long' ? 'very long, flowing well past the shoulders'
@@ -161,7 +161,11 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide}. A single full-bleed scene painting: ${name}, ${lockedCharDesc}, joyfully exploring outdoors in ${city}, ${region}.${longHairBoyNote} ${name} is the only person in the scene. The landscape of ${region} fills the background. This is a painted scene, not a design document — the entire canvas is filled with the environment and character. CRITICAL: do not include any color strips, color bars, color swatches, palette rows, or color chips anywhere in the image — not at the top, bottom, or sides. No panels, no frames, no inset images, no reference sheets, no film strips. No text, words, letters, or labels anywhere.`;
+        const coverPrompt = `${styleGuide}. IMPORTANT — CHARACTER APPEARANCE: ${name} is ${lockedCharDesc}.${longHairBoyNote} Paint ${name} exactly as described — the hair length and color are essential.
+
+Full-bleed scene: ${name} joyfully exploring outdoors in ${city}, ${region}. ${name} is the only person in the scene. The ${region} landscape fills the entire background. Every inch of the canvas is painted scene — sky, land, character.
+
+ABSOLUTELY NO: color strips, color bars, color swatches, color chips, palette rows, color samples, design sheets, reference sheets, panels, frames, borders, film strips, labels, text, words, or letters anywhere in the image. This is a story illustration, not a design document.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -195,7 +199,9 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci];
-            const prompt = `${styleGuide}. A single seamless illustration: ${chap.imagePrompt} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} Setting: ${city}, ${region}. No panels, no frames, no inset images. No text, no words, no letters anywhere in the image.`;
+            const prompt = `${styleGuide}. IMPORTANT — CHARACTER APPEARANCE: ${name} is ${lockedCharDesc}.${longHairBoyNote} Other characters in this story: ${finalCastRef}. Paint every character exactly as described — hair length, hair color, and eye color are essential and must match.
+
+Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Every inch of the canvas is painted scene. No panels, no frames, no inset images, no color strips or swatches. No text, no words, no letters anywhere in the image.`;
             try {
               let imageUrl;
               try {
@@ -379,19 +385,49 @@ DEFAULT: Any character not listed in the NICKNAME TABLE must use the other chara
 
 async function correctNicknames(chapterText, parsedCustomDetails, fullNames = []) {
   if (!parsedCustomDetails || !chapterText) return chapterText;
+
+  // Build a specific watch-list of common English diminutives for each full name
+  const diminutiveMap = {
+    'Julianna': ['Jules', 'Juli', 'Julie', 'Anna', 'Juli'],
+    'Julian': ['Jules', 'Juli'],
+    'Benjamin': ['Ben', 'Benny', 'Benji'],
+    'Corbin': ['Cor', 'Corby'],
+    'Holden': ['Hol', 'Holdy'],
+    'Evelyn': ['Evie', 'Eve'],
+    'Elizabeth': ['Liz', 'Beth', 'Lizzy', 'Ellie', 'Eliza'],
+    'Katherine': ['Kat', 'Kate', 'Kathy', 'Katie'],
+    'Alexander': ['Alex', 'Xander'],
+    'Samantha': ['Sam', 'Sammie'],
+    'Charlotte': ['Charlie', 'Lottie'],
+    'Josephine': ['Jo', 'Josie'],
+    'Theodore': ['Theo', 'Teddy'],
+    'Nathaniel': ['Nate', 'Nat'],
+    'William': ['Will', 'Willie', 'Bill'],
+    'Nicholas': ['Nick', 'Nicky'],
+    'Christopher': ['Chris'],
+    'Matthew': ['Matt', 'Matty'],
+    'Rebecca': ['Becca', 'Becky'],
+  };
+
+  const watchLines = fullNames
+    .filter(n => diminutiveMap[n])
+    .map(n => `  - "${n}" → watch for and replace: ${diminutiveMap[n].map(d => `"${d}"`).join(', ')}`)
+    .join('\n');
+
   const fullNamesLine = fullNames.length > 0
-    ? `\nFULL GIVEN NAMES IN THIS STORY: ${fullNames.join(', ')}\nAny shortened, informal, or diminutive form of these names (e.g. "Jules" for "Julianna", "Ben" for "Benjamin", "Cor" for "Corbin") that does NOT appear as an approved nickname in the NICKNAME TABLE above is an invented nickname — replace it with the character's full given name.`
+    ? `\nFULL GIVEN NAMES IN THIS STORY: ${fullNames.join(', ')}\n\nSPECIFIC DIMINUTIVES TO CATCH — these are common English shortenings that must be replaced with the full given name if they appear and are NOT in the NICKNAME TABLE:\n${watchLines || '  (none mapped — still flag any obvious shortening)'}`
     : "";
+
   const prompt = `You are a copy editor. The chapter text below may contain nickname errors.
 
 AUTHORITATIVE NICKNAME TABLE:
 ${parsedCustomDetails}${fullNamesLine}
 
 RULES:
-1. DIALOGUE ATTRIBUTION: For every line of dialogue containing a nickname, identify the speaker (look for "[Name] said", "said [Name]", "[Name] called", "[Name] whispered", "[Name] replied", etc.). Then check: is that speaker authorized to use that nickname per the NICKNAME TABLE? If not, it is a violation — replace the nickname with the character's full given name.
-2. REVERSED USAGE: If the table says A calls B "[nickname]", then B calling A "[nickname]" is always wrong — even if the exchange seems like a fun callback or joke.
-3. INVENTED NICKNAMES: Any shortened or informal form of a character's full given name that is NOT in the NICKNAME TABLE is forbidden — replace it with the full given name.
-4. NARRATIVE TEXT: Also check narrator text (e.g. "he called her puppy" is wrong if Benjamin is the subject and "puppy" belongs to Julianna's direction).
+1. DIALOGUE ATTRIBUTION: For every line of dialogue containing a nickname, identify the speaker (look for "[Name] said", "said [Name]", "[Name] called", "[Name] whispered", "[Name] replied", etc.). Then check: is that speaker authorized to use that nickname per the NICKNAME TABLE? If not, replace it with the character's full given name.
+2. REVERSED USAGE: If the table says A calls B "[nickname]", then B calling A "[nickname]" is always wrong — even if it seems like a playful echo.
+3. INVENTED DIMINUTIVES: Check the SPECIFIC DIMINUTIVES list above. If any of those words appear in the text for the named character and are NOT listed in the NICKNAME TABLE as approved, replace them with the full given name.
+4. NARRATIVE TEXT: Also check narrator text (e.g. "he called her Jules" is wrong if "Jules" is not in the table).
 5. Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
 6. If there are no errors, return the text unchanged.
 7. Return the corrected chapter text only. No explanation, no commentary.
@@ -499,10 +535,10 @@ STRUCTURED NICKNAME TABLE (authoritative — use this, not the prose above):
 ${parsedCustomDetails}
 ` : ''}
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- Use ONLY the nicknames in the table above. Never invent others.
+- ACTIVELY USE the nicknames in the table. When a listed speaker is talking to or about their receiver, use the nickname — do not default to the full name out of caution. Nicknames should appear naturally in dialogue throughout the story.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
 - Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Examples of forbidden inventions: "Jules" for "Julianna", "Ben" or "Benny" for "Benjamin", "Cor" for "Corbin", "Hol" for "Holden". If the table does not list it, it does not exist in this story.
+- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Common forbidden examples: "Jules", "Juli", "Julie" for "Julianna"; "Ben", "Benny", "Benji" for "Benjamin"; "Cor", "Corby" for "Corbin"; "Hol" for "Holden"; "Evie" for "Evelyn". Apply this logic to every character name in the story. If the table does not list it, it does not exist in this story.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
@@ -678,10 +714,10 @@ STRUCTURED NICKNAME TABLE (authoritative — use this, not the prose above):
 ${parsedCustomDetails}
 ` : ''}
 NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- Use ONLY the nicknames in the table above. Never invent others.
+- ACTIVELY USE the nicknames in the table. When a listed speaker is talking to or about their receiver, use the nickname — do not default to the full name out of caution. Nicknames should appear naturally in dialogue throughout the story.
 - Every nickname is directional — only the listed speaker may use it for the listed receiver.
 - Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Examples of forbidden inventions: "Jules" for "Julianna", "Ben" or "Benny" for "Benjamin", "Cor" for "Corbin", "Hol" for "Holden". If the table does not list it, it does not exist in this story.
+- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Common forbidden examples: "Jules", "Juli", "Julie" for "Julianna"; "Ben", "Benny", "Benji" for "Benjamin"; "Cor", "Corby" for "Corbin"; "Hol" for "Holden"; "Evie" for "Evelyn". Apply this logic to every character name in the story. If the table does not list it, it does not exist in this story.
 - Follow all conditional rules exactly as stated.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
