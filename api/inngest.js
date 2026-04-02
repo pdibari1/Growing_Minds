@@ -98,6 +98,10 @@ const generateStoryOrder = inngest.createFunction(
             batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails, childData.namedCharacters))
           );
         }
+        // Deterministic regex enforcement — catches what LLM correction misses (e.g. "Jules" for Julianna)
+        batchChapters = batchChapters.map(ch =>
+          enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedCustomDetails)
+        );
 
         // Correct any named-character kindness violations before saving
         batchChapters = await Promise.all(
@@ -381,6 +385,53 @@ DEFAULT: Any character not listed in the NICKNAME TABLE must use the other chara
     console.error(`parseCustomDetails failed: ${e.message}`);
     return null;
   }
+}
+
+// Deterministic (no LLM) pass: replaces known diminutives with full names unless they're in the approved nickname table.
+// This is the final safety net — it cannot be argued around by LLM creativity.
+function enforceFullNamesRegex(chapterText, namedCharacters, parsedCustomDetails) {
+  if (!chapterText || !namedCharacters || namedCharacters.length === 0) return chapterText;
+
+  // Extract every approved nickname from the parsed table (lines like: → "Jules")
+  const approvedNicknames = new Set();
+  if (parsedCustomDetails) {
+    for (const m of parsedCustomDetails.matchAll(/→\s*"([^"]+)"/g)) {
+      approvedNicknames.add(m[1].trim());
+    }
+  }
+
+  const diminutiveMap = {
+    'Julianna': ['Jules', 'Juli', 'Julie', 'Anna'],
+    'Julian': ['Jules', 'Juli'],
+    'Benjamin': ['Ben', 'Benny', 'Benji'],
+    'Corbin': ['Cor', 'Corby'],
+    'Holden': ['Hol', 'Holdy'],
+    'Evelyn': ['Evie', 'Eve'],
+    'Elizabeth': ['Liz', 'Beth', 'Lizzy', 'Ellie', 'Eliza'],
+    'Katherine': ['Kat', 'Kate', 'Kathy', 'Katie'],
+    'Alexander': ['Alex', 'Xander'],
+    'Samantha': ['Sam', 'Sammie'],
+    'Charlotte': ['Charlie', 'Lottie'],
+    'Josephine': ['Jo', 'Josie'],
+    'Theodore': ['Theo', 'Teddy'],
+    'Nathaniel': ['Nate', 'Nat'],
+    'William': ['Will', 'Willie', 'Bill'],
+    'Nicholas': ['Nick', 'Nicky'],
+    'Christopher': ['Chris'],
+    'Matthew': ['Matt', 'Matty'],
+    'Rebecca': ['Becca', 'Becky'],
+  };
+
+  let text = chapterText;
+  for (const fullName of namedCharacters) {
+    const diminutives = diminutiveMap[fullName] || [];
+    for (const dim of diminutives) {
+      if (!approvedNicknames.has(dim)) {
+        text = text.replace(new RegExp(`\\b${dim}\\b`, 'g'), fullName);
+      }
+    }
+  }
+  return text;
 }
 
 async function correctNicknames(chapterText, parsedCustomDetails, fullNames = []) {
