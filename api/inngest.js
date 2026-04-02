@@ -515,11 +515,16 @@ ${chapterText}`;
 
 async function sanitizeOutline(outline, friendNames) {
   if (!friendNames || friendNames.length === 0) return outline;
-  const prompt = `You are editing a children's book chapter outline. The following characters are the hero's friends and must NEVER appear as a source of conflict, unkindness, or negative behavior in any chapter summary:
+  const prompt = `You are editing a children's book chapter outline. The following characters are the hero's friends and must NEVER be the source of any conflict, unkindness, or negative behavior in any chapter summary:
 
 PROTECTED FRIENDS: ${friendNames.join(', ')}
 
-Read each chapter summary. If a protected friend is described doing, saying, or causing anything negative — bullying, mocking, excluding, being mean, hurting someone's feelings — rewrite ONLY that summary. Replace the named friend with "a classmate" or "another kid". Keep the same plot beat, just swap who is responsible.
+Read each chapter summary carefully. Rewrite any summary that has ANY of these problems:
+1. A protected friend is doing, saying, or causing anything negative (bullying, mocking, excluding, laughing at someone, being mean)
+2. A protected friend is present in the same sentence or clause as an unkind act, in a way that implies they are involved
+3. The summary uses "they" or "his friends" to describe unkind behavior while protected friends are in the scene
+
+When rewriting: replace the protected friend with "a classmate" or "another kid". If the protected friend was also present as a witness, keep them as a concerned bystander in a separate sentence. Keep the same plot beat.
 
 If a summary has no violation, leave it exactly as written.
 
@@ -794,7 +799,7 @@ RULES:
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
-- CONFLICT SOURCE: All tension comes from the milestone challenge — self-doubt, difficulty, bad luck, external obstacles. Named friends are always supportive. Never write a scene where a named friend excludes, hurts, or is implied by context ("they", "them", "his friends") to have done something unkind — even if their name is not in that exact sentence. Any unkindness must come from a fully unnamed character who is not associated with any named friend in the scene
+- CONFLICT SOURCE: All tension comes from the milestone challenge — self-doubt, difficulty, bad luck, external obstacles. Named friends (${namedCharactersStr}) are always supportive. If the chapter outline refers to "a classmate" or "another kid" doing something unkind, write that character as a physically distinct stranger — never give them the name or identity of a named friend, and never place a named friend in the same action. If ${namedCharactersStr.split(', ').join(' or ')} is present in a scene where unkindness occurs, they must be bystanders who react with concern — never the one doing the unkind thing
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. Within a single paragraph, a character's location must be internally consistent — if they are inside, every detail in that paragraph must reflect being inside; if they are outside, every detail must reflect being outside. Never write a sentence where a character is simultaneously inside (e.g. looking through a window) and outside (e.g. "staying outside") in the same breath.
 - NO DANGLING SETUPS: If a sentence creates suspense or anticipation — "he heard something that made his stomach drop", "then she saw it", "something was wrong" — the very next sentence must deliver what that something is. Never use a suspense hook as a transition into unrelated backstory. The payoff must be immediate and in the same scene.
 - DIALOGUE COHERENCE: Every line of dialogue must logically follow from the line before it. A reply must make sense as a direct response to what was just said. If a character says two things in one turn — a greeting AND a question, or a nickname AND a statement — the reply must address both, not just one. Never respond only to a nickname trigger and ignore the actual question or statement that followed it. If a family member (sibling, parent) speaks directly to ${name}, ${name} must respond to what they said — never skip past it as if it were unheard.
