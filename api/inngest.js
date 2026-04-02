@@ -197,42 +197,31 @@ ABSOLUTELY NO: color strips, color bars, color swatches, color chips, palette ro
         }
       });
 
-      // Step C: Generate remaining illustrations using full cast reference
+      // Step C: Generate remaining illustrations using gpt-image-1 with cover as character reference
       const remainingKeys = allImageKeys.filter(k => k !== '0-0');
-      const imgBatchesRemaining = Math.ceil(remainingKeys.length / IMG_BATCH);
-      const finalCastRef = buildCastRef(finalCast);
-      for (let b = 0; b < imgBatchesRemaining; b++) {
-        await step.run(`generate-illustrations-v3-${b + 1}`, async () => {
-          const start = b * IMG_BATCH;
-          const keys = remainingKeys.slice(start, start + IMG_BATCH);
-          console.log(`Generating illustration batch ${b + 1}/${imgBatchesRemaining}: ${keys.length} images`);
-          const result = {};
-          for (const key of keys) {
-            const [ci] = key.split('-').map(Number);
-            const chap = freshOutline[ci];
-            const prompt = `${styleGuide}. IMPORTANT — CHARACTER APPEARANCE: ${name} is ${lockedCharDesc}.${longHairBoyNote} Other characters in this story: ${finalCastRef}. Paint every character exactly as described — hair length, hair color, and eye color are essential and must match.
+      for (let b = 0; b < remainingKeys.length; b++) {
+        await step.run(`generate-illustration-gpt1-${b + 1}`, async () => {
+          const key = remainingKeys[b];
+          const [ci] = key.split('-').map(Number);
+          const chap = freshOutline[ci];
+          console.log(`Generating illustration ${b + 1}/${remainingKeys.length}: key ${key}`);
 
-Scene: ${chap.imagePrompt} Setting: ${city}, ${region}. Every inch of the canvas is painted scene. No panels, no frames, no inset images, no color strips or swatches. No text, no words, no letters anywhere in the image.`;
-            try {
-              let imageUrl;
-              try {
-                imageUrl = await callDallE(prompt);
-              } catch(err) {
-                // First attempt failed — retry once with a safe fallback prompt
-                console.warn(`Image ${key} first attempt failed (${err.message}), retrying with fallback prompt`);
-                const fallbackPrompt = `${styleGuide}. A single seamless illustration of ${name}, ${lockedCharDesc}, running and exploring outdoors in ${city}, ${region} on a bright sunny day.${longHairBoyNote} No panels, no frames, no inset images. No text, no words, no letters anywhere in the image.`;
-                imageUrl = await callDallE(fallbackPrompt);
-              }
-              const imageBytes = await fetchImageBytes(imageUrl);
-              const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
-              result[key] = blob.url;
-              console.log(`Image ${key} uploaded to Blob: ${blob.url.slice(0, 60)}`);
-            } catch(err) {
-              console.error(`Image ${key} failed after retry: ${err.message}`);
-            }
-          }
-          await saveIllustrationsToRedis(storyId, result);
-          return { saved: Object.keys(result).length };
+          const scenePrompt = `${styleGuide}. ${name} is ${lockedCharDesc}.${longHairBoyNote}
+
+Illustrate this single scene as a full painted children's book illustration: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} Setting: ${city}, ${region}.
+
+The entire canvas is a painted scene — no character lineup, no reference sheet, no grid, no panels, no frames, no color strips or swatches. No text, no words, no letters, no labels anywhere in the image.`;
+
+          // Fetch cover image from Redis as character reference for consistency
+          const coverUrl = await redisRequest("GET", [`img:${storyId}:0-0`]);
+          if (!coverUrl) throw new Error('Cover image not found in Redis — cannot generate chapter illustration');
+          const coverBytes = await fetchImageBytes(coverUrl);
+
+          const imageBytes = await callGptImage1WithRef(coverBytes, scenePrompt);
+          const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
+          await saveIllustrationsToRedis(storyId, { [key]: blob.url });
+          console.log(`Image ${key} generated with gpt-image-1: ${blob.url.slice(0, 60)}`);
+          return { key, saved: true };
         });
       }
     } else {
@@ -864,12 +853,33 @@ async function generateIllustrations(child, outline, chapters, tier) {
   return illustrations;
 }
 
-function callDallE(prompt) {
+async function callGptImage1WithRef(referenceImageBytes, scenePrompt, quality = "low") {
+  const formData = new FormData();
+  formData.append('image', new Blob([referenceImageBytes], { type: 'image/jpeg' }), 'reference.jpg');
+  formData.append('prompt', scenePrompt);
+  formData.append('model', 'gpt-image-1');
+  formData.append('quality', quality);
+  formData.append('size', '1024x1024');
+
+  const response = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: formData,
+    signal: AbortSignal.timeout(180000)
+  });
+
+  const data = await response.json();
+  if (data.error) throw new Error(`gpt-image-1 error: ${data.error.message}`);
+  const b64 = data.data[0].b64_json;
+  return Buffer.from(b64, 'base64');
+}
+
+function callDallE(prompt, size = "1024x1024") {
   const payload = JSON.stringify({
     model: "dall-e-3",
     prompt,
     n: 1,
-    size: "1024x1024",
+    size,
     quality: "standard"
   });
 
