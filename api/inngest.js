@@ -57,11 +57,22 @@ const generateStoryOrder = inngest.createFunction(
     childData.namedCharacters = namedCharacters;
 
     // Step 1: Generate chapter outline — save to Redis immediately
-    const outline = await step.run("generate-outline", async () => {
+    const rawOutline = await step.run("generate-outline", async () => {
       const result = await generateOutline(childData, tier);
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);
       return result;
+    });
+
+    // Step 1b: Sanitize outline — replace any named friend in a conflict/unkindness role with an unnamed character
+    const outline = await step.run("sanitize-outline", async () => {
+      const friendNames = namedCharacters.filter(n => n !== childName);
+      if (friendNames.length === 0) return rawOutline;
+      const sanitized = await sanitizeOutline(rawOutline, friendNames);
+      // Overwrite Redis so chapter batches use the sanitized version
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(sanitized), "EX", 7200]);
+      console.log(`Outline sanitized — ${sanitized.length} chapters`);
+      return sanitized;
     });
 
     // Step 2: Generate chapters in batches — save each batch to Airtable immediately
@@ -499,6 +510,40 @@ ${chapterText}`;
   } catch(e) {
     console.error(`correctKindness failed: ${e.message}`);
     return chapterText;
+  }
+}
+
+async function sanitizeOutline(outline, friendNames) {
+  if (!friendNames || friendNames.length === 0) return outline;
+  const prompt = `You are editing a children's book chapter outline. The following characters are the hero's friends and must NEVER appear as a source of conflict, unkindness, or negative behavior in any chapter summary:
+
+PROTECTED FRIENDS: ${friendNames.join(', ')}
+
+Read each chapter summary. If a protected friend is described doing, saying, or causing anything negative — bullying, mocking, excluding, being mean, hurting someone's feelings — rewrite ONLY that summary. Replace the named friend with "a classmate" or "another kid". Keep the same plot beat, just swap who is responsible.
+
+If a summary has no violation, leave it exactly as written.
+
+Return the complete outline as a valid JSON array. Every object must have exactly these three fields: "title", "summary", "imagePrompt". Do not add, remove, or reorder chapters.
+
+OUTLINE:
+${JSON.stringify(outline, null, 2)}`;
+
+  try {
+    const raw = await callClaude(prompt, 6000);
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed) && parsed.length === outline.length) {
+        const changed = parsed.filter((c, i) => c.summary !== outline[i].summary).length;
+        console.log(`sanitizeOutline: fixed ${changed} chapter summaries`);
+        return parsed;
+      }
+    }
+    console.warn('sanitizeOutline: could not parse result, using original outline');
+    return outline;
+  } catch(e) {
+    console.error(`sanitizeOutline failed: ${e.message}`);
+    return outline;
   }
 }
 
