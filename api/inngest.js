@@ -480,12 +480,15 @@ async function correctKindness(chapterText, namedCharacters) {
 
 PROTECTED CHARACTERS: ${charList}
 
-Go through each protected character one at a time. For each one, find every sentence or line of dialogue where that character speaks or acts. Ask: does this character say or do something negative toward another person? "Negative" means: insults, put-downs, excluding someone, mocking, criticizing, laughing at someone, saying someone isn't good enough, or any unkind words or actions directed at another character.
+RULE: A protected character must never be portrayed negatively — not directly, not through hearsay, not in past-tense backstory. This includes:
+- Saying something mean or unkind (directly or reported: "Corbin said that Eve had said...")
+- Doing something unkind to anyone
+- Being described as having been mean in the past
 
-If yes — rewrite only that sentence or passage, replacing the named character with "a classmate" or "another kid". Do not change anything else.
+For each protected character, find every sentence where their name appears. If that sentence portrays them negatively in any way — replace their name with "a classmate" or "another kid". Do not change anything else.
 
 If no violations are found, return the text unchanged.
-Return the corrected chapter text only. No explanation.`;
+Return the corrected chapter text only. No explanation.
 
 CHAPTER TEXT:
 ${chapterText}`;
@@ -747,6 +750,7 @@ RULES:
 - Each chapter flows naturally from the last — no new unrelated premises
 - CONFLICT SOURCE: All difficulty and tension in this story comes from the milestone challenge itself — self-doubt, the difficulty of the task, bad luck, or external obstacles. Named friends are always supportive and on ${name}'s side. If a chapter outline calls for social conflict or unkindness, it must come from an unnamed character only ("a classmate", "another kid") — never from a named friend
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. Within a single paragraph, a character's location must be internally consistent — if they are inside, every detail in that paragraph must reflect being inside; if they are outside, every detail must reflect being outside. Never write a sentence where a character is simultaneously inside (e.g. looking through a window) and outside (e.g. "staying outside") in the same breath.
+- NO DANGLING SETUPS: If a sentence creates suspense or anticipation — "he heard something that made his stomach drop", "then she saw it", "something was wrong" — the very next sentence must deliver what that something is. Never use a suspense hook as a transition into unrelated backstory. The payoff must be immediate and in the same scene.
 - DIALOGUE COHERENCE: Every line of dialogue must logically follow from the line before it. A reply must make sense as a direct response to what was just said. Read each exchange as a back-and-forth conversation and verify that it flows naturally before moving on. Never generate a response that would only make sense as a reply to a different question or statement than the one actually asked. If a character calls out to get another character's attention ("Ben! Look!"), the other character must acknowledge that bid before launching into their own agenda — they cannot simply ignore it and start showing something of their own as if the first character hadn't spoken. If a family member (sibling, parent) speaks directly to ${name}, ${name} must respond to what they said — never skip past it as if it were unheard.
 - AGE & GRADE LOGIC: Derive school grades strictly from age (age 5 = Kindergarten, age 6–7 = Grade 1–2, etc.). Children of different ages are never in the same grade unless they are twins or custom details say otherwise. "Going to school together" = same school building, not same grade. Never write that a younger child is joining or catching up to an older child's grade.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
