@@ -389,8 +389,11 @@ DEFAULT: Any character not listed in the NICKNAME TABLE must use the other chara
 
 // Deterministic (no LLM) pass: replaces known diminutives with full names unless they're in the approved nickname table.
 // This is the final safety net — it cannot be argued around by LLM creativity.
+// Strategy: for every full name in the map, check if it appears anywhere in the chapter text.
+// If it does, that character is in this story — replace any unapproved diminutive of theirs.
+// This does NOT rely on namedCharacters being populated correctly (e.g. siblings in customDetails).
 function enforceFullNamesRegex(chapterText, namedCharacters, parsedCustomDetails) {
-  if (!chapterText || !namedCharacters || namedCharacters.length === 0) return chapterText;
+  if (!chapterText) return chapterText;
 
   // Extract every approved nickname from the parsed table (lines like: → "Jules")
   const approvedNicknames = new Set();
@@ -423,8 +426,9 @@ function enforceFullNamesRegex(chapterText, namedCharacters, parsedCustomDetails
   };
 
   let text = chapterText;
-  for (const fullName of namedCharacters) {
-    const diminutives = diminutiveMap[fullName] || [];
+  for (const [fullName, diminutives] of Object.entries(diminutiveMap)) {
+    // Only act if this full name actually appears somewhere in the chapter
+    if (!text.includes(fullName)) continue;
     for (const dim of diminutives) {
       if (!approvedNicknames.has(dim)) {
         text = text.replace(new RegExp(`\\b${dim}\\b`, 'g'), fullName);
