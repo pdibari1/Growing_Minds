@@ -131,10 +131,10 @@ const generateStoryOrder = inngest.createFunction(
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
       const styleGuide = parseInt(age) <= 5
-        ? "Soft watercolor 2D children's book illustration. Warm pastel colors — soft yellows, peaches, sky blues. Gentle and whimsical, Studio Ghibli inspired"
+        ? "Painterly children's book illustration. Soft, expressive characters with complete faces — clear eyes, nose, and mouth on every character. Warm pastel watercolor tones, gentle lighting, lush detailed backgrounds. Style of modern award-winning picture books"
         : parseInt(age) <= 9
-        ? "Vibrant 2D digital children's book illustration. Flat art style with bold outlines. Bright saturated colors — warm reds, greens, golden yellows. Slightly stylized characters, warm cheerful lighting"
-        : "2D digital children's book illustration, semi-realistic style. Rich deep colors — blues, warm ambers, forest greens. Warm cinematic lighting";
+        ? "Painterly children's book illustration. Expressive characters with complete, well-proportioned faces — clear eyes, nose, and mouth on every character. Warm rich colors, detailed environments, cinematic lighting. Style of Pixar concept art meets modern picture book illustration"
+        : "Painterly children's book illustration, semi-realistic style. Expressive characters with complete, well-proportioned faces — clear eyes, nose, and mouth on every character. Rich deep colors, detailed backgrounds, warm cinematic lighting. Style of DreamWorks concept art";
 
       // Locked physical description built directly from user form data — never overridden
       const hairLengthExpanded = hairLength === 'long' ? 'very long, flowing well past the shoulders'
@@ -164,11 +164,9 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide}. IMPORTANT — CHARACTER APPEARANCE: ${name} is ${lockedCharDesc}.${longHairBoyNote} Paint ${name} exactly as described — the hair length and color are essential.
+        const coverPrompt = `${styleGuide}.
 
-Full-bleed scene: ${name} joyfully exploring outdoors in ${city}, ${region}. ${name} is the only person in the scene. The ${region} landscape fills the entire background. Every inch of the canvas is painted scene — sky, land, character.
-
-ABSOLUTELY NO: color strips, color bars, color swatches, color chips, palette rows, color samples, design sheets, reference sheets, panels, frames, borders, film strips, labels, text, words, or letters anywhere in the image. This is a story illustration, not a design document.`;
+A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote} standing outdoors in ${city}, ${region}, smiling with joy. ${name} is the only character. The ${region} landscape — sky, hills, land — fills every corner of the canvas behind them. Every pixel of the image is painted scene: character in the foreground, environment in the background, nothing else.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -198,11 +196,9 @@ ABSOLUTELY NO: color strips, color bars, color swatches, color chips, palette ro
           const chap = freshOutline[ci];
           console.log(`Generating illustration ${b + 1}/${remainingKeys.length}: key ${key}`);
 
-          const scenePrompt = `${styleGuide}. ${name} is ${lockedCharDesc}.${longHairBoyNote}
+          const scenePrompt = `${styleGuide}.
 
-Illustrate this single scene as a full painted children's book illustration: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} Setting: ${city}, ${region}.
-
-The entire canvas is a painted scene — no character lineup, no reference sheet, no grid, no panels, no frames, no color strips or swatches. No text, no words, no letters, no labels anywhere in the image.`;
+A single full-bleed painted scene from a children's story: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} Setting: ${city}, ${region}. Every pixel of the image is painted scene — characters and environment only, nothing else.`;
 
           // Fetch cover image from Redis as character reference for consistency
           const coverUrl = await redisRequest("GET", [`img:${storyId}:0-0`]);
