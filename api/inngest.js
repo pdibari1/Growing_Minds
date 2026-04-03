@@ -96,7 +96,8 @@ const generateStoryOrder = inngest.createFunction(
           batchChapters.map(ch => correctKindness(ch, childData.namedCharacters))
         );
 
-        // Correct any digital-message-between-children violations before saving
+        // Deterministic phone/device sentence removal, then LLM correction pass
+        batchChapters = batchChapters.map(ch => flagPhoneSentences(ch));
         batchChapters = await Promise.all(
           batchChapters.map(ch => correctPhones(ch))
         );
@@ -482,6 +483,26 @@ ${chapterText}`;
   }
 }
 
+// Deterministic pass: removes the most obvious phone/device sentences before the LLM correction runs.
+// Targets sentences containing child-device interaction keywords and strips them entirely,
+// since rewriting requires context the regex can't safely provide.
+function flagPhoneSentences(chapterText) {
+  if (!chapterText) return chapterText;
+  // Patterns that almost always indicate a child using a phone/device
+  const phonePatterns = [
+    /[^.!?]*\b(phone|smartphone|tablet|device)\b[^.!?]*(buzz|ding|ping|ring|vibrat|notif|messag|text|snap|post)[^.!?]*[.!?]/gi,
+    /[^.!?]*(buzz|ding|ping|vibrat)[^.!?]*\b(phone|device|tablet)\b[^.!?]*[.!?]/gi,
+    /[^.!?]*\bmessage from\b[^.!?]*(friend|classmate|\b[A-Z][a-z]+\b)[^.!?]*[.!?]/gi,
+    /[^.!?]*\b(texted?|messaged?|DM'?d?)\b[^.!?]*[.!?]/gi,
+  ];
+  let text = chapterText;
+  for (const pattern of phonePatterns) {
+    text = text.replace(pattern, '');
+  }
+  // Clean up any double spaces or blank lines left behind
+  return text.replace(/\n{3,}/g, '\n\n').replace(/  +/g, ' ').trim();
+}
+
 async function correctPhones(chapterText) {
   if (!chapterText) return chapterText;
   const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
@@ -519,7 +540,9 @@ async function correctKindness(chapterText, namedCharacters) {
 
 PROTECTED CHARACTERS: ${charList}
 
-RULE: No protected character may perform any negative action — in any tense, in any framing, directly or indirectly. If a protected character's name appears in a sentence and that sentence (or the one immediately before or after it) involves any negative action, replace the named character with "a classmate" or "another kid" and adjust surrounding pronouns. Do not change anything else.
+RULE: No protected character may perform any negative action — in any tense, in any framing, directly or indirectly. This includes being mean to unnamed kids or new kids, laughing at anyone, excluding anyone, or being part of a group doing any of those things. These are violations even when the named character is acting toward someone who is not a main character.
+
+For every sentence in the chapter: if a protected character's name appears and that sentence (or the sentence immediately before or after it) involves any negative action or unkind behavior by that character — replace the named character(s) with "a classmate" or "another kid" and adjust surrounding pronouns. Do not change anything else.
 
 If no violations are found, return the text unchanged.
 Return the corrected chapter text only. No explanation.
@@ -812,7 +835,7 @@ RULES:
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
 - STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
-- NAMED CHARACTERS ARE ALWAYS KIND: The following characters are named in this child's profile: ${namedCharactersStr}. No named character may perform any negative action — in any tense, in any framing, directly or indirectly. If the story needs unkindness, it must come from a completely unnamed character ("a classmate", "another kid") with no connection to any named character. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
+- NAMED CHARACTERS ARE ALWAYS KIND: The following characters are named in this child's profile: ${namedCharactersStr}. No named character may perform any negative action — in any tense, in any framing, directly or indirectly. This includes laughing at anyone, being mean to anyone (including unnamed kids, new kids, or strangers), excluding anyone, or being present in a group that does any of those things. The classic story pattern of "the hero's friends are bullying a new kid" is FORBIDDEN. If the story needs unkindness, it must come from a completely unnamed, unidentified character with no connection to any named character. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO DIGITAL MESSAGES BETWEEN CHILDREN: No child in this story sends or receives any digital message from another child — not on their own device, not on a parent's device, not on any screen. It does not matter whose phone or tablet it appears on: if a child is the sender or receiver of a digital message, it is forbidden. The only permitted forms of child-to-child communication are: talking in person, passing a handwritten note, or a parent placing a voice call to another parent. Never write a scene where a child learns about another child's message, text, notification, or digital communication through any device or screen.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
