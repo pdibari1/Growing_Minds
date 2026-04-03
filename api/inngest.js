@@ -33,13 +33,7 @@ const generateStoryOrder = inngest.createFunction(
     const tier = getStoryTier(childData.age);
     console.log(`Starting ${tier.label} for ${childName} (${tier.chapCount} chapters)`);
 
-    // Step 0: Parse custom details into a structured nickname table so models never mis-read directions
-    if (childData.customDetails) {
-      const parsedCustomDetails = await step.run("parse-custom-details", async () => {
-        return await parseCustomDetails(childData.customDetails, childName);
-      });
-      if (parsedCustomDetails) childData.parsedCustomDetails = parsedCustomDetails;
-    }
+    // (no pre-parse step — nicknames are read directly from customDetails at generation time)
 
     // Build named characters list once — used by both generation prompts and correction passes
     const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
@@ -92,13 +86,7 @@ const generateStoryOrder = inngest.createFunction(
         // Generate this batch
         let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier);
 
-        // Correct any nickname violations before saving
-        if (childData.parsedCustomDetails) {
-          batchChapters = await Promise.all(
-            batchChapters.map(ch => correctNicknames(ch, childData.parsedCustomDetails, childData.namedCharacters))
-          );
-        }
-        // Deterministic regex enforcement — catches what LLM correction misses (e.g. "Jules" for Julianna)
+        // Deterministic regex enforcement: replace any unapproved diminutive with the full name
         batchChapters = batchChapters.map(ch =>
           enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedCustomDetails)
         );
@@ -623,16 +611,7 @@ CRITICAL CUSTOM REQUIREMENTS — READ FIRST
 These override all defaults. Follow exactly.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ${customDetails}
-${parsedCustomDetails ? `
-STRUCTURED NICKNAME TABLE (authoritative — use this, not the prose above):
-${parsedCustomDetails}
-` : ''}
-NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- ACTIVELY USE the nicknames in the table. When a listed speaker is talking to or about their receiver, use the nickname — do not default to the full name out of caution. Nicknames should appear naturally in dialogue throughout the story.
-- Every nickname is directional — only the listed speaker may use it for the listed receiver.
-- Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Common forbidden examples: "Jules", "Juli", "Julie" for "Julianna"; "Ben", "Benny", "Benji" for "Benjamin"; "Cor", "Corby" for "Corbin"; "Hol" for "Holden"; "Evie" for "Evelyn". Apply this logic to every character name in the story. If the table does not list it, it does not exist in this story.
-- Follow all conditional rules exactly as stated.
+NAMES: Use every character's name exactly as given above. Only use a nickname if the custom details above explicitly state one (e.g. "she calls him Benny"). If no nickname is stated, always write the full name — never shorten, abbreviate, or invent a diminutive.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
 
@@ -805,26 +784,15 @@ CRITICAL CUSTOM REQUIREMENTS — READ FIRST
 These override all defaults. Follow exactly.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ${customDetails}
-${parsedCustomDetails ? `
-STRUCTURED NICKNAME TABLE (authoritative — use this, not the prose above):
-${parsedCustomDetails}
-` : ''}
-NICKNAME RULES — ABSOLUTE, NO EXCEPTIONS:
-- ACTIVELY USE the nicknames in the table. When a listed speaker is talking to or about their receiver, use the nickname — do not default to the full name out of caution. Nicknames should appear naturally in dialogue throughout the story.
-- Every nickname is directional — only the listed speaker may use it for the listed receiver.
-- Any character not assigned a nickname must use the other character's FULL given name only — no shortenings, no abbreviations, no diminutives. If the table does not list a nickname, write the full name every time, no exceptions.
-- SHORTENINGS AND DIMINUTIVES COUNT AS INVENTED NICKNAMES. Any abbreviated or shortened form of a character's name that does not appear in the table is a violation — even if it sounds natural in English. Common forbidden examples: "Jules", "Juli", "Julie" for "Julianna"; "Ben", "Benny", "Benji" for "Benjamin"; "Cor", "Corby" for "Corbin"; "Hol" for "Holden"; "Evie" for "Evelyn". Apply this logic to every character name in the story. If the table does not list it, it does not exist in this story.
-- Follow all conditional rules exactly as stated.
+NAMES: Use every character's name exactly as given above. Only use a nickname if the custom details above explicitly state one (e.g. "she calls him Benny"). If no nickname is stated, always write the full name — never shorten, abbreviate, or invent a diminutive.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ` : "";
 
   const customReminder = customDetails ? `
-FINAL CHECK before you finish: Re-read the STRUCTURED NICKNAME TABLE above. Verify:
-1. DIALOGUE ATTRIBUTION: For every line of dialogue containing a nickname, identify who is speaking (look for "said [Name]", "[Name] said", "[Name] called", etc.). Then verify that speaker is listed in the NICKNAME TABLE as authorized to use that nickname. If not, replace the nickname with the character's full given name.
-2. REVERSAL CHECK: Nicknames are one-directional. If the table says A calls B "puppy", then B calling A "puppy" is always wrong — even if it seems like a playful echo. Replace any reversed usage with the speaker's correct nickname or full name.
-3. No character has been given a shortened, abbreviated, or diminutive name that does not appear in the table — any such variation is forbidden even if it sounds natural.
-4. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
-5. "Going to school together" means the same school building, not the same classroom or grade.
+FINAL CHECK before you finish:
+1. Every character's name is written exactly as given — no shortenings or invented diminutives unless the custom details above explicitly state a nickname.
+2. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
+3. "Going to school together" means the same school building, not the same classroom or grade.
 Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
