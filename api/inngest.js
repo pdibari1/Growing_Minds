@@ -519,13 +519,16 @@ async function correctKindness(chapterText, namedCharacters) {
 
 PROTECTED CHARACTERS: ${charList}
 
-RULE: A protected character must never be portrayed negatively — not directly, not through hearsay, not in past-tense backstory, not by contextual implication. This includes:
-- Saying something mean or unkind (directly or reported: "Corbin said that Eve had said...")
+RULE: A protected character must never be portrayed negatively in any way — not in actions, speech, reactions, or backstory, not in any tense. Violations include ALL of the following:
+- Saying something mean or unkind (directly or reported)
 - Doing something unkind to anyone
-- Being described as having been mean in the past
-- Being nearby when "they" or "them" is used to imply unkindness — e.g. "They said she couldn't play" while Corbin and Holden are the only other children present
+- Laughing at someone's misfortune or embarrassment
+- Watching someone be excluded or hurt without helping
+- Being present in a scene in a way that associates them with an unkind act
+- Being described in past tense as having done any of the above — "had laughed", "used to tease", "was there when they", etc. all count
+- Being nearby when "they" or "them" implies unkindness and they are the only named characters present
 
-For each protected character, scan every sentence where their name appears AND every sentence nearby where "they/them/his friends" could refer to them. If any of those sentences portray them negatively in any way — replace the named character(s) with "a classmate" or "another kid". Do not change anything else.
+Scan every sentence in the chapter. For each sentence where a protected character's name appears, ask: does this sentence (or the sentence before/after it) show this character doing, saying, watching, or being associated with anything negative? If yes — replace the named character(s) with "a classmate" or "another kid" and adjust surrounding pronouns. Do not change anything else.
 
 If no violations are found, return the text unchanged.
 Return the corrected chapter text only. No explanation.
@@ -818,7 +821,7 @@ RULES:
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
 - STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
-- NAMED CHARACTERS NEVER SAY NEGATIVE THINGS: The following characters are named in this child's profile: ${namedCharactersStr}. None of them may say anything negative about another person — not in dialogue, not in narration, not in past-tense backstory. They cannot insult, exclude, criticize, mock, or speak unkindly about anyone, in any tense or framing. If the story needs someone to say something negative, use an UNNAMED character (e.g. "a classmate", "another kid", "a rival"). The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
+- NAMED CHARACTERS ARE ALWAYS KIND: The following characters are named in this child's profile: ${namedCharactersStr}. Every single one of them must be portrayed as warm and kind in every sentence — in actions, speech, reactions, and backstory, in any tense. They may never: say something unkind, do something unkind, laugh at someone's misfortune, watch someone be excluded without helping, be associated with any act of meanness, or be present in a scene in a way that implies they share in an unkind act. This applies to all tenses — "had laughed", "used to tease", "was there when" all count as violations. If the story needs an antagonist or a moment of unkindness, use a completely UNNAMED character (e.g. "a classmate", "another kid", "a stranger") who has no connection to any named character in the scene. The ONLY exception: if the custom details above explicitly describe one of these characters as difficult or mean.
 - NO DIGITAL MESSAGES BETWEEN CHILDREN: No child in this story sends or receives any digital message from another child — not on their own device, not on a parent's device, not on any screen. It does not matter whose phone or tablet it appears on: if a child is the sender or receiver of a digital message, it is forbidden. The only permitted forms of child-to-child communication are: talking in person, passing a handwritten note, or a parent placing a voice call to another parent. Never write a scene where a child learns about another child's message, text, notification, or digital communication through any device or screen.
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
