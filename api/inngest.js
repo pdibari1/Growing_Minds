@@ -530,15 +530,21 @@ ${chapterText}`;
 
 async function correctKindness(chapterText, namedCharacters) {
   if (!namedCharacters || namedCharacters.length === 0 || !chapterText) return chapterText;
-  const charList = namedCharacters.join(', ');
-  const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
+  const protagonist = namedCharacters[0];
+  const friends = namedCharacters.slice(1);
+  if (friends.length === 0) return chapterText;
+  const friendList = friends.join(', ');
+  const prompt = `You are a children's book editor fixing a specific rule violation.
 
-PROTECTED CHARACTERS: ${charList}
+PROTAGONIST: ${protagonist}
+PROTECTED FRIENDS (real people in ${protagonist}'s life): ${friendList}
 
-RULE: Protected characters may only appear in scenes where they are actively helping, encouraging, or sharing a warm moment with the main character. If a protected character's name appears anywhere in a passage that involves conflict, difficulty, exclusion, or unkind behavior — regardless of that character's role — replace their name with "a classmate" or "another kid" and adjust surrounding pronouns. Do not change anything else.
+CRITICAL CONTEXT: ${friendList} are ${protagonist}'s real-life friends. They must ONLY appear in this story when they are warmly supporting or encouraging ${protagonist}. They must NEVER appear as bullies, antagonists, or bystanders to cruelty — even if it would make a dramatically compelling scene. There is no exception to this.
 
-If no violations are found, return the text unchanged.
-Return the corrected chapter text only. No explanation.
+TASK: Read the chapter below. For every sentence where a protected friend's name appears and that sentence is part of a conflict, bullying, exclusion, or tense social scene — replace that friend's name with "a classmate" or "another kid" and fix surrounding pronouns. If a protected friend appears in multiple sentences of a conflict passage, replace them in all of those sentences.
+
+Do not change anything else. If no violations exist, return the text unchanged.
+Return corrected chapter text only. No explanation.
 
 CHAPTER TEXT:
 ${chapterText}`;
