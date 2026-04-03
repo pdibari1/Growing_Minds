@@ -492,6 +492,26 @@
         </div>
       </div>
 
+      <div class="field" style="margin-top:1.2rem;">
+        <label for="child-ethnicity">Ethnicity <span class="opt">(optional)</span></label>
+        <select id="child-ethnicity" class="unselected" onchange="this.classList.toggle('unselected', !this.value); document.getElementById('ethnicity-other-wrap').style.display = this.value === 'other' ? 'block' : 'none';">
+          <option value="">Prefer not to say</option>
+          <option value="White / Caucasian">White / Caucasian</option>
+          <option value="Hispanic or Latino">Hispanic or Latino</option>
+          <option value="Black or African American">Black or African American</option>
+          <option value="East Asian">East Asian</option>
+          <option value="South Asian">South Asian</option>
+          <option value="Middle Eastern or North African">Middle Eastern or North African</option>
+          <option value="Native American or Alaska Native">Native American or Alaska Native</option>
+          <option value="Pacific Islander">Pacific Islander</option>
+          <option value="Multiracial">Multiracial</option>
+          <option value="other">Other…</option>
+        </select>
+        <div id="ethnicity-other-wrap" style="display:none; margin-top:.7rem;">
+          <input type="text" id="ethnicity-other" placeholder="Please describe…" maxlength="80"/>
+        </div>
+      </div>
+
       <div class="form-nav">
         <div></div>
         <button class="btn-next" onclick="goTo(2)">Next: Their Look <span>→</span></button>
@@ -756,7 +776,7 @@
   // ── DATA ──
   const state = {
     step: 1,
-    name: '', age: '', gender: '',
+    name: '', age: '', gender: '', ethnicity: '',
     hair: '', eye: '',
     trait: '', fav: '', friend: '',
     city: '', region: '',
@@ -877,6 +897,13 @@
       if (name) { state.name = name; updatePreview('prev-name', name); }
       if (age)  { state.age = age;   updatePreview('prev-age', age + ' years old'); }
       state.gender = document.getElementById('child-gender').value;
+      const ethnicityVal = document.getElementById('child-ethnicity').value;
+      if (ethnicityVal === 'other') {
+        const otherText = document.getElementById('ethnicity-other').value.trim();
+        state.ethnicity = otherText || '';
+      } else {
+        state.ethnicity = ethnicityVal;
+      }
     }
 
     if (step === 2) {
@@ -1062,6 +1089,7 @@
       name:       state.name,
       age:        state.age,
       gender:     state.gender || '',
+      ethnicity:  state.ethnicity || '',
       hair:       state.hair,
       hairLength: state.hairLength,
       hairStyle:  state.hairStyle,
