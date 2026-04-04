@@ -2,9 +2,19 @@
 const { serve } = require("inngest/node");
 const { Inngest } = require("inngest");
 const https = require("https");
+const crypto = require("crypto");
 const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
 const { Resend } = require("resend");
 const { put, del } = require("@vercel/blob");
+
+// Secure token for approve/regenerate links in admin email
+function adminToken(storyId) {
+  return crypto
+    .createHmac("sha256", process.env.ADMIN_WEBHOOK_SECRET || "dev-secret")
+    .update(storyId)
+    .digest("hex")
+    .slice(0, 24);
+}
 
 const inngest = new Inngest({
   id: "growingminds",
@@ -52,6 +62,12 @@ const generateStoryOrder = inngest.createFunction(
 
     const tier = getStoryTier(childData.age);
     console.log(`Starting ${tier.label} for ${childName} (${tier.chapCount} chapters)`);
+
+    // Cache order metadata so /api/regenerate can re-fire without needing the original webhook
+    await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,       "EX", 604800]); // 7 days
+    await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,    "EX", 604800]);
+    await redisRequest("SET", [`childname:${storyId}`,     childName,        "EX", 604800]);
+    await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"","EX", 604800]);
 
     // (no pre-parse step — nicknames are read directly from customDetails at generation time)
 
@@ -256,15 +272,7 @@ A single full-bleed painted scene from a children's story: ${chap?.imagePrompt |
       console.log(`PDF v3: stored to Blob: ${blob.url.slice(0, 60)}`);
       return blob.url;
     });
-    // Step 5: Send email — fetch PDF from Blob, attach, then delete
-    await step.run("send-email", async () => {
-      console.log(`Sending email to ${customerEmail}`);
-      const pdfBytes = await fetchImageBytes(pdfBlobUrl);
-      const pdfBase64 = pdfBytes.toString('base64');
-      await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
-    });
-
-    // Step 6: Generate full 30-chapter print PDF — stored permanently in Blob
+    // Step 5: Generate full 30-chapter print PDF — stored permanently in Blob
     const fullBookUrl = await step.run("create-full-book-v1", async () => {
       const allChapters = await getChaptersFromRedis(storyId);
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
@@ -300,14 +308,35 @@ A single full-bleed painted scene from a children's story: ${chap?.imagePrompt |
       await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, fullBookUrl);
     });
 
-    // Step 8: Notify admin that a new story is ready for fulfillment
+    // Step 7b: Notify admin — story preview + approve/regenerate buttons
     await step.run("notify-admin", async () => {
-      // Use the dedicated cover key (7-day TTL) — the illustration key (2h) often expires
-      // before this step runs on long stories.
       const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]) || null;
-      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl);
-      // Clean up the dedicated cover key now that the email is sent
+      const chapters = await getChaptersFromRedis(storyId);
+      const previewChapter = chapters && chapters[0] ? chapters[0].text || chapters[0] : null;
+      const token = adminToken(storyId);
+      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl, previewChapter, token);
       await redisRequest("DEL", [`cover:${storyId}`]);
+    });
+
+    // Step 7c: Wait up to 2 hours for admin approval — auto-sends if no action taken
+    await step.waitForEvent("wait-for-approval", {
+      event: "story/approved",
+      match: "data.storyId",
+      timeout: "2h"
+    });
+
+    // Step 7d: Send customer email — skip if admin triggered a regeneration
+    await step.run("send-email", async () => {
+      const skip = await redisRequest("GET", [`skip-delivery:${storyId}`]);
+      if (skip) {
+        console.log(`Delivery skipped for ${storyId} — regeneration was triggered`);
+        await redisRequest("DEL", [`skip-delivery:${storyId}`]);
+        return;
+      }
+      console.log(`Sending email to ${customerEmail}`);
+      const pdfBytes = await fetchImageBytes(pdfBlobUrl);
+      const pdfBase64 = pdfBytes.toString('base64');
+      await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
     });
 
     // Step 8: Clean up Redis and Blob storage
@@ -331,6 +360,10 @@ A single full-bleed painted scene from a children's story: ${chap?.imagePrompt |
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
       await redisRequest("DEL", [`cast:${storyId}`]);
+      await redisRequest("DEL", [`storytoken:${storyId}`]);
+      await redisRequest("DEL", [`customeremail:${storyId}`]);
+      await redisRequest("DEL", [`childname:${storyId}`]);
+      await redisRequest("DEL", [`customdetails:${storyId}`]);
       // Delete the temporary PDF from Blob
       try { await del([pdfBlobUrl]); } catch(e) { console.error("PDF blob cleanup error:", e.message); }
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
@@ -1849,11 +1882,12 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
   });
 }
 
-async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier, fullBookUrl = null, coverImageUrl = null) {
+async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier, fullBookUrl = null, coverImageUrl = null, previewChapter = null, token = '') {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { age, city, region, milestone, gender } = child;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
   const airtableUrl = `https://airtable.com/${process.env.AIRTABLE_BASE_ID || ''}`;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
 
   const fullBookButton = fullBookUrl
     ? `<a href="${fullBookUrl}" style="display:inline-block;background:#1a3a2a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">Download Full Book PDF</a>`
@@ -1865,34 +1899,57 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
       <a href="${coverImageUrl}" target="_blank">
         <img src="${coverImageUrl}" alt="Cover illustration" style="width:100%;max-width:320px;border-radius:6px;display:block;margin-bottom:6px;" />
       </a>
-      <a href="${coverImageUrl}" style="font-size:.8rem;color:#2d6a4f;word-break:break-all;">${coverImageUrl}</a>
     </div>` : '';
+
+  // First ~400 words of chapter 1 for quick spot-check
+  const previewSnippet = previewChapter
+    ? (() => {
+        const words = previewChapter.split(/\s+/).slice(0, 400).join(' ');
+        return `<div style="margin:1.5rem 0;padding:1rem 1.25rem;background:#f9fafb;border-left:3px solid #2d6a4f;border-radius:0 6px 6px 0;">
+          <p style="font-weight:700;color:#6b7280;font-size:.8rem;margin:0 0 8px;">CHAPTER 1 PREVIEW</p>
+          <p style="font-family:Georgia,serif;font-size:.9rem;line-height:1.7;color:#1a1a2e;margin:0;">${words}${previewChapter.split(/\s+/).length > 400 ? '…' : ''}</p>
+        </div>`;
+      })()
+    : '';
+
+  const approveUrl  = `${baseUrl}/api/approve?storyId=${storyId}&token=${token}`;
+  const regenUrl    = `${baseUrl}/api/regenerate?storyId=${storyId}&token=${token}`;
+
+  const actionButtons = `
+    <div style="margin:1.5rem 0;padding:1.25rem;background:#fefce8;border:1px solid #fde047;border-radius:8px;">
+      <p style="font-weight:700;color:#854d0e;font-size:.9rem;margin:0 0 4px;">⏳ Story will auto-send in 2 hours</p>
+      <p style="color:#92400e;font-size:.8rem;margin:0 0 1rem;">Review the chapter preview and cover above. Click below to act now.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">✓ Send Now</a>
+        <a href="${regenUrl}" style="display:inline-block;background:#dc2626;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">↺ Regenerate</a>
+      </div>
+    </div>`;
 
   try {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
       to: "hello@growingminds.io",
-      subject: `New story ready: ${storyTitle}`,
+      subject: `⏳ Review before sending: ${storyTitle}`,
       html: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+        <div style="font-family:sans-serif;max-width:580px;margin:0 auto;color:#1a1a2e;">
           <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:10px 10px 0 0;">
-            <h2 style="color:white;margin:0;font-size:1.2rem;">New Story Ready for Fulfillment</h2>
+            <h2 style="color:white;margin:0;font-size:1.2rem;">New Story Ready — Review Required</h2>
           </div>
           <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
-            <table style="border-collapse:collapse;width:100%;margin-bottom:1.5rem;">
+            <table style="border-collapse:collapse;width:100%;margin-bottom:1rem;">
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;width:130px;font-size:.85rem;">STORY</td><td style="padding:8px 4px;font-weight:700;">${storyTitle}</td></tr>
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td><td style="padding:8px 4px;">${childName}, age ${age} · ${gender || 'child'}</td></tr>
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">LOCATION</td><td style="padding:8px 4px;">${city}, ${region}</td></tr>
               <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CUSTOMER</td><td style="padding:8px 4px;"><a href="mailto:${customerEmail}" style="color:#2d6a4f;">${customerEmail}</a></td></tr>
-              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">STORY ID</td><td style="padding:8px 4px;font-family:monospace;font-size:.9rem;">${storyId}</td></tr>
-              <tr><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHAPTERS</td><td style="padding:8px 4px;">${tier.chapCount} chapters · ${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words</td></tr>
+              <tr><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">STORY ID</td><td style="padding:8px 4px;font-family:monospace;font-size:.85rem;">${storyId}</td></tr>
             </table>
+            ${actionButtons}
             ${coverBlock}
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:1rem;">
+            ${previewSnippet}
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:1.5rem;">
               <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View in Airtable</a>
               ${fullBookButton}
             </div>
-            <p style="color:#6b7280;font-size:.8rem;margin:0;">The customer has received their 10-chapter preview. The full print-ready PDF is linked above — download it, review it, then submit to Lulu when ready.</p>
           </div>
         </div>
       `
@@ -1900,7 +1957,6 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
     console.log(`Admin notification sent for ${childName} (${storyId})`);
   } catch(e) {
     console.error(`Admin notification failed: ${e.message}`);
-    // Don't throw — this is non-critical
   }
 }
 
