@@ -21,7 +21,7 @@ function getStoryTier(age) {
 
 // ── ILLUSTRATION STYLE — based on story theme ──
 // Painterly atmospheric: princess/fairy/magic stories
-// Bold flat graphic: everything else
+// Warm cinematic illustrated: everything else
 function getStyleGuide(child) {
   const { milestone = '', favorite = '', customDetails = '' } = child;
   const signal = `${milestone} ${favorite} ${customDetails}`.toLowerCase();
@@ -30,12 +30,13 @@ function getStyleGuide(child) {
   if (isMagical) {
     // Painterly atmospheric — soft oil-painting style, romantic and dreamy.
     // Modeled on the Julianna "Brave New Day" cover aesthetic.
-    return "Painterly atmospheric children's book illustration in the style of a classic fairy tale. Soft impressionistic oil-painting technique with visible but gentle brushwork. Muted, harmonious palette — soft blues, sage greens, warm amber golds, blush rose. Atmospheric depth with hazy rolling hills or dramatic rock formations in the distance. Characters rendered with gentle, rounded features and warm directional lighting. Glowing, luminous quality — light filters through foliage and fabric. Dreamlike and romantic. Rich organic environments: meadows, forests, stone paths, flowing gowns. Complete faces with clear eyes, nose, and mouth on every character";
+    return "Painterly atmospheric children's book illustration in the style of a classic fairy tale. Soft impressionistic oil-painting technique with visible but gentle brushwork. Muted, harmonious palette — soft blues, sage greens, warm amber golds, blush rose. Atmospheric depth with hazy rolling hills or dramatic rock formations in the distance. Characters rendered with gentle, rounded features and warm directional lighting. Glowing, luminous quality — light filters through foliage and fabric. Dreamlike and romantic. Rich organic environments: meadows, forests, stone paths, flowing gowns. Complete faces with clear eyes, nose, and mouth on every character. Hand-painted quality, NOT 3D rendered, NOT CGI";
   }
 
-  // Bold flat graphic — clean vector style, saturated warm palette, highly detailed environments.
-  // Modeled on the city-map illustration aesthetic.
-  return "Bold flat graphic children's book illustration. Clean vector-style art with strong outlines and flat areas of saturated color. Warm rich palette — burnt orange, deep teal, golden yellow, cherry red. Slight grain texture overlay. Characters with large expressive eyes, rounded simplified features, and clean silhouettes. Richly detailed environments packed with props and small elements. Dynamic compositions with dramatic perspective. Complete faces with clear eyes, nose, and mouth on every character. Style of modern animated feature films";
+  // Warm cinematic illustrated — high-quality hand-drawn style with rich lighting and detail.
+  // NOT 3D rendered, NOT plastic/CGI, NOT flat app-style cartoon.
+  // Modeled on the warm autumn school scene and workshop scene aesthetics.
+  return "Warm cinematic children's book illustration. Hand-drawn and painted quality — looks like a professional illustrated book, NOT 3D rendered, NOT CGI, NOT plastic or bubble-style cartoon. Rich warm color palette — deep amber, burnt orange, forest green, golden sunlight. Cinematic directional lighting with warm glowing highlights and soft shadows. Characters have expressive, naturally proportioned faces with visible linework and painted shading — NOT simplified app-cartoon style. Richly detailed backgrounds with depth and atmosphere. Style of high-quality illustrated children's novels and animated feature film concept art. Slight painterly texture throughout. Complete faces with clear eyes, nose, and mouth on every character";
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -316,14 +317,15 @@ A single full-bleed painted scene from a children's story: ${chap?.imagePrompt |
       try {
         const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
         if (imgKeys && imgKeys.length > 0) {
-          const urls = [];
+          const urlsToDelete = [];
           for (const k of imgKeys) {
             const url = await redisRequest("GET", [k]);
-            if (url) urls.push(url);
+            // Keep the cover Blob permanently — identify by Redis key, not URL string,
+            // because Vercel Blob appends a random hash so the filename won't be "0-0.jpg"
+            const isCover = k === `img:${storyId}:0-0`;
+            if (url && !isCover) urlsToDelete.push(url);
             await redisRequest("DEL", [k]);
           }
-          // Delete chapter illustrations from Vercel Blob — but keep the cover (0-0.jpg) permanently
-          const urlsToDelete = urls.filter(u => !u.includes('/0-0.jpg'));
           if (urlsToDelete.length > 0) await del(urlsToDelete);
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
