@@ -189,6 +189,9 @@ A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote}
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
+        // Store cover URL separately with a 7-day TTL — the illustration key (2h) may expire
+        // before notify-admin runs on long stories. This key is never deleted by cleanup.
+        await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
         console.log(`Cover image generated: ${blob.url.slice(0, 60)}`);
 
         // Use GPT-4o to refine secondary character descriptions from the cover
@@ -298,9 +301,12 @@ A single full-bleed painted scene from a children's story: ${chap?.imagePrompt |
 
     // Step 8: Notify admin that a new story is ready for fulfillment
     await step.run("notify-admin", async () => {
-      const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      const coverImageUrl = illustrationUrls['0-0'] || null;
+      // Use the dedicated cover key (7-day TTL) — the illustration key (2h) often expires
+      // before this step runs on long stories.
+      const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]) || null;
       await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl);
+      // Clean up the dedicated cover key now that the email is sent
+      await redisRequest("DEL", [`cover:${storyId}`]);
     });
 
     // Step 8: Clean up Redis and Blob storage
