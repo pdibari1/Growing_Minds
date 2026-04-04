@@ -50,9 +50,16 @@ const generateStoryOrder = inngest.createFunction(
     }
     childData.namedCharacters = namedCharacters;
 
-    // Step 1: Generate chapter outline — save to Redis immediately
+    // Step 1: Generate chapter outline — pull preview story seed from Redis if available
     const rawOutline = await step.run("generate-outline", async () => {
-      const result = await generateOutline(childData, tier);
+      // Check for a story seed cached by generate-preview.js — if present, pass it to
+      // generateOutline so the real story follows the same arc the customer saw in the preview.
+      const seed = await redisRequest("GET", [`seed:${storyId}`]);
+      if (seed) {
+        console.log(`Using preview story seed for ${storyId}`);
+        await redisRequest("DEL", [`seed:${storyId}`]);
+      }
+      const result = await generateOutline(childData, tier, seed || null);
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);
       return result;
@@ -596,7 +603,7 @@ ${JSON.stringify(outline, null, 2)}`;
   }
 }
 
-async function generateOutline(child, tier) {
+async function generateOutline(child, tier, storySeed = null) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
@@ -649,7 +656,10 @@ STORY RULES — apply to every chapter summary:
 
 CONFLICT SOURCE — this is critical: All tension and difficulty comes from the milestone challenge itself — self-doubt, the difficulty of the task, bad luck, time pressure. Named friends never appear in conflict scenes. All conflict involves only ${name} and unnamed characters.
 
-This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
+${storySeed ? `STORY ARC DIRECTION — the customer already read a preview based on this arc. Your outline MUST follow this same general direction so the full story matches what they were shown:
+${storySeed}
+
+` : ""}This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
 - Opening (first 20%): Introduce ${name} and their world, establish the milestone challenge
 - Rising action (middle 50%): Complications, obstacles, self-doubt, setbacks — driven by the challenge itself, not by friends being unkind
 - Climax (next 20%): Highest stakes, darkest moment of doubt, breakthrough
