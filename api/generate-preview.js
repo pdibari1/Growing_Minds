@@ -89,6 +89,8 @@ Rules:
 - Named companions (${friend && friend !== "none" ? friend : "none"}) are only ever warm and supportive — never obstacles or antagonists
 - No smartphones, cell phones, or devices exist in this world
 - All conflict comes from the milestone challenge itself, not from unkind friends
+- Use character names exactly as given — never invent nicknames, never write that anyone dislikes or hates a name or nickname
+- No teasing, mocking, or unkind banter between any characters
 
 Return only the arc summary, no title or labels.`;
 
@@ -122,7 +124,8 @@ RULES:
 - Named characters are never mean or unkind — they only appear being warm and supportive
 - No smartphones, cell phones, tablets, or personal devices exist in this world
 - No assumed disabilities for any character
-- Use names exactly as given — no nicknames unless the custom details specify one
+- NAMES AND NICKNAMES: Use every character's name exactly as written. Only use a nickname if the custom details explicitly state one. Never invent nicknames. Never write that a character dislikes, hates, or is embarrassed by a nickname or their name — if a nickname exists it is always used warmly and affectionately
+- No teasing, mocking, or playful insults between characters — all banter must be warm and kind
 - SAFETY: Never include anything inappropriate for children
 
 INSTRUCTIONS:
