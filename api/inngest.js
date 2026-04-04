@@ -19,6 +19,25 @@ function getStoryTier(age) {
   return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
 }
 
+// ── ILLUSTRATION STYLE — based on story theme ──
+// Painterly atmospheric: princess/fairy/magic stories
+// Bold flat graphic: everything else
+function getStyleGuide(child) {
+  const { milestone = '', favorite = '', customDetails = '' } = child;
+  const signal = `${milestone} ${favorite} ${customDetails}`.toLowerCase();
+  const isMagical = /princess|fairy|fairie|fairies|magic|magical|enchant|castle|kingdom|dragon|wizard|witch|unicorn|mermaid|pixie|sprite|wand|spell|potion|crown|royal|queen|king|knight/.test(signal);
+
+  if (isMagical) {
+    // Painterly atmospheric — soft oil-painting style, romantic and dreamy.
+    // Modeled on the Julianna "Brave New Day" cover aesthetic.
+    return "Painterly atmospheric children's book illustration in the style of a classic fairy tale. Soft impressionistic oil-painting technique with visible but gentle brushwork. Muted, harmonious palette — soft blues, sage greens, warm amber golds, blush rose. Atmospheric depth with hazy rolling hills or dramatic rock formations in the distance. Characters rendered with gentle, rounded features and warm directional lighting. Glowing, luminous quality — light filters through foliage and fabric. Dreamlike and romantic. Rich organic environments: meadows, forests, stone paths, flowing gowns. Complete faces with clear eyes, nose, and mouth on every character";
+  }
+
+  // Bold flat graphic — clean vector style, saturated warm palette, highly detailed environments.
+  // Modeled on the city-map illustration aesthetic.
+  return "Bold flat graphic children's book illustration. Clean vector-style art with strong outlines and flat areas of saturated color. Warm rich palette — burnt orange, deep teal, golden yellow, cherry red. Slight grain texture overlay. Characters with large expressive eyes, rounded simplified features, and clean silhouettes. Richly detailed environments packed with props and small elements. Dynamic compositions with dramatic perspective. Complete faces with clear eyes, nose, and mouth on every character. Style of modern animated feature films";
+}
+
 // ── MAIN INNGEST FUNCTION ──
 const generateStoryOrder = inngest.createFunction(
   { id: "generate-story-order", retries: 2, timeout: "60m" },
@@ -133,11 +152,7 @@ const generateStoryOrder = inngest.createFunction(
       const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
-      const styleGuide = parseInt(age) <= 5
-        ? "Painterly children's book illustration. Soft, expressive characters with complete faces — clear eyes, nose, and mouth on every character. Warm pastel watercolor tones, gentle lighting, lush detailed backgrounds. Style of modern award-winning picture books"
-        : parseInt(age) <= 9
-        ? "Painterly children's book illustration. Expressive characters with complete, well-proportioned faces — clear eyes, nose, and mouth on every character. Warm rich colors, detailed environments, cinematic lighting. Style of Pixar concept art meets modern picture book illustration"
-        : "Painterly children's book illustration, semi-realistic style. Expressive characters with complete, well-proportioned faces — clear eyes, nose, and mouth on every character. Rich deep colors, detailed backgrounds, warm cinematic lighting. Style of DreamWorks concept art";
+      const styleGuide = getStyleGuide(childData);
 
       // Locked physical description built directly from user form data — never overridden
       const hairLengthExpanded = hairLength === 'long' ? 'very long, flowing well past the shoulders'
@@ -867,11 +882,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
-  const styleGuide = parseInt(age) <= 5
-    ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
-    : parseInt(age) <= 9
-    ? "vibrant digital children's book illustration, colorful and expressive, slightly stylized, warm lighting"
-    : "detailed digital illustration, cinematic lighting, slightly realistic, like a YA novel cover";
+  const styleGuide = getStyleGuide(child);
 
   const illustrations = {}; // keyed by "chapterIndex-imageIndex"
 
