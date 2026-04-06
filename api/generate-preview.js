@@ -57,9 +57,11 @@ module.exports = async function handler(req, res) {
   }
 
   // Basic content safety check on free-text fields
+  // Use word-boundary regex so short words like "ass" don't match inside "classic", "grass", etc.
   const flaggedWords = ['fuck', 'shit', 'bitch', 'ass', 'damn', 'hell', 'sex', 'porn', 'kill', 'murder', 'suicide', 'drug', 'cocaine', 'meth', 'weed', 'nude', 'naked'];
   const allFreeText = `${name} ${trait} ${favorite} ${friend || ''} ${customDetails || ''}`.toLowerCase();
-  if (flaggedWords.some(w => allFreeText.includes(w))) {
+  const flagged = flaggedWords.some(w => new RegExp(`\\b${w}\\b`).test(allFreeText));
+  if (flagged) {
     return res.status(400).json({ error: "Your submission contains inappropriate content. Please review your entries and try again." });
   }
 
