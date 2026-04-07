@@ -29,22 +29,12 @@ function getStoryTier(age) {
   return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
 }
 
-// ── ILLUSTRATION STYLE — based on story theme ──
-// Painterly atmospheric: all stories — magical palette for fairy/princess/magic, warm everyday palette for everything else
-function getStyleGuide(child) {
-  const { milestone = '', favorite = '', customDetails = '' } = child;
-  const signal = `${milestone} ${favorite} ${customDetails}`.toLowerCase();
-  const isMagical = /princess|fairy|fairie|fairies|magic|magical|enchant|castle|kingdom|dragon|wizard|witch|unicorn|mermaid|pixie|sprite|wand|spell|potion|crown|royal|queen|king|knight/.test(signal);
+// ── ILLUSTRATION STYLE — one universal style for all stories ──
+// Single DALL-E 3 style used for both cover and all chapter illustrations.
+const STYLE_GUIDE = "Clean digital children's book illustration. Crisp lines, smooth color fills, and soft cel-shading — like a high-quality modern picture book you would find in a bookstore today. Bright, warm palette: golden yellows, sky blues, leafy greens, warm whites. Characters are friendly and naturally proportioned with clear, expressive faces and visible eyes, nose, and mouth. Richly detailed backgrounds with depth and warmth. Always bright — sunlit daytime outdoors or warmly lit interiors, never dark or dim scenes. NOT oil-painted, NOT watercolor, NOT 3D rendered, NOT CGI, NOT flat vector clipart, NOT plastic.";
 
-  if (isMagical) {
-    // Painterly atmospheric — soft oil-painting style, romantic and dreamy.
-    // Modeled on the Julianna "Brave New Day" cover aesthetic.
-    return "Painterly atmospheric children's book illustration in the style of a classic fairy tale. Soft impressionistic oil-painting technique with visible but gentle brushwork. Muted, harmonious palette — soft blues, sage greens, warm amber golds, blush rose. Atmospheric depth with hazy rolling hills or dramatic rock formations in the distance. Characters rendered with gentle, rounded features and warm directional lighting. Glowing, luminous quality — light filters through foliage and fabric. Dreamlike and romantic. Rich organic environments: meadows, forests, stone paths, flowing gowns. Complete faces with clear eyes, nose, and mouth on every character. Hand-painted quality, NOT 3D rendered, NOT CGI";
-  }
-
-  // Painterly atmospheric — same technique as the magical style but with a warm everyday palette.
-  // Using the same oil-painting approach avoids the uncanny/creepy results that "cinematic" descriptions produce.
-  return "Painterly atmospheric children's picture book illustration. Soft impressionistic oil-painting technique with visible but gentle brushwork. Warm, inviting palette — golden yellows, rich ambers, earthy greens, soft sky blues, cream whites. Gentle directional lighting with a luminous, glowing quality — sunlight through windows, warm afternoon light. Characters rendered with gentle, rounded features and kind expressions — faces are soft and inviting, never harsh or realistic. Rich environments with depth and atmosphere: classrooms, playgrounds, forests, neighbourhoods. The world feels safe, cosy, and full of wonder. Complete faces with clear eyes, nose, and mouth on every character. Hand-painted quality, NOT 3D rendered, NOT CGI, NOT flat cartoon style, NOT plastic";
+function getStyleGuide() {
+  return STYLE_GUIDE;
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -167,7 +157,7 @@ const generateStoryOrder = inngest.createFunction(
       const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
-      const styleGuide = getStyleGuide(childData);
+      const styleGuide = getStyleGuide();
 
       // Locked physical description built directly from user form data — never overridden
       const hairLengthExpanded = hairLength === 'long' ? 'very long, flowing well past the shoulders'
@@ -223,10 +213,10 @@ A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote}
         }
       });
 
-      // Step C: Generate remaining illustrations using gpt-image-1 with cover as character reference
+      // Step C: Generate remaining illustrations using DALL-E 3 (same model as cover for consistency)
       const remainingKeys = allImageKeys.filter(k => k !== '0-0');
       for (let b = 0; b < remainingKeys.length; b++) {
-        await step.run(`generate-illustration-gpt1-${b + 1}`, async () => {
+        await step.run(`generate-illustration-dalle3-${b + 1}`, async () => {
           const key = remainingKeys[b];
           const [ci] = key.split('-').map(Number);
           const chap = freshOutline[ci];
@@ -236,15 +226,11 @@ A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote}
 
 A single full-bleed painted scene from a children's story: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} Setting: ${city}, ${region}. Every pixel of the image is painted scene — characters and environment only, nothing else.`;
 
-          // Fetch cover image from Redis as character reference for consistency
-          const coverUrl = await redisRequest("GET", [`img:${storyId}:0-0`]);
-          if (!coverUrl) throw new Error('Cover image not found in Redis — cannot generate chapter illustration');
-          const coverBytes = await fetchImageBytes(coverUrl);
-
-          const imageBytes = await callGptImage1WithRef(coverBytes, scenePrompt);
+          const imageUrl = await callDallE(scenePrompt);
+          const imageBytes = await fetchImageBytes(imageUrl);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
           await saveIllustrationsToRedis(storyId, { [key]: blob.url });
-          console.log(`Image ${key} generated with gpt-image-1: ${blob.url.slice(0, 60)}`);
+          console.log(`Image ${key} generated with DALL-E 3: ${blob.url.slice(0, 60)}`);
           return { key, saved: true };
         });
       }
@@ -736,7 +722,7 @@ You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object must have:
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "summary": 2-3 sentence summary of what happens
-- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration) — describe only cheerful, positive, safe visual moments (e.g. exploring, discovering, celebrating, helping a friend). No danger, peril, conflict, or emotionally intense scenes.
+- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration) — describe only cheerful, positive, bright, well-lit moments (e.g. exploring outdoors, building something, celebrating, helping a friend). Always daytime or warmly lit indoor scenes. No nighttime scenes, dark rooms, moonlit windows, or dim lighting. No danger, peril, conflict, or emotionally intense scenes.
 
 No markdown, no explanation, just the JSON array.`;
 
@@ -934,7 +920,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
-  const styleGuide = getStyleGuide(child);
+  const styleGuide = getStyleGuide();
 
   const illustrations = {}; // keyed by "chapterIndex-imageIndex"
 
