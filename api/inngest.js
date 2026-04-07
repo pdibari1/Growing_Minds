@@ -30,8 +30,7 @@ function getStoryTier(age) {
 }
 
 // ── ILLUSTRATION STYLE — based on story theme ──
-// Painterly atmospheric: princess/fairy/magic stories
-// Warm cinematic illustrated: everything else
+// Painterly atmospheric: all stories — magical palette for fairy/princess/magic, warm everyday palette for everything else
 function getStyleGuide(child) {
   const { milestone = '', favorite = '', customDetails = '' } = child;
   const signal = `${milestone} ${favorite} ${customDetails}`.toLowerCase();
@@ -43,10 +42,9 @@ function getStyleGuide(child) {
     return "Painterly atmospheric children's book illustration in the style of a classic fairy tale. Soft impressionistic oil-painting technique with visible but gentle brushwork. Muted, harmonious palette — soft blues, sage greens, warm amber golds, blush rose. Atmospheric depth with hazy rolling hills or dramatic rock formations in the distance. Characters rendered with gentle, rounded features and warm directional lighting. Glowing, luminous quality — light filters through foliage and fabric. Dreamlike and romantic. Rich organic environments: meadows, forests, stone paths, flowing gowns. Complete faces with clear eyes, nose, and mouth on every character. Hand-painted quality, NOT 3D rendered, NOT CGI";
   }
 
-  // Warm cinematic illustrated — high-quality hand-drawn style with rich lighting and detail.
-  // NOT 3D rendered, NOT plastic/CGI, NOT flat app-style cartoon.
-  // Modeled on the warm autumn school scene and workshop scene aesthetics.
-  return "Warm cinematic children's book illustration. Hand-drawn and painted quality — looks like a professional illustrated book, NOT 3D rendered, NOT CGI, NOT plastic or bubble-style cartoon. Rich warm color palette — deep amber, burnt orange, forest green, golden sunlight. Cinematic directional lighting with warm glowing highlights and soft shadows. Characters have expressive, naturally proportioned faces with visible linework and painted shading — NOT simplified app-cartoon style. Richly detailed backgrounds with depth and atmosphere. Style of high-quality illustrated children's novels and animated feature film concept art. Slight painterly texture throughout. Complete faces with clear eyes, nose, and mouth on every character";
+  // Painterly atmospheric — same technique as the magical style but with a warm everyday palette.
+  // Using the same oil-painting approach avoids the uncanny/creepy results that "cinematic" descriptions produce.
+  return "Painterly atmospheric children's picture book illustration. Soft impressionistic oil-painting technique with visible but gentle brushwork. Warm, inviting palette — golden yellows, rich ambers, earthy greens, soft sky blues, cream whites. Gentle directional lighting with a luminous, glowing quality — sunlight through windows, warm afternoon light. Characters rendered with gentle, rounded features and kind expressions — faces are soft and inviting, never harsh or realistic. Rich environments with depth and atmosphere: classrooms, playgrounds, forests, neighbourhoods. The world feels safe, cosy, and full of wonder. Complete faces with clear eyes, nose, and mouth on every character. Hand-painted quality, NOT 3D rendered, NOT CGI, NOT flat cartoon style, NOT plastic";
 }
 
 // ── MAIN INNGEST FUNCTION ──
