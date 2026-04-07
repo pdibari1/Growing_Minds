@@ -1368,18 +1368,18 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
-  /* 6×9" trim size — standard children's hardcover */
+  /* 5.5×8.5" digest trim size */
   @page {
-    size: 6in 9in;
-    margin: 19mm 19mm 22mm 25mm; /* top outside bottom gutter(left on odd) */
+    size: 5.5in 8.5in;
+    margin: 18mm 18mm 20mm 22mm; /* top outside bottom gutter(left on odd) */
   }
   @page :left {
-    margin: 19mm 25mm 22mm 19mm; /* gutter on right for even pages */
+    margin: 18mm 22mm 20mm 18mm; /* gutter on right for even pages */
   }
   @page :right {
-    margin: 19mm 19mm 22mm 25mm; /* gutter on left for odd pages */
+    margin: 18mm 18mm 20mm 22mm; /* gutter on left for odd pages */
   }
-  @page :first { size: 6in 9in; margin: 0; }
+  @page :first { size: 5.5in 8.5in; margin: 0; }
 
   /* ── COVER ── */
   .cover {
@@ -1640,12 +1640,14 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 </html>`;
 
   console.log(`HTML size before PDFShift: ${Math.round(html.length / 1024)}KB`);
-  // Page size and margins are controlled entirely by CSS @page rules above (6×9" trim)
+  // Explicit page dimensions passed in API payload — CSS @page alone is sometimes ignored
   const payload = JSON.stringify({
     source: html,
     landscape: false,
     use_print: false,
-    sandbox: false
+    sandbox: false,
+    width: "5.5in",
+    height: "8.5in"
   });
 
   return new Promise((resolve, reject) => {
@@ -1743,10 +1745,10 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
-  /* 5.25x8" chapter book trim — Lulu interior print spec (uniform size, no cover page) */
-  @page { size: 5.25in 8in; margin: 16mm 16mm 19mm 22mm; }
-  @page :left  { margin: 16mm 22mm 19mm 16mm; }
-  @page :right { margin: 16mm 16mm 19mm 22mm; }
+  /* 5.5×8.5" digest trim size */
+  @page { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
+  @page :left  { margin: 18mm 22mm 20mm 18mm; }
+  @page :right { margin: 18mm 18mm 20mm 22mm; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
 
@@ -1803,8 +1805,8 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 
   console.log(`Full book HTML size: ${Math.round(html.length / 1024)}KB`);
 
-  // Longer timeout for the larger document
-  const payload = JSON.stringify({ source: html, landscape: false, use_print: false, sandbox: false });
+  // Longer timeout for the larger document — explicit dimensions passed so PDFShift doesn't default to A4
+  const payload = JSON.stringify({ source: html, landscape: false, use_print: false, sandbox: false, width: "5.5in", height: "8.5in" });
 
   return new Promise((resolve, reject) => {
     const auth = Buffer.from(`api:${process.env.PDFSHIFT_API_KEY}`).toString('base64');
