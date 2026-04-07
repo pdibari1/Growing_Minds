@@ -1640,14 +1640,12 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 </html>`;
 
   console.log(`HTML size before PDFShift: ${Math.round(html.length / 1024)}KB`);
-  // Explicit page dimensions passed in API payload — CSS @page alone is sometimes ignored
+  // Page size controlled by CSS @page { size: 5.5in 8.5in } above — use_print:true ensures @page rules are applied
   const payload = JSON.stringify({
     source: html,
     landscape: false,
-    use_print: false,
-    sandbox: false,
-    width: "5.5in",
-    height: "8.5in"
+    use_print: true,
+    sandbox: false
   });
 
   return new Promise((resolve, reject) => {
@@ -1805,8 +1803,8 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 
   console.log(`Full book HTML size: ${Math.round(html.length / 1024)}KB`);
 
-  // Longer timeout for the larger document — explicit dimensions passed so PDFShift doesn't default to A4
-  const payload = JSON.stringify({ source: html, landscape: false, use_print: false, sandbox: false, width: "5.5in", height: "8.5in" });
+  // Page size controlled by CSS @page { size: 5.5in 8.5in } above — use_print:true ensures @page rules are applied
+  const payload = JSON.stringify({ source: html, landscape: false, use_print: true, sandbox: false });
 
   return new Promise((resolve, reject) => {
     const auth = Buffer.from(`api:${process.env.PDFSHIFT_API_KEY}`).toString('base64');
