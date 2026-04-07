@@ -600,9 +600,18 @@ async function correctKindness(chapterText, namedCharacters) {
 PROTAGONIST: ${protagonist}
 PROTECTED FRIENDS (real people in ${protagonist}'s life): ${friendList}
 
-CRITICAL CONTEXT: ${friendList} are ${protagonist}'s real-life friends. They must ONLY appear in this story when they are warmly supporting or encouraging ${protagonist}. They must NEVER appear as bullies, antagonists, or bystanders to cruelty — even if it would make a dramatically compelling scene. There is no exception to this.
+CRITICAL CONTEXT: ${friendList} are ${protagonist}'s real-life friends. They must ONLY appear in this story when they are actively, enthusiastically supporting, helping, or encouraging ${protagonist} in whatever ${protagonist} is trying to do. There is no exception.
 
-TASK: Read the chapter below. For every sentence where a protected friend's name appears and that sentence is part of a conflict, bullying, exclusion, or tense social scene — replace that friend's name with "a classmate" or "another kid" and fix surrounding pronouns. If a protected friend appears in multiple sentences of a conflict passage, replace them in all of those sentences.
+THE RULE IN ONE SENTENCE: When a protected friend appears, they must be ON ${protagonist}'s side, doing what ${protagonist} is doing, cheering for what ${protagonist} wants.
+
+VIOLATIONS TO FIX — replace the friend's name with "a classmate" or "another kid" in any sentence where a protected friend:
+1. Is involved in conflict, bullying, exclusion, or social cruelty toward anyone
+2. Chooses to do something different from what ${protagonist} wants to do (e.g. building a different thing, joining a different team, pursuing a different idea)
+3. Expresses doubt, hesitation, or lack of enthusiasm about ${protagonist}'s goal or plan
+4. Goes off to do their own thing while ${protagonist} works alone
+5. Sides with someone other than ${protagonist} in any disagreement
+
+Fix every sentence in the passage where the violation occurs — not just the first one.
 
 Do not change anything else. If no violations exist, return the text unchanged.
 Return corrected chapter text only. No explanation.
@@ -628,8 +637,11 @@ Read each chapter summary carefully. Rewrite any summary that has ANY of these p
 1. A protected friend is doing, saying, or causing anything negative (bullying, mocking, excluding, laughing at someone, being mean)
 2. A protected friend is present in the same sentence or clause as an unkind act, in a way that implies they are involved
 3. The summary uses "they" or "his friends" to describe unkind behavior while protected friends are in the scene
+4. A protected friend chooses to do something different from what the hero wants to do — building a different project, joining a different group, or pursuing their own idea instead of supporting the hero's
+5. A protected friend expresses doubt or lack of enthusiasm about the hero's goal, plan, or idea
+6. A protected friend is shown going off on their own while the hero does something alone
 
-When rewriting: replace the protected friend with "a classmate" or "another kid". If the protected friend was also present as a witness, keep them as a concerned bystander in a separate sentence. Keep the same plot beat.
+When rewriting: replace the protected friend with "a classmate" or "another kid". Protected friends may only appear when they are actively helping, encouraging, or joining in with exactly what the hero is doing. Keep the same plot beat.
 
 If a summary has no violation, leave it exactly as written.
 
@@ -704,7 +716,7 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 
 STORY RULES — apply to every chapter summary:
 - STICK TO KNOWN DETAILS: Only reference specific real-world details — teacher names, school names, pet names, sibling names, home layout, routines, hobbies, family traditions — if they are explicitly provided in the child's profile or custom details. For anything not specified, keep it general so it cannot clash with the child's real life. Write "his teacher" not an invented name. Write "a place he loved" not an invented location. If it's not in the profile, leave it vague.
-- NAMED CHARACTERS IN POSITIVE SCENES ONLY: ${namedCharactersStr} may only appear in chapter summaries where they are actively helping, encouraging, or sharing a warm moment with ${name}. Do NOT place any named character in a chapter involving conflict, unkindness, or social difficulty — not as the cause, not as a bystander. Any conflict scene must use only ${name} and completely unnamed characters ("a classmate", "some kids"). Named characters exist only to be supportive.
+- NAMED CHARACTERS — STRICT RULE: ${namedCharactersStr} may only appear in a chapter summary when they are actively helping, joining in, or enthusiastically encouraging ${name} in exactly what ${name} is trying to do. Named friends must NEVER: be unkind, exclude, or mock anyone; choose to do a different project, activity, or idea from ${name}; express doubt or hesitation about ${name}'s plan; or go off to do their own thing while ${name} works alone. Any scene involving conflict, social difficulty, or diverging choices must use only ${name} and completely unnamed characters ("a classmate", "some kids"). Named characters exist to be on ${name}'s team — always.
 - NO PHONES OR DEVICES: This story world has no smartphones, cell phones, tablets, or personal devices — for anyone, children or adults. Nobody sends or receives texts, messages, or notifications. If characters need to communicate, they talk in person or pass a handwritten note.
 - NO ASSUMED DISABILITIES: Do not give any named character a wheelchair, mobility aid, prosthetic limb, visual impairment, hearing aid, or any other physical disability or adaptive device unless it is explicitly stated in the child's profile or custom details. This applies to ${name} and all named friends.
 
@@ -798,6 +810,7 @@ Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud sentences. Shor
 
 CRITICAL: This chapter must follow directly from what came before and lead naturally into the next. Stay true to the established characters, setting, and tone. Do not introduce unrelated premises.
 CHARACTERS: Every person mentioned — siblings, friends, pets, parents — must be portrayed warmly and positively. No eye-rolling, dismissiveness, mockery, or negativity from any character toward another.
+NAMED FRIENDS IN CHAPTERS: If any of ${namedCharactersStr} appear, they must be actively on ${name}'s side — joining in, helping, or cheering for exactly what ${name} is doing. They must NEVER choose a different project or activity, express doubt about ${name}'s plan, or go off to do their own thing. Any character who diverges from ${name}'s goal must be given an unnamed label ("a classmate", "another kid") — never a protected name.
 
 FORMAT:
 - First line MUST be exactly: "Chapter ${index + 1}: ${chap.title}"
