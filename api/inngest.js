@@ -187,7 +187,7 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide} ${name}, ${lockedCharDesc},${longHairBoyNote} stands outdoors smiling in ${city}, ${region}. ${name}'s hair is ${hair}. The ${region} landscape fills the background. Only the character and landscape — nothing else in the image.`;
+        const coverPrompt = `${styleGuide} A cheerful ${lockedCharDesc}${longHairBoyNote ? ', ' + longHairBoyNote.trim() : ''} with ${hair} hair, smiling, standing in a wide open ${region} outdoor scene — mountains, sky, and nature all around. Single continuous scene with no insets, no secondary images, no borders.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
