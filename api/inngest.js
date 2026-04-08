@@ -1923,6 +1923,7 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
 
   const approveUrl  = `${baseUrl}/api/approve?storyId=${storyId}&token=${token}`;
   const regenUrl    = `${baseUrl}/api/regenerate?storyId=${storyId}&token=${token}`;
+  const cancelUrl   = `${baseUrl}/api/cancel?storyId=${storyId}&token=${token}`;
 
   const actionButtons = `
     <div style="margin:1.5rem 0;padding:1.25rem;background:#fefce8;border:1px solid #fde047;border-radius:8px;">
@@ -1930,7 +1931,8 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
       <p style="color:#92400e;font-size:.8rem;margin:0 0 1rem;">Review the chapter preview and cover above. Click below to act now.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">✓ Send Now</a>
-        <a href="${regenUrl}" style="display:inline-block;background:#dc2626;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">↺ Regenerate</a>
+        <a href="${regenUrl}" style="display:inline-block;background:#b45309;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">↺ Regenerate</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:#6b7280;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">✕ Cancel</a>
       </div>
     </div>`;
 

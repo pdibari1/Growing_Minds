@@ -8,7 +8,10 @@
     "api/inngest.js":        { "maxDuration": 800 },
     "api/generate-preview.js": { "maxDuration": 30 },
     "api/create-checkout.js":  { "maxDuration": 30 },
-    "api/capture-email.js":    { "maxDuration": 10 }
+    "api/capture-email.js":    { "maxDuration": 10 },
+    "api/approve.js":          { "maxDuration": 15 },
+    "api/regenerate.js":       { "maxDuration": 15 },
+    "api/cancel.js":           { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/confirmation", "destination": "/confirmation.html" },
