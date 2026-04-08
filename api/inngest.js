@@ -31,7 +31,7 @@ function getStoryTier(age) {
 
 // ── ILLUSTRATION STYLE — one universal style for all stories ──
 // Single DALL-E 3 style used for both cover and all chapter illustrations.
-const STYLE_GUIDE = "Clean digital children's book illustration. Crisp lines, smooth color fills, and soft cel-shading — like a high-quality modern picture book you would find in a bookstore today. Bright, warm palette: golden yellows, sky blues, leafy greens, warm whites. Characters are friendly and naturally proportioned with clear, expressive faces and visible eyes, nose, and mouth. Richly detailed backgrounds with depth and warmth. Always bright — sunlit daytime outdoors or warmly lit interiors, never dark or dim scenes. NOT oil-painted, NOT watercolor, NOT 3D rendered, NOT CGI, NOT flat vector clipart, NOT plastic.";
+const STYLE_GUIDE = "Clean digital children's book illustration. Crisp lines, smooth color fills, soft cel-shading. Bright warm palette: golden yellows, sky blues, leafy greens, warm whites. Characters are friendly and naturally proportioned with clear expressive faces — visible eyes, nose, and mouth. Richly detailed backgrounds with depth and warmth. Always bright — sunlit daytime outdoors or warmly lit interiors, never dark or dim. The image must show ONLY the story scene — NO color palette swatches, NO paint chips, NO design elements along any edge, NO artist hands, NO brushes or tools, NO borders or frames, NO mockup overlays. NOT 3D rendered, NOT CGI, NOT watercolor, NOT flat vector clipart, NOT plastic.";
 
 function getStyleGuide() {
   return STYLE_GUIDE;
@@ -189,7 +189,7 @@ const generateStoryOrder = inngest.createFunction(
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
         const coverPrompt = `${styleGuide}.
 
-A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote} standing outdoors in ${city}, ${region}, smiling with joy. IMPORTANT: ${name}'s hair is ${hair} — render it exactly that color. ${name} is the only character. The ${region} landscape — sky, hills, land — fills every corner of the canvas behind them. Every pixel of the image is painted scene: character in the foreground, environment in the background, nothing else.`;
+A single full-bleed illustration: ${name}, ${lockedCharDesc},${longHairBoyNote} standing outdoors in ${city}, ${region}, smiling with joy. IMPORTANT: ${name}'s hair is ${hair} — render it exactly that color. ${name} is the only character. The ${region} landscape — sky, hills, land — fills every corner of the image behind them. Character in the foreground, environment filling the background. No borders, no swatches, no extra elements of any kind.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -224,7 +224,7 @@ A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote}
 
           const scenePrompt = `${styleGuide}.
 
-A single full-bleed painted scene from a children's story: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} IMPORTANT: ${name}'s hair is ${hair} — render it exactly that color, no variation. If any family members (siblings, parents) appear in this scene, they must share the same skin tone and general coloring as ${name}. Setting: ${city}, ${region}. Every pixel of the image is painted scene — characters and environment only, nothing else.`;
+A single full-bleed illustration from a children's story: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} IMPORTANT: ${name}'s hair is ${hair} — render it exactly that color, no variation. If any family members (siblings, parents) appear in this scene, they must share the same skin tone and general coloring as ${name}. Setting: ${city}, ${region}. Characters and environment fill the entire image — no borders, no swatches, no extra elements of any kind.`;
 
           const imageUrl = await callDallE(scenePrompt);
           const imageBytes = await fetchImageBytes(imageUrl);
