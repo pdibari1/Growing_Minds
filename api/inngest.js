@@ -189,7 +189,7 @@ const generateStoryOrder = inngest.createFunction(
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
         const coverPrompt = `${styleGuide}.
 
-A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote} standing outdoors in ${city}, ${region}, smiling with joy. ${name} is the only character. The ${region} landscape — sky, hills, land — fills every corner of the canvas behind them. Every pixel of the image is painted scene: character in the foreground, environment in the background, nothing else.`;
+A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote} standing outdoors in ${city}, ${region}, smiling with joy. IMPORTANT: ${name}'s hair is ${hair} — render it exactly that color. ${name} is the only character. The ${region} landscape — sky, hills, land — fills every corner of the canvas behind them. Every pixel of the image is painted scene: character in the foreground, environment in the background, nothing else.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -224,7 +224,7 @@ A single full-bleed painted scene: ${name}, ${lockedCharDesc},${longHairBoyNote}
 
           const scenePrompt = `${styleGuide}.
 
-A single full-bleed painted scene from a children's story: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} Setting: ${city}, ${region}. Every pixel of the image is painted scene — characters and environment only, nothing else.`;
+A single full-bleed painted scene from a children's story: ${chap?.imagePrompt || `${name} on an adventure in ${city}`} The main character is ${name}, ${lockedCharDesc}.${longHairBoyNote} IMPORTANT: ${name}'s hair is ${hair} — render it exactly that color, no variation. If any family members (siblings, parents) appear in this scene, they must share the same skin tone and general coloring as ${name}. Setting: ${city}, ${region}. Every pixel of the image is painted scene — characters and environment only, nothing else.`;
 
           const imageUrl = await callDallE(scenePrompt);
           const imageBytes = await fetchImageBytes(imageUrl);
@@ -606,7 +606,19 @@ CHAPTER TEXT:
 ${chapterText}`;
   try {
     const corrected = await callClaude(prompt, 3000);
-    return corrected.trim();
+    const result = corrected.trim();
+    // Guard: if the model returned an explanation instead of chapter text, discard it.
+    // Valid chapter text always starts with "Chapter N:" — anything else is a meta-response leak.
+    if (!result.startsWith('Chapter')) {
+      console.warn(`correctKindness returned non-chapter text (meta-response leak) — using original`);
+      return chapterText;
+    }
+    // Guard: if the result is dramatically shorter than the original it was probably truncated
+    if (result.length < chapterText.length * 0.5) {
+      console.warn(`correctKindness result suspiciously short (${result.length} vs ${chapterText.length}) — using original`);
+      return chapterText;
+    }
+    return result;
   } catch(e) {
     console.error(`correctKindness failed: ${e.message}`);
     return chapterText;
