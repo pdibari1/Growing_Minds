@@ -765,6 +765,12 @@
         <div class="error-msg" id="err-milestone">Please select or describe a milestone.</div>
       </div>
 
+      <div class="field" style="margin-top:1.4rem;">
+        <label for="milestone-details">Tell us more about this milestone <span class="opt">(optional)</span></label>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:.6rem;">What's making it exciting, scary, or hard for them? The more you share, the more the story will feel like it was written just for them.</p>
+        <textarea id="milestone-details" placeholder="e.g. She's been worried about not knowing anyone at her new school. She cried the night before her first swimming lesson but was so proud after. He's been practising his reading every night and almost gave up last week…" maxlength="400" style="width:100%;padding:.85rem 1.1rem;border:2px solid var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:600;color:var(--text);background:var(--white);resize:vertical;min-height:90px;outline:none;transition:border-color .2s,box-shadow .2s;" onfocus="this.style.borderColor='var(--green)';this.style.boxShadow='0 0 0 3px rgba(45,106,79,0.12)'" onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'"></textarea>
+      </div>
+
       <div style="margin-top:1.2rem;">
         <label style="display:flex;align-items:flex-start;gap:.75rem;cursor:pointer;font-size:.88rem;color:var(--muted);font-weight:600;">
           <input type="checkbox" id="consent-checkbox" style="margin-top:.2rem;width:18px;height:18px;accent-color:var(--green);flex-shrink:0;cursor:pointer;"/>
@@ -941,7 +947,9 @@
       } else {
         state.friend = '';
       }
-      state.customDetails = document.getElementById('custom-details').value.trim();
+      const milestoneDetails = document.getElementById('milestone-details')?.value.trim();
+      const baseDetails = document.getElementById('custom-details').value.trim();
+      state.customDetails = [baseDetails, milestoneDetails ? `About their milestone: ${milestoneDetails}` : ''].filter(Boolean).join('\n\n');
       if (state.trait) updatePreview('prev-trait', state.trait);
     }
 
