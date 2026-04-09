@@ -160,14 +160,18 @@ const generateStoryOrder = inngest.createFunction(
       const styleGuide = getStyleGuide();
 
       // Locked physical description built directly from user form data — never overridden
-      const hairLengthExpanded = hairLength === 'long' ? 'very long, flowing well past the shoulders'
-        : hairLength === 'short' ? 'very short, close-cropped, above the ears'
-        : hairLength === 'medium' ? 'medium-length, chin to shoulder'
+      const hairLengthExpanded = hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
+        : hairLength === 'regular cut'     ? 'short regular cut, trimmed neatly above the ears'
+        : hairLength === 'past the ears'   ? 'medium length, hanging past the ears'
+        : hairLength === 'to the shoulders'? 'long, reaching all the way to the shoulders'
+        : hairLength === 'long'            ? 'very long, flowing well past the shoulders'
+        : hairLength === 'short'           ? 'very short, close-cropped, above the ears'
+        : hairLength === 'medium'          ? 'medium-length, chin to shoulder'
         : hairLength || '';
       const hairDescExpanded = [hairLengthExpanded, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       // Keep gender — needed for correct character rendering. For long-haired boys, add explicit note.
       const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
-      const longHairBoyNote = (genderDesc === 'boy' && hairLength === 'long')
+      const longHairBoyNote = (genderDesc === 'boy' && (hairLength === 'long' || hairLength === 'to the shoulders'))
         ? ` Important: ${name} is a boy who wears his hair long — this is intentional and must be shown.`
         : '';
 

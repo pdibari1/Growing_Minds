@@ -561,19 +561,70 @@
 
       <div class="field" style="margin-top: 1.8rem;">
         <label>Hair length</label>
-        <div class="card-group" id="hair-length-cards">
-          <div class="card-option" data-val="Short" onclick="selectCard('hairLength', this)">
-            <div class="card-icon">✂️</div>
-            <div class="card-label">Short</div>
+        <div class="card-group" id="hair-length-cards" style="grid-template-columns:repeat(4,1fr);gap:.6rem;">
+
+          <div class="card-option" data-val="crew cut" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">
+              <svg viewBox="0 0 64 90" xmlns="http://www.w3.org/2000/svg" style="height:68px;width:auto;">
+                <ellipse cx="32" cy="40" rx="20" ry="18" fill="#8B5E3C"/>
+                <ellipse cx="32" cy="50" rx="19" ry="24" fill="#FFDBB4"/>
+                <rect x="27" y="72" width="10" height="8" rx="4" fill="#FFDBB4"/>
+                <circle cx="25" cy="47" r="2.5" fill="#3D2514"/>
+                <circle cx="39" cy="47" r="2.5" fill="#3D2514"/>
+                <path d="M25 57 Q32 63 39 57" stroke="#C07858" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="card-label">Crew Cut</div>
           </div>
-          <div class="card-option" data-val="Medium" onclick="selectCard('hairLength', this)">
-            <div class="card-icon">💇</div>
-            <div class="card-label">Medium</div>
+
+          <div class="card-option" data-val="regular cut" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">
+              <svg viewBox="0 0 64 90" xmlns="http://www.w3.org/2000/svg" style="height:68px;width:auto;">
+                <ellipse cx="32" cy="32" rx="21" ry="15" fill="#8B5E3C"/>
+                <rect x="12" y="30" width="11" height="22" rx="5" fill="#8B5E3C"/>
+                <rect x="41" y="30" width="11" height="22" rx="5" fill="#8B5E3C"/>
+                <ellipse cx="32" cy="50" rx="19" ry="24" fill="#FFDBB4"/>
+                <rect x="27" y="72" width="10" height="8" rx="4" fill="#FFDBB4"/>
+                <circle cx="25" cy="47" r="2.5" fill="#3D2514"/>
+                <circle cx="39" cy="47" r="2.5" fill="#3D2514"/>
+                <path d="M25 57 Q32 63 39 57" stroke="#C07858" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="card-label">Regular Cut</div>
           </div>
-          <div class="card-option" data-val="Long" onclick="selectCard('hairLength', this)">
-            <div class="card-icon">👱</div>
-            <div class="card-label">Long</div>
+
+          <div class="card-option" data-val="past the ears" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">
+              <svg viewBox="0 0 64 90" xmlns="http://www.w3.org/2000/svg" style="height:68px;width:auto;">
+                <ellipse cx="32" cy="32" rx="22" ry="15" fill="#8B5E3C"/>
+                <rect x="11" y="30" width="11" height="36" rx="5" fill="#8B5E3C"/>
+                <rect x="42" y="30" width="11" height="36" rx="5" fill="#8B5E3C"/>
+                <ellipse cx="32" cy="50" rx="19" ry="24" fill="#FFDBB4"/>
+                <rect x="27" y="72" width="10" height="8" rx="4" fill="#FFDBB4"/>
+                <circle cx="25" cy="47" r="2.5" fill="#3D2514"/>
+                <circle cx="39" cy="47" r="2.5" fill="#3D2514"/>
+                <path d="M25 57 Q32 63 39 57" stroke="#C07858" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="card-label">Past the Ears</div>
           </div>
+
+          <div class="card-option" data-val="to the shoulders" onclick="selectCard('hairLength', this)">
+            <div class="card-icon">
+              <svg viewBox="0 0 64 90" xmlns="http://www.w3.org/2000/svg" style="height:68px;width:auto;">
+                <ellipse cx="32" cy="32" rx="22" ry="15" fill="#8B5E3C"/>
+                <rect x="10" y="30" width="13" height="55" rx="6" fill="#8B5E3C"/>
+                <rect x="41" y="30" width="13" height="55" rx="6" fill="#8B5E3C"/>
+                <ellipse cx="32" cy="50" rx="19" ry="24" fill="#FFDBB4"/>
+                <rect x="27" y="72" width="10" height="8" rx="4" fill="#FFDBB4"/>
+                <circle cx="25" cy="47" r="2.5" fill="#3D2514"/>
+                <circle cx="39" cy="47" r="2.5" fill="#3D2514"/>
+                <path d="M25 57 Q32 63 39 57" stroke="#C07858" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="card-label">To the Shoulders</div>
+          </div>
+
         </div>
         <div class="error-msg" id="err-hair-length">Please select a hair length.</div>
       </div>
