@@ -31,7 +31,7 @@ function getStoryTier(age) {
 
 // ── ILLUSTRATION STYLE — one universal style for all stories ──
 // Single DALL-E 3 style used for both cover and all chapter illustrations.
-const STYLE_GUIDE = "Colorful digital cartoon art. Warm bright palette, crisp lines, smooth cel-shading. Friendly characters with clear expressive faces. Detailed scenic backgrounds. Bright sunlit scene.";
+const STYLE_GUIDE = "Bold outlined digital illustration with rich painted colors and detailed shading — like a high-quality animated feature film. Strong clean ink lines, vivid saturated palette, expressive characters with detailed faces and lush detailed backgrounds. Bright well-lit scene. No text, words, signs, or labels anywhere in the image.";
 
 function getStyleGuide() {
   return STYLE_GUIDE;
@@ -172,7 +172,7 @@ const generateStoryOrder = inngest.createFunction(
       // Keep gender — needed for correct character rendering. For long-haired boys, add explicit note.
       const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
       const longHairBoyNote = (genderDesc === 'boy' && (hairLength === 'long' || hairLength === 'to the shoulders'))
-        ? ` Important: ${name} is a boy who wears his hair long — this is intentional and must be shown.`
+        ? ` IMPORTANT: ${name} is a BOY with long hair — render with clearly boyish/masculine facial features (strong brow, boyish jaw, masculine face). Do NOT make this character look like a girl.`
         : '';
 
       // Step A: Use Claude to design ALL recurring characters with consistent descriptions
@@ -191,7 +191,7 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide} A cheerful ${lockedCharDesc}${longHairBoyNote ? ', ' + longHairBoyNote.trim() : ''} with ${hair} hair, smiling, standing in a wide open ${region} outdoor scene — mountains, sky, and nature all around. Single continuous scene with no insets, no secondary images, no borders.`;
+        const coverPrompt = `${styleGuide} Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} ${name}'s hair is ${hair}-colored and ${hairLengthExpanded} — match exactly. ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene, no insets, no secondary images, no borders.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -224,7 +224,7 @@ const generateStoryOrder = inngest.createFunction(
           const chap = freshOutline[ci];
           console.log(`Generating illustration ${b + 1}/${remainingKeys.length}: key ${key}`);
 
-          const scenePrompt = `${styleGuide} ${chap?.imagePrompt || `${name} having fun in ${city}`} ${name}, ${lockedCharDesc},${longHairBoyNote} ${name}'s hair is ${hair}. ${city}, ${region} setting. If family members appear they share ${name}'s skin tone and coloring. Only characters and environment — nothing else in the image.`;
+          const scenePrompt = `${styleGuide} Main character: ${name}, ${lockedCharDesc}.${longHairBoyNote} ${name}'s hair is ${hair}-colored and ${hairLengthExpanded} — match this exactly. Scene: ${chap?.imagePrompt || `${name} having fun in ${city}`} Setting: ${city}, ${region}. If family members appear they share ${name}'s skin tone and coloring. No text, signs, or words anywhere in the image.`;
 
           const imageUrl = await callDallE(scenePrompt);
           const imageBytes = await fetchImageBytes(imageUrl);
