@@ -308,11 +308,11 @@ const generateStoryOrder = inngest.createFunction(
       await redisRequest("DEL", [`cover:${storyId}`]);
     });
 
-    // Step 7c: Wait up to 2 hours for admin approval — auto-sends if no action taken
+    // Step 7c: Wait up to 15 minutes for admin approval — auto-sends if no action taken
     await step.waitForEvent("wait-for-approval", {
       event: "story/approved",
       match: "data.storyId",
-      timeout: "2h"
+      timeout: "15m"
     });
 
     // Step 7d: Send customer email — skip if admin triggered a regeneration
