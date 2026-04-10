@@ -31,7 +31,7 @@ function getStoryTier(age) {
 
 // ── ILLUSTRATION STYLE — one universal style for all stories ──
 // Single DALL-E 3 style used for both cover and all chapter illustrations.
-const STYLE_GUIDE = "Bold outlined digital illustration with rich painted colors and detailed shading — like a high-quality animated feature film. Strong clean ink lines, vivid saturated palette, expressive characters with detailed faces and lush detailed backgrounds. Bright well-lit scene. No text, words, signs, or labels anywhere in the image.";
+const STYLE_GUIDE = "Bold outlined digital illustration with rich painted colors and detailed shading — like a high-quality animated feature film. Strong clean ink lines, vivid saturated palette, expressive characters with detailed faces and lush detailed backgrounds. Bright well-lit scene. No text, words, signs, labels, color swatches, paint palettes, art supplies, pencils, brushes, or design elements anywhere in the image. No hands holding brushes or pens. No artist creating or drawing the scene. No meta-depiction of the image being made.";
 
 function getStyleGuide() {
   return STYLE_GUIDE;
@@ -191,7 +191,7 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide} Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} ${name}'s hair is ${hair}-colored and ${hairLengthExpanded} — match exactly. ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene, no insets, no secondary images, no borders.`;
+        const coverPrompt = `${styleGuide} IMPORTANT: The main character is a CHILD, age ${age} — render with the face, body proportions, and size of a real ${age}-year-old ${genderDesc}. NOT a teenager. NOT an adult. A young child, age ${age}. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} ${name}'s hair is ${hair}-colored and ${hairLengthExpanded} — match exactly. ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
