@@ -215,22 +215,27 @@ const generateStoryOrder = inngest.createFunction(
         }
       });
 
-      // Step C: Generate remaining illustrations using DALL-E 3 (same model as cover for consistency)
+      // Step C: Generate remaining illustrations using fal.ai instant-character
+      // The cover image is used as the character reference so all chapter images match
       const remainingKeys = allImageKeys.filter(k => k !== '0-0');
       for (let b = 0; b < remainingKeys.length; b++) {
-        await step.run(`generate-illustration-dalle3-${b + 1}`, async () => {
+        await step.run(`generate-illustration-fal-${b + 1}`, async () => {
           const key = remainingKeys[b];
           const [ci] = key.split('-').map(Number);
           const chap = freshOutline[ci];
           console.log(`Generating illustration ${b + 1}/${remainingKeys.length}: key ${key}`);
 
-          const scenePrompt = `${styleGuide} Main character: ${name}, ${lockedCharDesc}.${longHairBoyNote} ${name}'s hair is ${hair}-colored and ${hairLengthExpanded} — match this exactly. Scene: ${chap?.imagePrompt || `${name} having fun in ${city}`} Setting: ${city}, ${region}. If family members appear they share ${name}'s skin tone and coloring. No text, signs, or words anywhere in the image.`;
+          // Get the cover Blob URL as the character reference
+          const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
+          if (!coverBlobUrl) throw new Error(`cover:${storyId} not found in Redis — cannot generate character-consistent image`);
 
-          const imageUrl = await callDallE(scenePrompt);
-          const imageBytes = await fetchImageBytes(imageUrl);
+          // Scene prompt: character appearance comes from the reference image, so just describe the scene
+          const scenePrompt = `${chap?.imagePrompt || `${name} having fun outdoors in ${city}`} Setting: ${city}, ${region}. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+
+          const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
           await saveIllustrationsToRedis(storyId, { [key]: blob.url });
-          console.log(`Image ${key} generated with DALL-E 3: ${blob.url.slice(0, 60)}`);
+          console.log(`Image ${key} generated with fal.ai instant-character: ${blob.url.slice(0, 60)}`);
           return { key, saved: true };
         });
       }
@@ -918,12 +923,41 @@ Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
   // Split the response into individual chapters
   const chapTexts = raw.split(/(?=Chapter \d+:)/g).filter(c => c.trim());
-  
-  // Make sure we got the right number — pad or trim if needed
+
+  // If batch came back short, retry each missing chapter individually — never pad with placeholder text
   while (chapTexts.length < endIdx - startIdx) {
-    chapTexts.push(`Chapter ${startIdx + chapTexts.length + 1}: The Adventure Continues\n\nThe story continued on...`);
+    const missingNum = startIdx + chapTexts.length + 1;
+    const missingOutline = outline[startIdx + chapTexts.length];
+    console.warn(`Batch returned only ${chapTexts.length}/${endIdx - startIdx} chapters — retrying chapter ${missingNum} individually`);
+
+    try {
+      const retryPrompt = `Write Chapter ${missingNum} of a personalized children's ${tier.label}.
+
+Chapter title: "${missingOutline?.title}"
+Chapter summary: ${missingOutline?.summary}
+
+Write approximately ${tier.wordsPerChap} words. Format your response exactly like this:
+Chapter ${missingNum}: ${missingOutline?.title}
+
+[chapter text here]
+
+Nothing else before or after the chapter.`;
+
+      const retryRaw = await callClaude(retryPrompt, tier.maxTokensPerChap + 300);
+      const retryText = retryRaw.trim();
+      // Ensure it starts with the chapter header
+      if (retryText.startsWith('Chapter')) {
+        chapTexts.push(retryText);
+      } else {
+        chapTexts.push(`Chapter ${missingNum}: ${missingOutline?.title || 'The Next Adventure'}\n\n${retryText}`);
+      }
+    } catch(e) {
+      console.error(`Individual retry for chapter ${missingNum} failed: ${e.message}`);
+      // Only use placeholder as absolute last resort after retry failure
+      chapTexts.push(`Chapter ${missingNum}: ${missingOutline?.title || 'The Next Adventure'}\n\n[Chapter generation failed — please regenerate this story.]`);
+    }
   }
-  
+
   return chapTexts.slice(0, endIdx - startIdx);
 }
 
@@ -961,25 +995,65 @@ async function generateIllustrations(child, outline, chapters, tier) {
   return illustrations;
 }
 
-async function callGptImage1WithRef(referenceImageBytes, scenePrompt, quality = "low") {
-  const formData = new FormData();
-  formData.append('image', new Blob([referenceImageBytes], { type: 'image/jpeg' }), 'reference.jpg');
-  formData.append('prompt', scenePrompt);
-  formData.append('model', 'gpt-image-1');
-  formData.append('quality', quality);
-  formData.append('size', '1024x1024');
+async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
+  const FAL_KEY = process.env.FAL_KEY;
+  if (!FAL_KEY) throw new Error("FAL_KEY environment variable is not set");
 
-  const response = await fetch('https://api.openai.com/v1/images/edits', {
+  // Submit to fal.ai queue
+  const submitRes = await fetch('https://queue.fal.run/fal-ai/instant-character', {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: formData,
-    signal: AbortSignal.timeout(180000)
+    headers: {
+      'Authorization': `Key ${FAL_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      image_url: referenceImageUrl,
+      prompt: scenePrompt,
+      size: 'square_hd',
+      scale: 0.8   // slightly below max so background has room to breathe
+    }),
+    signal: AbortSignal.timeout(30000)
   });
 
-  const data = await response.json();
-  if (data.error) throw new Error(`gpt-image-1 error: ${data.error.message}`);
-  const b64 = data.data[0].b64_json;
-  return Buffer.from(b64, 'base64');
+  if (!submitRes.ok) {
+    const err = await submitRes.text();
+    throw new Error(`fal.ai submit error ${submitRes.status}: ${err.slice(0, 200)}`);
+  }
+
+  const { request_id } = await submitRes.json();
+  if (!request_id) throw new Error("fal.ai: no request_id in submit response");
+  console.log(`fal.ai instant-character submitted: ${request_id}`);
+
+  // Poll for completion (up to 3 minutes, every 4 seconds)
+  const statusUrl = `https://queue.fal.run/fal-ai/instant-character/requests/${request_id}/status`;
+  const resultUrl = `https://queue.fal.run/fal-ai/instant-character/requests/${request_id}`;
+  const deadline = Date.now() + 180000;
+
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 4000));
+    const statusRes = await fetch(statusUrl, {
+      headers: { 'Authorization': `Key ${FAL_KEY}` }
+    });
+    const status = await statusRes.json();
+    console.log(`fal.ai status: ${status.status}`);
+
+    if (status.status === 'COMPLETED') {
+      const resultRes = await fetch(resultUrl, {
+        headers: { 'Authorization': `Key ${FAL_KEY}` }
+      });
+      const result = await resultRes.json();
+      const imageUrl = result?.images?.[0]?.url;
+      if (!imageUrl) throw new Error("fal.ai: no image URL in result");
+      console.log(`fal.ai instant-character done: ${imageUrl.slice(0, 60)}`);
+      return await fetchImageBytes(imageUrl);
+    }
+
+    if (status.status === 'FAILED') {
+      throw new Error(`fal.ai generation failed: ${JSON.stringify(status.error || status).slice(0, 200)}`);
+    }
+  }
+
+  throw new Error("fal.ai instant-character timed out after 3 minutes");
 }
 
 function callDallE(prompt, size = "1024x1024") {
@@ -1756,10 +1830,23 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 
   /* 5.5×8.5" digest trim size */
   @page { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
+  @page :first { size: 5.5in 8.5in; margin: 0; }
   @page :left  { margin: 18mm 22mm 20mm 18mm; }
   @page :right { margin: 18mm 18mm 20mm 22mm; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+
+  /* ── COVER ── */
+  .cover { width:100%; height:100vh; background:#1a3a2a; position:relative; overflow:hidden; page-break-after:always; }
+  .cover-image { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
+  .cover-gradient { position:absolute; bottom:0; left:0; width:100%; height:65%; background:linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%); }
+  .cover-panel { position:absolute; bottom:0; left:0; width:100%; padding:28px 48px 36px; display:flex; flex-direction:column; justify-content:flex-end; gap:0; }
+  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:Arial,sans-serif; font-size:7.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:12px; width:fit-content; }
+  .cover-title-line1 { font-family:Georgia,serif; font-size:12pt; font-weight:700; color:rgba(255,255,255,0.75); letter-spacing:.04em; margin-bottom:2px; }
+  .cover-title-main { font-family:Georgia,serif; font-size:28pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:12px; }
+  .cover-divider { width:40px; height:2px; background:rgba(255,255,255,0.25); margin-bottom:10px; }
+  .cover-meta { font-family:Arial,sans-serif; font-size:8pt; color:rgba(255,255,255,0.45); line-height:1.5; margin-bottom:10px; }
+  .cover-publisher { font-family:Arial,sans-serif; font-size:7.5pt; color:rgba(255,255,255,0.25); letter-spacing:.08em; text-transform:uppercase; }
 
   /* ── CHAPTERS ── */
   .chapter { padding:8px 0 40px; page-break-before:always; position:relative; }
@@ -1780,6 +1867,20 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 </style>
 </head>
 <body>
+
+  <!-- COVER -->
+  <div class="cover">
+    ${illustrationsB64['0-0'] ? `<img class="cover-image" src="${illustrationsB64['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
+    <div class="cover-gradient"></div>
+    <div class="cover-panel">
+      <div class="cover-badge">A Growing Minds Original Story</div>
+      <div class="cover-title-line1">${childName} and the</div>
+      <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
+      <div class="cover-divider"></div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;&middot;&nbsp; ${city}, ${region}</div>
+      <div class="cover-publisher">growingminds.io</div>
+    </div>
+  </div>
 
   <!-- TITLE PAGE -->
   <div class="title-page">
