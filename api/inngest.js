@@ -191,7 +191,7 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide} IMPORTANT: The main character is a CHILD, age ${age} — render with the face, body proportions, and size of a real ${age}-year-old ${genderDesc}. NOT a teenager. NOT an adult. A young child, age ${age}. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} ${name}'s hair is ${hair}-colored and ${hairLengthExpanded} — match exactly. ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image.`;
+        const coverPrompt = `${styleGuide} IMPORTANT: The main character is a CHILD, age ${age} — render with the face, body proportions, and size of a real ${age}-year-old ${genderDesc}. NOT a teenager. NOT an adult. A young child, age ${age}. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored and ${hairLengthExpanded}. The hair length is critical — it must be clearly and visibly ${hairLengthExpanded}. Do not shorten the hair. ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -230,7 +230,8 @@ const generateStoryOrder = inngest.createFunction(
           if (!coverBlobUrl) throw new Error(`cover:${storyId} not found in Redis — cannot generate character-consistent image`);
 
           // Scene prompt: character appearance comes from the reference image, so just describe the scene
-          const scenePrompt = `${chap?.imagePrompt || `${name} having fun outdoors in ${city}`} Setting: ${city}, ${region}. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          // Hair length is included as a hint to help the model preserve it from the reference
+          const scenePrompt = `${chap?.imagePrompt || `${name} having fun outdoors in ${city}`} Setting: ${city}, ${region}. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
