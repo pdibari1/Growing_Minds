@@ -229,9 +229,24 @@ const generateStoryOrder = inngest.createFunction(
           const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
           if (!coverBlobUrl) throw new Error(`cover:${storyId} not found in Redis — cannot generate character-consistent image`);
 
+          // Extract a specific visual scene from the actual written chapter text
+          // Fall back to outline imagePrompt if chapter text isn't available
+          const allChapters = await getChaptersFromRedis(storyId);
+          const chapterText = allChapters[ci] || null;
+          const visualScene = chapterText
+            ? await extractScenePrompt(chapterText, name, age, city, region)
+            : (chap?.imagePrompt || `${name} having fun outdoors in ${city}`);
+
+          // Age-specific illustration style directive
+          const ageNum = parseInt(age);
+          const illustrationStyle = ageNum <= 7
+            ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition — one clear action in focus. The illustration should make the scene immediately readable without the text.`
+            : ageNum <= 10
+            ? `Expressive character faces with personality and humor. Spot-illustration feel — tight on the characters, with enough background to set the scene. Include one small visual detail that adds humor or reveals character beyond what the text says.`
+            : `Atmospheric and cinematic. Detailed environment that captures the mood of the scene. Character expression conveys internal emotion — not just what they're doing but how they feel about it.`;
+
           // Scene prompt: character appearance comes from the reference image, so just describe the scene
-          // Hair length and age are included as hints to help the model stay consistent with the reference
-          const scenePrompt = `${chap?.imagePrompt || `${name} having fun outdoors in ${city}`} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image. If other characters appear in the scene, each person must wear completely different clothing from one another — no two characters should have matching or similar outfits. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image. If other characters appear in the scene, each person must wear completely different clothing from one another — no two characters should have matching or similar outfits. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -1004,6 +1019,49 @@ async function generateIllustrations(child, outline, chapters, tier) {
   }
 
   return illustrations;
+}
+
+async function extractScenePrompt(chapterText, name, age, city, region) {
+  // Strip chapter title line, keep body text only
+  const lines = chapterText.split(/\n+/).filter(l => l.trim());
+  const body = lines.slice(1).join(' ').slice(0, 1500); // Cap at ~1500 chars to keep the call cheap
+
+  const ageNum = parseInt(age);
+
+  // Age-specific instructions for what kind of scene to find and how to describe it
+  const ageGuidance = ageNum <= 7
+    ? `This is for a very young reader (age ${age}). Pick the most literal, action-clear moment — the one where it's most obvious what ${name} is physically doing. Big emotions and clear body language matter most. The illustration must carry part of the story on its own. Describe exactly what is happening: the action, the expression on ${name}'s face, who else is there, and where they are.`
+    : ageNum <= 10
+    ? `This is for a middle-reader (age ${age}). Pick a moment that allows for visual humor, personality, or something the text hints at but doesn't fully describe — a hidden joke, an exaggerated reaction, a telling detail. The illustration should enhance the story, not just repeat it. Describe the scene and include one detail that adds something extra — something funny, surprising, or revealing about ${name}'s character.`
+    : `This is for an older reader (age ${age}). Pick the most emotionally significant or atmospheric moment in the chapter — a scene that captures the mood, the stakes, or the world of the story. The illustration should feel cinematic. Describe the scene focusing on setting, atmosphere, and ${name}'s emotional state as shown through their posture and expression.`;
+
+  const prompt = `You are selecting the single best moment from a children's story chapter to illustrate.
+
+${ageGuidance}
+
+Rules:
+- The moment must be positive, warm, or exciting — no conflict, sadness, or peril
+- Must be well-lit and daytime (or warmly lit indoors)
+- Must feature ${name} doing something specific and concrete
+
+Return ONLY a single sentence describing exactly what to draw. Be specific: name the action, the location, any other characters present, and one expressive detail. Do not mention lighting style or illustration style. Start with "${name}".
+
+Good example (ages 5–7): "${name} beams with pride, arms stretched wide, as a huge tower of colorful blocks stands tall in the living room."
+Good example (ages 7–10): "${name} tries to look calm while their little sibling accidentally sits on the project they worked so hard on, squashing it flat."
+Good example (ages 9–12): "${name} stands alone at the edge of a crowded schoolyard, backpack clutched tight, watching the other kids from a distance — but with the smallest hint of a determined smile."
+
+CHAPTER EXCERPT:
+${body}`;
+
+  try {
+    const result = await callClaude(prompt, 200);
+    const scene = result.trim().replace(/^["']|["']$/g, '');
+    console.log(`Scene extracted (age ${age}) for illustration: ${scene}`);
+    return scene;
+  } catch(e) {
+    console.warn(`extractScenePrompt failed — using fallback: ${e.message}`);
+    return `${name} on an adventure in ${city}`;
+  }
 }
 
 async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
