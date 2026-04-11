@@ -230,8 +230,8 @@ const generateStoryOrder = inngest.createFunction(
           if (!coverBlobUrl) throw new Error(`cover:${storyId} not found in Redis — cannot generate character-consistent image`);
 
           // Scene prompt: character appearance comes from the reference image, so just describe the scene
-          // Hair length is included as a hint to help the model preserve it from the reference
-          const scenePrompt = `${chap?.imagePrompt || `${name} having fun outdoors in ${city}`} Setting: ${city}, ${region}. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          // Hair length and age are included as hints to help the model stay consistent with the reference
+          const scenePrompt = `${chap?.imagePrompt || `${name} having fun outdoors in ${city}`} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image. If other characters appear in the scene, each person must wear completely different clothing from one another — no two characters should have matching or similar outfits. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
