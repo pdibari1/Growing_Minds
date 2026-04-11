@@ -74,6 +74,15 @@ const generateStoryOrder = inngest.createFunction(
     }
     childData.namedCharacters = namedCharacters;
 
+    // Step 0b: Generate milestone guidance — research-informed approaches for this specific milestone
+    // This shapes how the story models healthy coping and growth, woven naturally into the narrative
+    const milestoneGuidance = await step.run("generate-milestone-guidance", async () => {
+      const guidance = await generateMilestoneGuidance(childData.milestone, childData.age, childData.name);
+      await redisRequest("SET", [`guidance:${storyId}`, guidance, "EX", 7200]);
+      console.log(`Milestone guidance generated for "${childData.milestone}"`);
+      return guidance;
+    });
+
     // Step 1: Generate chapter outline — pull preview story seed from Redis if available
     const rawOutline = await step.run("generate-outline", async () => {
       // Check for a story seed cached by generate-preview.js — if present, pass it to
@@ -83,7 +92,7 @@ const generateStoryOrder = inngest.createFunction(
         console.log(`Using preview story seed for ${storyId}`);
         await redisRequest("DEL", [`seed:${storyId}`]);
       }
-      const result = await generateOutline(childData, tier, seed || null);
+      const result = await generateOutline(childData, tier, seed || null, milestoneGuidance);
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);
       return result;
@@ -114,8 +123,11 @@ const generateStoryOrder = inngest.createFunction(
         // Retrieve prior chapters from Redis for context
         const priorChapters = await getChaptersFromRedis(storyId);
 
+        // Retrieve milestone guidance from Redis (generated before outline)
+        const batchGuidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance || "";
+
         // Generate this batch
-        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier);
+        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance);
 
         // Deterministic regex enforcement: replace any unapproved diminutive with the full name
         batchChapters = batchChapters.map(ch =>
@@ -688,7 +700,42 @@ ${JSON.stringify(outline, null, 2)}`;
   }
 }
 
-async function generateOutline(child, tier, storySeed = null) {
+async function generateMilestoneGuidance(milestone, age, name) {
+  const ageNum = parseInt(age);
+  const ageStage = ageNum <= 6 ? "a 4–6 year old child (pre-K to Grade 1)"
+    : ageNum <= 9  ? "a 7–9 year old child (early elementary)"
+    : ageNum <= 12 ? "a 10–12 year old child (upper elementary / middle school)"
+    : "a 12–14 year old (middle school / early high school)";
+
+  const prompt = `You are a child development specialist and children's book author.
+
+A personalized story is being written for ${name}, age ${age}, about this milestone: "${milestone}"
+
+Generate 4–6 specific, research-informed strategies that genuinely help ${ageStage} navigate this milestone successfully. These will be woven into a children's story as natural narrative moments — not stated as advice.
+
+For each strategy:
+- Make it concrete and age-appropriate (something a child this age can actually do or feel)
+- Frame it as an experience or realization, not a lesson
+- Keep it positive and achievable
+
+Format as a simple numbered list. Each item should be 1–2 sentences. No headers, no explanations, just the strategies.
+
+Example format (for "starting a new school"):
+1. Focusing on finding just one friendly face rather than trying to fit in with everyone at once makes the first days feel manageable.
+2. Bringing a small familiar object from home can be a quiet comfort during overwhelming moments.
+3. Noticing small wins each day — finding the bathroom, remembering a classmate's name — builds confidence faster than waiting for a big breakthrough.`;
+
+  try {
+    const raw = await callClaude(prompt, 600);
+    console.log(`Milestone guidance for "${milestone}": ${raw.slice(0, 100)}...`);
+    return raw.trim();
+  } catch(e) {
+    console.error(`generateMilestoneGuidance failed: ${e.message}`);
+    return ""; // Fail gracefully — story generates without guidance
+  }
+}
+
+async function generateOutline(child, tier, storySeed = null, milestoneGuidance = "") {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
@@ -741,7 +788,9 @@ STORY RULES — apply to every chapter summary:
 
 CONFLICT SOURCE — this is critical: All tension and difficulty comes from the milestone challenge itself — self-doubt, the difficulty of the task, bad luck, time pressure. Named friends never appear in conflict scenes. All conflict involves only ${name} and unnamed characters.
 
-${storySeed ? `STORY ARC DIRECTION — the customer already read a preview based on this arc. Your outline MUST follow this same general direction so the full story matches what they were shown:
+${milestoneGuidance ? `MILESTONE GUIDANCE — weave these approaches naturally into the story arc. ${name} should discover and practice these strategies through experience, not be told about them. They should feel like story moments, not lessons:
+${milestoneGuidance}
+` : ""}${storySeed ? `STORY ARC DIRECTION — the customer already read a preview based on this arc. Your outline MUST follow this same general direction so the full story matches what they were shown:
 ${storySeed}
 
 ` : ""}This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
@@ -844,7 +893,7 @@ FORMAT:
 // BATCH CHAPTER GENERATION
 // ════════════════════════════════════════════
 
-async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier) {
+async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "") {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
@@ -914,7 +963,9 @@ ${priorText}
 NOW WRITE these ${endIdx - startIdx} chapters in order:
 ${batchOutline}
 
-RULES:
+${milestoneGuidance ? `MILESTONE APPROACH — these are the real strategies that help children navigate this milestone. Weave them into the story naturally through what ${name} experiences, tries, feels, and discovers. Never state them as advice or lessons — show them happening:
+${milestoneGuidance}
+` : ""}RULES:
 - Write all ${endIdx - startIdx} chapters back to back
 - Each chapter: exactly ${tier.wordsPerChap} words
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
