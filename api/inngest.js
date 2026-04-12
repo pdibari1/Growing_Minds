@@ -1578,13 +1578,15 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   /* 5.5×8.5" digest trim size */
   @page {
     size: 5.5in 8.5in;
-    margin: 18mm 18mm 20mm 22mm; /* top outside bottom gutter(left on odd) */
+    margin: 18mm 18mm 20mm 22mm;
   }
   @page :left {
-    margin: 18mm 22mm 20mm 18mm; /* gutter on right for even pages */
+    size: 5.5in 8.5in;
+    margin: 18mm 22mm 20mm 18mm;
   }
   @page :right {
-    margin: 18mm 18mm 20mm 22mm; /* gutter on left for odd pages */
+    size: 5.5in 8.5in;
+    margin: 18mm 18mm 20mm 22mm;
   }
   @page :first { size: 5.5in 8.5in; margin: 0; }
 
@@ -1953,8 +1955,8 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   /* 5.5×8.5" digest trim size */
   @page { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
   @page :first { size: 5.5in 8.5in; margin: 0; }
-  @page :left  { margin: 18mm 22mm 20mm 18mm; }
-  @page :right { margin: 18mm 18mm 20mm 22mm; }
+  @page :left  { size: 5.5in 8.5in; margin: 18mm 22mm 20mm 18mm; }
+  @page :right { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
   @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
 
