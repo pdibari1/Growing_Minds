@@ -264,11 +264,25 @@ const generateStoryOrder = inngest.createFunction(
           // Load cast descriptions so secondary characters are rendered accurately
           const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
           const cast = castRaw ? JSON.parse(castRaw) : {};
+
+          // Parse custom details once to detect gender of secondary characters
+          const customDetailsLower = (childData.customDetails || '').toLowerCase();
+
           // Build a secondary character description string — everyone except the main character
+          // For male characters, append an explicit masculine rendering note to prevent feminization
           const secondaryDesc = Object.entries(cast)
             .filter(([n]) => n !== name)
-            .map(([n, d]) => `${n}: ${d}`)
-            .join('. ');
+            .map(([n, d]) => {
+              const nLower = n.toLowerCase();
+              // Detect if this character is described as male anywhere in the custom details
+              // Look for "his name is X", "X is a boy", "brother X", pronouns near the name, etc.
+              const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
+              const masculineNote = isMale
+                ? ` IMPORTANT: ${n} is MALE — render with clearly boyish/masculine facial features (strong brow, boyish jaw, masculine face shape). Do NOT render ${n} as a girl regardless of hair length.`
+                : '';
+              return `${n}: ${d}${masculineNote}`;
+            })
+            .join(' ');
 
           // Scene prompt: main character appearance comes from the reference image
           // Secondary characters are described in text so they render consistently
