@@ -219,11 +219,15 @@ const generateStoryOrder = inngest.createFunction(
           const refined = await generateCharacterSheet(blob.url, childData);
           // Lock main character to user-specified attrs — GPT-4o can only help with secondary chars
           const merged = { ...castDescriptions, [name]: lockedCharDesc };
+          // Store cast so image generation steps can describe secondary characters accurately
+          await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(merged), "EX", 7200]);
           console.log(`Character sheet done — ${name} locked to user attrs: ${lockedCharDesc}`);
           return merged;
         } catch(e) {
           console.error(`Character sheet refinement failed, using locked attrs: ${e.message}`);
-          return { ...castDescriptions, [name]: lockedCharDesc };
+          const fallback = { ...castDescriptions, [name]: lockedCharDesc };
+          await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(fallback), "EX", 7200]);
+          return fallback;
         }
       });
 
@@ -257,8 +261,18 @@ const generateStoryOrder = inngest.createFunction(
             ? `Expressive character faces with personality and humor. Spot-illustration feel — tight on the characters, with enough background to set the scene. Include one small visual detail that adds humor or reveals character beyond what the text says.`
             : `Atmospheric and cinematic. Detailed environment that captures the mood of the scene. Character expression conveys internal emotion — not just what they're doing but how they feel about it.`;
 
-          // Scene prompt: character appearance comes from the reference image, so just describe the scene
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image. If other characters appear in the scene, each person must wear completely different clothing from one another — no two characters should have matching or similar outfits. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          // Load cast descriptions so secondary characters are rendered accurately
+          const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
+          const cast = castRaw ? JSON.parse(castRaw) : {};
+          // Build a secondary character description string — everyone except the main character
+          const secondaryDesc = Object.entries(cast)
+            .filter(([n]) => n !== name)
+            .map(([n, d]) => `${n}: ${d}`)
+            .join('. ');
+
+          // Scene prompt: main character appearance comes from the reference image
+          // Secondary characters are described in text so they render consistently
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image.${secondaryDesc ? ` Other characters in this story: ${secondaryDesc}. Render each exactly as described.` : ''} Each person in the scene must wear completely different clothing from one another — no two characters should have matching or similar outfits. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
