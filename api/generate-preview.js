@@ -133,6 +133,7 @@ RULES:
 INSTRUCTIONS:
 - Write exactly 180-220 words — the opening of chapter 1
 - Use age-appropriate language (${parseInt(age) <= 6 ? "simple, warm, read-aloud style" : parseInt(age) <= 9 ? "early chapter book style" : "middle grade style"})
+- EMOTIONAL CEILING: ${parseInt(age) <= 7 ? `${name} is ${age} years old. The maximum negative emotion in this opening is a small flutter of nerves or a brief moment of uncertainty — nothing deeper. Any worried feeling must be immediately balanced with warmth, excitement, or comfort. ${name} may feel a little nervous but NEVER devastated, crushed, or deeply sad. The tone must feel cozy and brave even as it builds toward the cliffhanger.` : parseInt(age) <= 9 ? `Emotions can be real but must be clearly passing. The tone stays warm and hopeful even at the cliffhanger.` : `Full emotional range appropriate for this age.`}`
 - Open in medias res — drop us right into ${name}'s world
 - Weave in the physical details (hair, eye color), the hometown, the favorite thing, and the companion naturally
 - Build toward the milestone challenge laid out in the story direction — but DO NOT resolve it

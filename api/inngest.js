@@ -2255,7 +2255,7 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
 // HELPERS
 // ════════════════════════════════════════════
 
-function callClaude(prompt, maxTokens) {
+function callClaudeOnce(prompt, maxTokens) {
   const payload = JSON.stringify({
     model: "claude-sonnet-4-20250514",
     max_tokens: maxTokens,
@@ -2283,7 +2283,7 @@ function callClaude(prompt, maxTokens) {
       res.on("end", () => {
         try {
           const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message));
+          if (data.error) return reject(new Error(data.error.message, { cause: data.error.type }));
           resolve(data.content[0].text.trim());
         } catch(e) {
           reject(new Error("Claude parse error: " + body.slice(0, 200)));
@@ -2295,6 +2295,24 @@ function callClaude(prompt, maxTokens) {
     req.write(payload);
     req.end();
   });
+}
+
+async function callClaude(prompt, maxTokens, attempt = 0) {
+  const MAX_RETRIES = 4;
+  // Exponential backoff delays in ms: 30s, 60s, 120s, 240s
+  const BACKOFF = [30000, 60000, 120000, 240000];
+  try {
+    return await callClaudeOnce(prompt, maxTokens);
+  } catch(e) {
+    const isOverloaded = e.message.toLowerCase().includes("overload") || e.message.toLowerCase().includes("529");
+    if (isOverloaded && attempt < MAX_RETRIES) {
+      const delay = BACKOFF[attempt];
+      console.warn(`Claude overloaded (attempt ${attempt + 1}/${MAX_RETRIES}) — retrying in ${delay / 1000}s`);
+      await new Promise(res => setTimeout(res, delay));
+      return callClaude(prompt, maxTokens, attempt + 1);
+    }
+    throw e;
+  }
 }
 
 // ════════════════════════════════════════════
