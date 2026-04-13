@@ -97,7 +97,7 @@ Rules:
 Return only the arc summary, no title or labels.`;
 
     const seedMsg = await client.messages.create({
-      model: "claude-haiku-4-5",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
       messages: [{ role: "user", content: seedPrompt }]
     });
@@ -112,6 +112,12 @@ Return only the arc summary, no title or labels.`;
     }
 
     // Step 2: Write the preview opening from the seed — cliffhanger at end of chapter 1.
+    const ageNum = parseInt(age);
+    const emotionalCeilingNote = ageNum <= 7
+      ? (name + " is " + age + " years old. The maximum negative emotion in this opening is a small flutter of nerves or a brief moment of uncertainty — nothing deeper. Any worried feeling must be immediately balanced with warmth, excitement, or comfort. " + name + " may feel a little nervous but NEVER devastated, crushed, or deeply sad. The tone must feel cozy and brave even as it builds toward the cliffhanger.")
+      : ageNum <= 9
+      ? "Emotions can be real but must be clearly passing. The tone stays warm and hopeful even at the cliffhanger."
+      : "Full emotional range appropriate for this age.";
     const previewPrompt = `You are a warm, imaginative children's book author. Write the opening of a personalized children's ${tier.label}.
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes.
@@ -133,7 +139,7 @@ RULES:
 INSTRUCTIONS:
 - Write exactly 180-220 words — the opening of chapter 1
 - Use age-appropriate language (${parseInt(age) <= 6 ? "simple, warm, read-aloud style" : parseInt(age) <= 9 ? "early chapter book style" : "middle grade style"})
-- EMOTIONAL CEILING: ${parseInt(age) <= 7 ? `${name} is ${age} years old. The maximum negative emotion in this opening is a small flutter of nerves or a brief moment of uncertainty — nothing deeper. Any worried feeling must be immediately balanced with warmth, excitement, or comfort. ${name} may feel a little nervous but NEVER devastated, crushed, or deeply sad. The tone must feel cozy and brave even as it builds toward the cliffhanger.` : parseInt(age) <= 9 ? `Emotions can be real but must be clearly passing. The tone stays warm and hopeful even at the cliffhanger.` : `Full emotional range appropriate for this age.`}`
+- EMOTIONAL CEILING: ${emotionalCeilingNote}
 - Open in medias res — drop us right into ${name}'s world
 - Weave in the physical details (hair, eye color), the hometown, the favorite thing, and the companion naturally
 - Build toward the milestone challenge laid out in the story direction — but DO NOT resolve it
@@ -142,7 +148,7 @@ INSTRUCTIONS:
 - Write only the story text, nothing else`;
 
     const previewMsg = await client.messages.create({
-      model: "claude-haiku-4-5",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 600,
       messages: [{ role: "user", content: previewPrompt }]
     });
@@ -155,7 +161,11 @@ INSTRUCTIONS:
     return res.status(200).json({ preview: previewText, storyToken, storyId, childName: name, customerEmail: email, customDetails: customDetails || '' });
 
   } catch (error) {
-    console.error("Preview generation error:", error);
+    const status = error.status || error.statusCode || 500;
+    console.error(`Preview generation error (HTTP ${status}):`, error.message || error);
+    if (status === 529 || (error.message || "").toLowerCase().includes("overload")) {
+      return res.status(503).json({ error: "Our story engine is busy right now. Please wait a moment and try again." });
+    }
     return res.status(500).json({ error: "Story generation failed. Please try again." });
   }
 };
