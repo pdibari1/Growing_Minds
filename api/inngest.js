@@ -203,7 +203,10 @@ const generateStoryOrder = inngest.createFunction(
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const coverPrompt = `${styleGuide} IMPORTANT: The main character is a CHILD, age ${age} — render with the face, body proportions, and size of a real ${age}-year-old ${genderDesc}. NOT a teenager. NOT an adult. A young child, age ${age}. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Both the texture (${hairStyle || 'natural'}) and the length (${hairLengthExpanded}) are critical — render both exactly as described. Do not straighten wavy or curly hair. Do not shorten the hair. ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image.`;
+        const wavyNote = hairStyle && (hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly'))
+          ? ` MANDATORY HAIR TEXTURE: ${name}'s hair is ${hairStyle.toUpperCase()} — every strand must show visible ${hairStyle} texture. This hair is NOT straight. Do NOT render straight hair. Waves or curls must be clearly visible from root to tip.`
+          : '';
+        const coverPrompt = `${styleGuide} IMPORTANT: The main character is a CHILD, age ${age} — render with the face, body proportions, and size of a real ${age}-year-old ${genderDesc}. NOT a teenager. NOT an adult. A young child, age ${age}. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -275,18 +278,25 @@ const generateStoryOrder = inngest.createFunction(
             .map(([n, d]) => {
               const nLower = n.toLowerCase();
               // Detect if this character is described as male anywhere in the custom details
-              // Look for "his name is X", "X is a boy", "brother X", pronouns near the name, etc.
               const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
               const masculineNote = isMale
-                ? ` IMPORTANT: ${n} is MALE — render with clearly boyish/masculine facial features (strong brow, boyish jaw, masculine face shape). Do NOT render ${n} as a girl regardless of hair length.`
+                ? ` CRITICAL: ${n} is a BOY — MALE. Render with a clearly boyish/masculine face: strong brow, boyish jaw, masculine features. Do NOT make ${n} look like a girl under any circumstances, regardless of hair length or style.`
                 : '';
-              return `${n}: ${d}${masculineNote}`;
+              // Clothing must differ from main character — prevent outfit copying
+              const clothingNote = ` ${n} must wear clothing that is completely different in color and style from ${name}'s outfit — do NOT dress ${n} in the same outfit as ${name}.`;
+              return `${n}: ${d}${masculineNote}${clothingNote}`;
             })
             .join(' ');
 
+          // Main character hair texture note for scene prompt (critical when hair is wavy/curly,
+          // since the cover image reference may not accurately capture the texture)
+          const mainCharHairNote = hairStyle
+            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: the hair is ${hairStyle}, NOT straight; visible waves/curls required` : ''}`
+            : `${hairLengthExpanded} ${hair}-colored hair`;
+
           // Scene prompt: main character appearance comes from the reference image
           // Secondary characters are described in text so they render consistently
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${hairLengthExpanded} ${hair}-colored hair — preserve this exactly from the reference image.${secondaryDesc ? ` Other characters in this story: ${secondaryDesc}. Render each exactly as described.` : ''} Each person in the scene must wear completely different clothing from one another — no two characters should have matching or similar outfits. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters in this story: ${secondaryDesc}. Render each exactly as described.` : ''} Every character in the scene wears a distinctly different outfit — no matching clothes between any two characters. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -1264,28 +1274,30 @@ function callDallE(prompt, size = "1024x1024") {
 
 // Calls GPT-4o vision to extract a precise character description from the cover image
 async function designCharacters(childData, outline) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, friend } = childData;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, friend, customDetails } = childData;
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
   const friendLine = friend && friend !== "none" ? `\nCompanion/pet: ${friend}.` : "";
 
   const imagePrompts = outline.map((c, i) => `Ch${i + 1}: ${c.imagePrompt}`).join('\n');
 
+  const customBlock = customDetails ? `\nCustom details provided by the parent (contains exact physical descriptions for secondary characters — use these as ground truth):\n${customDetails}\n` : "";
+
   const prompt = `You are designing characters for a children's illustrated book. Your job is to assign consistent physical descriptions to all recurring characters so an illustrator can draw them the same way every time.
 
 Known main character: ${name}, ${age}-year-old ${genderDesc}, ${hairDesc} hair, ${eye} eyes.${friendLine}
-
+${customBlock}
 Chapter scene descriptions (used to identify all characters):
 ${imagePrompts}
 
 Task:
 1. Identify every distinct character who appears in 2 or more chapter scenes (siblings, friends, antagonists, pets, teachers, etc.)
-2. For each recurring character, create a specific, consistent physical description (hair, eyes, skin, clothing style, distinguishing features)
+2. For each recurring character, write a specific, consistent physical description (hair color, hair length, hair texture, eyes, skin, clothing style, distinguishing features). CRITICAL: If the custom details above describe a character's appearance, use those details exactly — do not invent different ones. If the custom details say a character has shoulder-length straight hair, write that. If they say a character is a boy or uses he/him, mark them as male.
 3. Also write the definitive description for ${name} using their known details
 
-Return ONLY a valid JSON object. Keys are character names, values are 1-2 sentence physical descriptions. Example:
+Return ONLY a valid JSON object. Keys are character names, values are 1-2 sentence physical descriptions that include gender, hair (color, length, texture), and a clothing style. Example:
 {
-  "${name}": "a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing a blue hoodie and jeans",
+  "${name}": "a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing a teal pinafore dress and white shirt",
   "Jake": "a stocky 9-year-old boy with short red hair, pale freckled skin, and a green t-shirt",
   "Biscuit": "a fluffy golden retriever with floppy ears and a red collar"
 }
