@@ -83,6 +83,19 @@ const generateStoryOrder = inngest.createFunction(
       return guidance;
     });
 
+    // Step 0c: Parse custom details into a structured fact checklist
+    // Haiku extracts every stated fact so the outline and chapters can be verified against them
+    const parsedFacts = await step.run("parse-custom-details", async () => {
+      if (!childData.customDetails) return null;
+      const facts = await parseCustomDetails(childData.customDetails);
+      if (facts) {
+        await redisRequest("SET", [`facts:${storyId}`, facts, "EX", 7200]);
+        childData.parsedFacts = facts;
+      }
+      return facts || null;
+    });
+    if (parsedFacts) childData.parsedFacts = parsedFacts;
+
     // Step 1: Generate chapter outline — pull preview story seed from Redis if available
     const rawOutline = await step.run("generate-outline", async () => {
       // Check for a story seed cached by generate-preview.js — if present, pass it to
@@ -99,14 +112,22 @@ const generateStoryOrder = inngest.createFunction(
     });
 
     // Step 1b: Sanitize outline — replace any named friend in a conflict/unkindness role with an unnamed character
-    const outline = await step.run("sanitize-outline", async () => {
+    const sanitizedOutline = await step.run("sanitize-outline", async () => {
       const friendNames = namedCharacters.filter(n => n !== childName);
       if (friendNames.length === 0) return rawOutline;
       const sanitized = await sanitizeOutline(rawOutline, friendNames);
-      // Overwrite Redis so chapter batches use the sanitized version
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(sanitized), "EX", 7200]);
       console.log(`Outline sanitized — ${sanitized.length} chapters`);
       return sanitized;
+    });
+
+    // Step 1c: Verify outline against parsed facts — ensure every stated custom detail is honoured
+    const outline = await step.run("verify-outline", async () => {
+      if (!parsedFacts || !childData.customDetails) return sanitizedOutline;
+      const verified = await verifyOutlineAgainstFacts(sanitizedOutline, parsedFacts, childData.customDetails);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(verified), "EX", 7200]);
+      console.log(`Outline verified against custom facts — ${verified.length} chapters`);
+      return verified;
     });
 
     // Step 2: Generate chapters in batches — save each batch to Airtable immediately
@@ -123,8 +144,10 @@ const generateStoryOrder = inngest.createFunction(
         // Retrieve prior chapters from Redis for context
         const priorChapters = await getChaptersFromRedis(storyId);
 
-        // Retrieve milestone guidance from Redis (generated before outline)
+        // Retrieve milestone guidance and parsed facts from Redis (generated before outline)
         const batchGuidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance || "";
+        const batchFacts = await redisRequest("GET", [`facts:${storyId}`]) || parsedFacts || null;
+        if (batchFacts) childData.parsedFacts = batchFacts;
 
         // Generate this batch
         let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance);
@@ -738,6 +761,79 @@ ${JSON.stringify(outline, null, 2)}`;
   }
 }
 
+async function parseCustomDetails(customDetails) {
+  if (!customDetails || !customDetails.trim()) return null;
+
+  const prompt = `You are reading notes a parent wrote about their child for a personalized story. Extract every specific fact stated and list them as a numbered checklist. Be exhaustive — every sentence should produce at least one fact.
+
+Include: names and relationships, ages and grades, school names, physical descriptions, personality traits, what the child is excited or nervous about, specific events or timeline details, friendships, hobbies, family details, and anything else that is a concrete stated fact.
+
+Do NOT infer or extrapolate. Only list things explicitly stated.
+
+Parent's notes:
+${customDetails}
+
+Return ONLY a numbered list of facts, one per line. Example format:
+1. Benjamin is Julianna's older brother
+2. Benjamin is currently in 1st grade
+3. Julianna will be starting kindergarten this fall
+No headers, no explanation — just the numbered list.`;
+
+  try {
+    const raw = await callClaudeHaiku(prompt, 800);
+    const facts = raw.trim();
+    console.log(`parseCustomDetails: extracted facts:\n${facts}`);
+    return facts;
+  } catch(e) {
+    console.warn(`parseCustomDetails failed (non-fatal): ${e.message}`);
+    return null;
+  }
+}
+
+async function verifyOutlineAgainstFacts(outline, parsedFacts, customDetails) {
+  if (!parsedFacts || !customDetails) return outline;
+
+  const prompt = `You are a quality checker for a personalized children's book outline. A parent provided specific facts about their child, and the outline must honor every one of them.
+
+STATED FACTS (extracted from parent's notes):
+${parsedFacts}
+
+RAW PARENT NOTES (for reference):
+${customDetails}
+
+OUTLINE TO CHECK:
+${JSON.stringify(outline, null, 2)}
+
+Your task:
+1. Read every fact above
+2. Check whether the outline contradicts or ignores any fact
+3. Rewrite any chapter summary that contradicts a stated fact, or add a note to the most relevant chapter summary to ensure the fact is included
+4. Pay special attention to: grades, school names, relationships, who goes where, what the child already knows or has, timeline details
+
+If a fact is not yet reflected anywhere in the outline, add it to the most relevant chapter's summary.
+If the outline is already fully consistent, return it unchanged.
+
+Return ONLY a valid JSON array with the same structure as the input — same number of chapters, each with "title", "summary", and "imagePrompt". No explanation, no markdown.`;
+
+  try {
+    const raw = await callClaude(prompt, 6000);
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed) && parsed.length === outline.length) {
+        const changed = parsed.filter((c, i) => c.summary !== outline[i].summary).length;
+        console.log(`verifyOutline: corrected ${changed} chapter summaries against custom facts`);
+        return parsed;
+      }
+    }
+    console.warn('verifyOutline: could not parse result, using original outline');
+    return outline;
+  } catch(e) {
+    console.error(`verifyOutline failed (non-fatal): ${e.message}`);
+    return outline;
+  }
+}
+
 async function generateMilestoneGuidance(milestone, age, name) {
   const ageNum = parseInt(age);
   const ageStage = ageNum <= 6 ? "a 4–6 year old child (pre-K to Grade 1)"
@@ -774,7 +870,7 @@ Example format (for "starting a new school"):
 }
 
 async function generateOutline(child, tier, storySeed = null, milestoneGuidance = "") {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails, parsedFacts } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
@@ -802,7 +898,9 @@ These override all defaults. Follow exactly.
 ${customDetails}
 NAMES: Use every character's name exactly as given above. Only use a nickname if the custom details above explicitly state one (e.g. "she calls him Benny"). If no nickname is stated, always write the full name — never shorten, abbreviate, or invent a diminutive.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-` : "";
+${parsedFacts ? `EVERY FACT BELOW WAS EXTRACTED FROM THE PARENT'S NOTES. EVERY SINGLE ONE MUST BE HONOURED IN THIS OUTLINE:
+${parsedFacts}
+` : ""}` : "";
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 ${customBlock}
@@ -946,7 +1044,7 @@ FORMAT:
 // ════════════════════════════════════════════
 
 async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "") {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails } = child;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails, parsedFacts } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion: ${friend}.` : "";
@@ -995,7 +1093,9 @@ These override all defaults. Follow exactly.
 ${customDetails}
 NAMES: Use every character's name exactly as given above. Only use a nickname if the custom details above explicitly state one (e.g. "she calls him Benny"). If no nickname is stated, always write the full name — never shorten, abbreviate, or invent a diminutive.
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-` : "";
+${parsedFacts ? `CONFIRMED FACTS — every item below is a stated fact from the parent's notes. Every single one must appear correctly in the chapters you write:
+${parsedFacts}
+` : ""}` : "";
 
   const customReminder = customDetails ? `
 FINAL CHECK before you finish:
@@ -1170,7 +1270,7 @@ ${body}`;
   }
 }
 
-async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
+async function callFalInstantCharacterOnce(referenceImageUrl, scenePrompt) {
   const FAL_KEY = process.env.FAL_KEY;
   if (!FAL_KEY) throw new Error("FAL_KEY environment variable is not set");
 
@@ -1199,13 +1299,13 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
   if (!request_id) throw new Error("fal.ai: no request_id in submit response");
   console.log(`fal.ai instant-character submitted: ${request_id}`);
 
-  // Poll for completion (up to 3 minutes, every 4 seconds)
+  // Poll for completion (up to 6 minutes, every 6 seconds)
   const statusUrl = `https://queue.fal.run/fal-ai/instant-character/requests/${request_id}/status`;
   const resultUrl = `https://queue.fal.run/fal-ai/instant-character/requests/${request_id}`;
-  const deadline = Date.now() + 180000;
+  const deadline = Date.now() + 360000;
 
   while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 4000));
+    await new Promise(r => setTimeout(r, 6000));
     const statusRes = await fetch(statusUrl, {
       headers: { 'Authorization': `Key ${FAL_KEY}` }
     });
@@ -1228,7 +1328,19 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
     }
   }
 
-  throw new Error("fal.ai instant-character timed out after 3 minutes");
+  throw new Error("fal.ai instant-character timed out after 6 minutes");
+}
+
+async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
+  try {
+    return await callFalInstantCharacterOnce(referenceImageUrl, scenePrompt);
+  } catch(e) {
+    if (e.message.includes("timed out")) {
+      console.warn("fal.ai timed out on first attempt — resubmitting to queue");
+      return await callFalInstantCharacterOnce(referenceImageUrl, scenePrompt);
+    }
+    throw e;
+  }
 }
 
 function callDallE(prompt, size = "1024x1024") {
@@ -2254,6 +2366,47 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
 // ════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════
+
+function callClaudeHaiku(prompt, maxTokens) {
+  const payload = JSON.stringify({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: prompt }]
+  });
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.anthropic.com",
+      port: 443,
+      path: "/v1/messages",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      timeout: 60000
+    };
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.error) return reject(new Error(data.error.message));
+          resolve(data.content[0].text.trim());
+        } catch(e) {
+          reject(new Error("Haiku parse error: " + body.slice(0, 200)));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("Haiku timeout")));
+    req.write(payload);
+    req.end();
+  });
+}
 
 function callClaudeOnce(prompt, maxTokens) {
   const payload = JSON.stringify({
