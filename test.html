@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — New Intake (Test)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #2d6a4f;
+      --green-light: #52b788;
+      --green-pale:  #d8f3dc;
+      --yellow:      #f9c74f;
+      --yellow-dark: #e9a800;
+      --cream:       #fefae0;
+      --brown:       #5c3d2e;
+      --text:        #1a1a2e;
+      --muted:       #6b7280;
+      --white:       #ffffff;
+      --border:      #e5e7eb;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Nunito', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--green);
+      padding: 2.5rem 1.8rem;
+      display: flex; flex-direction: column;
+      position: sticky; top: 0; height: 100vh;
+    }
+    .sidebar-logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.3rem; font-weight: 700;
+      color: white; display: flex; align-items: center; gap: .5rem;
+      margin-bottom: 2.5rem; text-decoration: none;
+    }
+    .sidebar-steps { flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+    .sidebar-step {
+      display: flex; align-items: flex-start; gap: .9rem;
+      padding: .8rem .9rem; border-radius: 12px;
+      transition: background .2s;
+    }
+    .sidebar-step.active  { background: rgba(255,255,255,0.15); }
+    .sidebar-step.done    { opacity: .7; }
+    .step-dot {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .78rem; font-weight: 800; flex-shrink: 0; margin-top: 1px;
+    }
+    .sidebar-step.done   .step-dot { background: var(--yellow); color: var(--brown); }
+    .sidebar-step.active .step-dot { background: white; color: var(--green); }
+    .sidebar-step:not(.active):not(.done) .step-dot { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.4); }
+    .step-info-label {
+      font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; color: rgba(255,255,255,0.45); margin-bottom: .1rem;
+    }
+    .sidebar-step.active .step-info-label { color: rgba(255,255,255,0.75); }
+    .step-info-title { font-size: .9rem; font-weight: 700; color: rgba(255,255,255,0.55); }
+    .sidebar-step.active .step-info-title { color: white; }
+    .sidebar-step.done  .step-info-title  { color: rgba(255,255,255,0.65); }
+
+    /* milestone badge in sidebar */
+    .milestone-badge {
+      display: none;
+      margin-top: 2rem;
+      background: rgba(255,255,255,0.1);
+      border-radius: 14px; padding: 1rem 1.1rem;
+    }
+    .milestone-badge.visible { display: block; }
+    .badge-label { font-size: .68rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .08em; color: rgba(255,255,255,0.45); margin-bottom: .4rem; }
+    .badge-value { font-size: .95rem; font-weight: 800; color: white; }
+    .badge-sub   { font-size: .82rem; color: rgba(255,255,255,0.6); margin-top: .2rem; }
+
+    /* ── MAIN ── */
+    .form-area {
+      padding: 3rem 3.5rem;
+      display: flex; flex-direction: column;
+      max-width: 680px;
+    }
+
+    /* progress */
+    .progress-wrap { margin-bottom: 2.5rem; }
+    .progress-meta {
+      display: flex; justify-content: space-between;
+      font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: .5rem;
+    }
+    .progress-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill  { height: 100%; background: var(--green); border-radius: 99px; transition: width .4s cubic-bezier(.4,0,.2,1); }
+
+    /* panels */
+    .panel { display: none; animation: slideIn .3s ease both; }
+    .panel.active { display: block; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+
+    .eyebrow {
+      font-size: .75rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--green); margin-bottom: .4rem;
+    }
+    .panel-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.9rem; font-weight: 700; line-height: 1.2;
+      color: var(--text); margin-bottom: .5rem;
+    }
+    .panel-sub {
+      font-size: .97rem; color: var(--muted); line-height: 1.6; margin-bottom: 2rem;
+    }
+
+    /* fields */
+    .field { margin-bottom: 1.5rem; }
+    .field label { display: block; font-weight: 800; font-size: .88rem; margin-bottom: .45rem; color: var(--text); }
+    .field label .opt { font-weight: 600; color: var(--muted); font-size: .8rem; margin-left: .3rem; }
+    .field input[type="text"],
+    .field input[type="number"],
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: .85rem 1.1rem;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1rem; font-weight: 600;
+      color: var(--text); background: var(--white);
+      transition: border-color .2s, box-shadow .2s;
+      outline: none; appearance: none;
+    }
+    .field textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(45,106,79,0.12);
+    }
+    .field input::placeholder, .field textarea::placeholder { color: #b0b8c1; font-weight: 600; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+    .field-hint { font-size: .8rem; color: var(--muted); margin-top: .4rem; line-height: 1.5; }
+
+    /* pill select */
+    .pill-group { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .pill {
+      padding: .55rem 1.1rem;
+      border: 2px solid var(--border); border-radius: 50px;
+      background: var(--white); font-family: 'Nunito', sans-serif;
+      font-size: .88rem; font-weight: 700; cursor: pointer;
+      color: var(--text); transition: all .15s;
+    }
+    .pill:hover  { border-color: var(--green-light); background: var(--green-pale); }
+    .pill.active { border-color: var(--green); background: var(--green); color: white; }
+
+    /* milestone tile grid */
+    .milestone-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap: .9rem;
+    }
+    .m-tile {
+      border: 2px solid var(--border); border-radius: 18px;
+      padding: 1.2rem 1rem; text-align: center;
+      cursor: pointer; background: var(--white);
+      transition: all .18s;
+    }
+    .m-tile:hover { border-color: var(--green-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+    .m-tile.active { border-color: var(--green); background: var(--green-pale); }
+    .m-tile .m-icon  { font-size: 2.2rem; margin-bottom: .5rem; }
+    .m-tile .m-label { font-size: .85rem; font-weight: 800; color: var(--text); line-height: 1.3; }
+    .m-tile.active .m-label { color: var(--green); }
+
+    /* conversation-style question block */
+    .q-block {
+      background: var(--white);
+      border: 2px solid var(--border);
+      border-radius: 18px;
+      padding: 1.4rem 1.5rem;
+      margin-bottom: 1.2rem;
+    }
+    .q-block .q-label {
+      font-size: .78rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--green); margin-bottom: .5rem;
+    }
+    .q-block .q-question {
+      font-family: 'Fraunces', serif;
+      font-size: 1.05rem; font-weight: 600;
+      color: var(--text); margin-bottom: .9rem; line-height: 1.4;
+    }
+    .q-block textarea {
+      width: 100%;
+      padding: .8rem 1rem;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-family: 'Nunito', sans-serif;
+      font-size: .95rem; font-weight: 600;
+      color: var(--text); background: var(--cream);
+      outline: none; resize: vertical; min-height: 90px; line-height: 1.6;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .q-block textarea:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(45,106,79,0.1);
+      background: var(--white);
+    }
+    .q-block textarea::placeholder { color: #b0b8c1; font-weight: 600; }
+
+    /* nav buttons */
+    .nav { display: flex; align-items: center; gap: 1rem; margin-top: 2.5rem; }
+    .btn-back {
+      padding: .85rem 1.5rem; border-radius: 12px;
+      border: 2px solid var(--border); background: transparent;
+      font-family: 'Nunito', sans-serif; font-size: .95rem; font-weight: 800;
+      color: var(--muted); cursor: pointer; transition: all .15s;
+    }
+    .btn-back:hover { border-color: var(--green); color: var(--green); }
+    .btn-next {
+      padding: .9rem 2rem; border-radius: 12px;
+      border: none; background: var(--green);
+      font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 900;
+      color: white; cursor: pointer; transition: all .18s;
+      box-shadow: 0 4px 14px rgba(45,106,79,0.3);
+    }
+    .btn-next:hover { background: #235c42; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(45,106,79,0.35); }
+    .btn-next:disabled { background: var(--border); color: var(--muted); box-shadow: none; cursor: not-allowed; transform: none; }
+
+    /* summary screen */
+    .summary-card {
+      background: var(--white); border: 2px solid var(--border);
+      border-radius: 20px; padding: 1.8rem 2rem; margin-bottom: 1.2rem;
+    }
+    .summary-section-label {
+      font-size: .72rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--green); margin-bottom: 1rem;
+    }
+    .summary-row {
+      display: flex; gap: 1rem; margin-bottom: .7rem; align-items: flex-start;
+    }
+    .summary-q { font-size: .88rem; font-weight: 800; color: var(--muted); width: 180px; flex-shrink: 0; line-height: 1.4; }
+    .summary-a { font-size: .88rem; font-weight: 600; color: var(--text); line-height: 1.5; }
+    .summary-a.empty { color: var(--muted); font-style: italic; }
+
+    .success-banner {
+      background: var(--green-pale); border: 2px solid var(--green-light);
+      border-radius: 16px; padding: 1.5rem 1.8rem; margin-bottom: 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .success-icon { font-size: 2rem; }
+    .success-text h3 { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 700; color: var(--green); }
+    .success-text p  { font-size: .9rem; color: var(--muted); margin-top: .2rem; }
+
+    /* test banner */
+    .test-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: var(--yellow); padding: .5rem 1rem;
+      text-align: center; font-size: .82rem; font-weight: 800;
+      color: var(--brown); letter-spacing: .02em;
+    }
+    body { padding-top: 36px; }
+
+    @media (max-width: 768px) {
+      .page { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .form-area { padding: 2rem 1.5rem; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="test-banner">🧪 UX TEST — No AI connected. No data is saved or submitted.</div>
+
+<div class="page">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">🌱 Growing Minds</div>
+    <nav class="sidebar-steps" id="sidebarSteps"></nav>
+    <div class="milestone-badge" id="milestoneBadge">
+      <div class="badge-label">Milestone</div>
+      <div class="badge-value" id="badgeValue">—</div>
+      <div class="badge-sub" id="badgeSub"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="form-area">
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span id="progressLabel">Step 1 of 5</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+
+    <!-- ── PANEL 1: About your child ── -->
+    <div class="panel active" id="panel-0">
+      <div class="eyebrow">Step 1</div>
+      <h1 class="panel-title">Tell us about your child</h1>
+      <p class="panel-sub">Just the basics — we'll get to the good stuff next.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label>First name</label>
+          <input type="text" id="childName" placeholder="e.g. Julianna" oninput="updatePreview()"/>
+        </div>
+        <div class="field">
+          <label>Age</label>
+          <input type="number" id="childAge" min="3" max="13" placeholder="5" oninput="updatePreview()"/>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Gender</label>
+        <div class="pill-group" id="genderPills">
+          <div class="pill" onclick="selectPill('gender','girl',this)">Girl</div>
+          <div class="pill" onclick="selectPill('gender','boy',this)">Boy</div>
+          <div class="pill" onclick="selectPill('gender','neutral',this)">Gender neutral</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>What is she really like right now? <span class="opt">Not a list of traits — real current stuff</span></label>
+        <textarea id="childPersonality" placeholder="e.g. She narrates everything she does like she's on a cooking show. She's been obsessed with sharks for three months straight. She cries if you use the wrong bowl for her cereal." rows="4"></textarea>
+        <p class="field-hint">Think of how you'd describe her to a friend who's never met her.</p>
+      </div>
+
+      <div class="field">
+        <label>What is she really into right now? <span class="opt">Specific beats general</span></label>
+        <textarea id="childInterests" placeholder="e.g. Not just 'unicorns' — she has a specific stuffed unicorn named Periwinkle that goes everywhere with her. She's watched Bluey about 200 times." rows="3"></textarea>
+      </div>
+
+      <div class="field">
+        <label>What is she great at for her age?</label>
+        <textarea id="childStrengths" placeholder="e.g. She can read chapter books by herself. She's fearless on the climbing frame. She remembers every person's name she's ever met." rows="3"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Does she go by a nickname? <span class="opt">Optional</span></label>
+        <input type="text" id="childNickname" placeholder="e.g. Juju, Ellie, Bug"/>
+        <p class="field-hint">Only include it if the story should actually use it.</p>
+      </div>
+
+      <div class="nav">
+        <button class="btn-next" onclick="goNext()">Next →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 2: Milestone ── -->
+    <div class="panel" id="panel-1">
+      <div class="eyebrow">Step 2</div>
+      <h1 class="panel-title">What is this story about?</h1>
+      <p class="panel-sub">Pick the milestone this story will be built around. We'll ask you specific questions about it next.</p>
+
+      <div class="milestone-grid" id="milestoneGrid">
+        <div class="m-tile" onclick="selectMilestone('school','🏫','Starting school or a new school')">
+          <div class="m-icon">🏫</div><div class="m-label">Starting school or a new school</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('sibling','👶','New baby or sibling')">
+          <div class="m-icon">👶</div><div class="m-label">New baby or sibling</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('moving','📦','Moving to a new home')">
+          <div class="m-icon">📦</div><div class="m-label">Moving to a new home</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('learning','⭐','Learning something new')">
+          <div class="m-icon">⭐</div><div class="m-label">Learning something new</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('friends','🤝','Making friends')">
+          <div class="m-icon">🤝</div><div class="m-label">Making friends</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('feelings','💛','Managing big feelings')">
+          <div class="m-icon">💛</div><div class="m-label">Managing big feelings</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('change','🌀','A big life change')">
+          <div class="m-icon">🌀</div><div class="m-label">A big life change</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('other','✨','Something else')">
+          <div class="m-icon">✨</div><div class="m-label">Something else</div>
+        </div>
+      </div>
+
+      <div class="field" id="otherMilestoneField" style="display:none; margin-top:1.2rem;">
+        <label>Describe it in your own words</label>
+        <textarea id="otherMilestone" placeholder="e.g. She's learning to be away from us for a full day at her grandparents' house for the first time." rows="3"></textarea>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn-next" id="milestoneNext" onclick="goNext()" disabled>Next →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 3: Milestone questions ── -->
+    <div class="panel" id="panel-2">
+      <div class="eyebrow">Step 3</div>
+      <h1 class="panel-title" id="milestoneQTitle">About this milestone</h1>
+      <p class="panel-sub" id="milestoneQSub">These questions help the story feel true to your child's specific situation.</p>
+
+      <div id="milestoneQuestions"></div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn-next" onclick="goNext()">Next →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 4: The people ── -->
+    <div class="panel" id="panel-3">
+      <div class="eyebrow">Step 4</div>
+      <h1 class="panel-title">The people in the story</h1>
+      <p class="panel-sub">Who matters in her world right now? The more specific you are, the more real the story feels.</p>
+
+      <div class="q-block">
+        <div class="q-label">Family</div>
+        <div class="q-question">Who are the most important people in her life, and what is her relationship with each of them actually like?</div>
+        <textarea placeholder="e.g. Her brother Benjamin is 7 and in 1st grade — she copies everything he does and he secretly loves it. Her dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
+      </div>
+
+      <div class="q-block">
+        <div class="q-label">Friends</div>
+        <div class="q-question">Does she have a best friend or close friends? Tell us about them.</div>
+        <textarea placeholder="e.g. Her best friend Mia lives two doors down — they've been friends since they were babies. She already knows Ollie and Scout will be in her grade at the new school." rows="3"></textarea>
+      </div>
+
+      <div class="q-block">
+        <div class="q-label">Anyone else</div>
+        <div class="q-question">Is there anyone else who should be in the story — a grandparent, a teacher, a pet?</div>
+        <textarea placeholder="e.g. Her dog Biscuit comes everywhere with her in her imagination. Her grandma calls her 'Ladybug.'" rows="3"></textarea>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn-next" onclick="goNext()">Next →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 5: Get it right ── -->
+    <div class="panel" id="panel-4">
+      <div class="eyebrow">Step 5</div>
+      <h1 class="panel-title">Things the story must get right</h1>
+      <p class="panel-sub">This is the most important step. Tell us anything the story would get wrong if we didn't know it.</p>
+
+      <div class="q-block">
+        <div class="q-label">What she can't do yet</div>
+        <div class="q-question">Is there anything a typical child her age might do that she can't yet — or hasn't done yet?</div>
+        <textarea placeholder="e.g. She can't tie her own shoes yet. She hasn't slept away from home without us. She still needs help with buttons." rows="3"></textarea>
+      </div>
+
+      <div class="q-block">
+        <div class="q-label">Her real feelings</div>
+        <div class="q-question">How does she actually feel about this milestone — not how a typical child might feel, but how she specifically feels?</div>
+        <textarea placeholder="e.g. She's not nervous at all — she's been asking when school starts every day for two months. She already thinks of it as 'her' school." rows="3"></textarea>
+      </div>
+
+      <div class="q-block">
+        <div class="q-label">Things she'd notice were wrong</div>
+        <div class="q-question">If she heard a story about herself that got something wrong, what would she correct?</div>
+        <textarea placeholder="e.g. She'd be annoyed if the story said she was scared. She hates being called 'little' — she considers herself big. She always uses both hands when she carries something important." rows="3"></textarea>
+      </div>
+
+      <div class="q-block">
+        <div class="q-label">What you want her to feel</div>
+        <div class="q-question">By the end of the story, what do you want her to feel or believe about herself?</div>
+        <textarea placeholder="e.g. That being brave doesn't mean not being scared — it means doing it anyway. That her brother will always be on her side even at a different school." rows="3"></textarea>
+      </div>
+
+      <div class="field" style="margin-top:.5rem;">
+        <label>Anything else we should know? <span class="opt">Optional</span></label>
+        <textarea placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn-next" onclick="goNext()">Review & finish →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 6: Summary ── -->
+    <div class="panel" id="panel-5">
+      <div class="eyebrow">Done!</div>
+      <h1 class="panel-title">Here's what we've got</h1>
+      <p class="panel-sub">This is what would be sent to the story engine. In the real version, this triggers the story preview.</p>
+
+      <div class="success-banner">
+        <div class="success-icon">✅</div>
+        <div class="success-text">
+          <h3>UX test complete</h3>
+          <p>No AI was called. No data was saved. This is purely a flow test.</p>
+        </div>
+      </div>
+
+      <div id="summaryContent"></div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn-next" onclick="startOver()">Start over</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── STATE ──
+const state = {
+  gender: null,
+  milestone: null,
+  milestoneLabel: null,
+  milestoneIcon: null,
+};
+
+const STEPS = [
+  { label: 'About your child',      title: 'About your child' },
+  { label: 'Milestone',             title: 'Milestone' },
+  { label: 'Milestone details',     title: 'Milestone details' },
+  { label: 'The people',            title: 'The people' },
+  { label: 'Get it right',          title: 'Get it right' },
+  { label: 'Review',                title: 'Review' },
+];
+
+let currentPanel = 0;
+const TOTAL = STEPS.length;
+
+// ── MILESTONE QUESTIONS ──
+const MILESTONE_QUESTIONS = {
+  school: {
+    title: 'About starting school',
+    sub: 'Help us understand exactly what this school experience looks like for her.',
+    questions: [
+      { label: 'Which school', q: 'What is the name of the school she is starting?', placeholder: 'e.g. Foothill Elementary. If you don\'t know yet, leave blank.' },
+      { label: 'Grade', q: 'What grade is she starting?', placeholder: 'e.g. Kindergarten, 1st grade.' },
+      { label: 'Who she knows', q: 'Does she already know anyone who will be at this school — classmates, older siblings, neighbors?', placeholder: 'e.g. Her brother Benjamin will be in 2nd grade there. Her friend Ollie from the neighborhood will be in her grade.' },
+      { label: 'Her relationship to it', q: 'Has she visited the school yet? What does she think of it?', placeholder: 'e.g. She\'s been to the open house twice and already knows where her classroom is. She calls it \'her school.\'' },
+      { label: 'What she\'s excited about', q: 'What specifically is she excited about — not what a typical kid would be excited about, but her?', placeholder: 'e.g. She\'s been practicing writing her name in lowercase and can\'t wait to show the teacher. She wants to eat lunch in the cafeteria.' },
+      { label: 'What gives her pause', q: 'Is there anything she\'s uncertain or nervous about — even a small thing?', placeholder: 'e.g. She\'s not sure what to do if she needs to go to the bathroom. She\'s worried about not knowing where to sit at lunch.' },
+    ]
+  },
+  sibling: {
+    title: 'About the new sibling',
+    sub: 'Tell us about the baby and how your child relates to them.',
+    questions: [
+      { label: 'The baby', q: 'Has the baby arrived yet, or is this story about before they come?', placeholder: 'e.g. The baby is 3 months old. Or: the baby is due in two months.' },
+      { label: 'What she calls them', q: 'Does the baby have a name yet? Does she call the baby anything?', placeholder: 'e.g. The baby\'s name is Leo. She calls him \'my baby.\'' },
+      { label: 'Her reaction so far', q: 'How has she reacted to the baby or the news? What has she said or done?', placeholder: 'e.g. She wants to hold him all the time. She told her friend \'I\'m the big sister now.\'' },
+      { label: 'What she\'s working through', q: 'Is there anything she\'s finding hard or confusing about it?', placeholder: 'e.g. She gets upset when the baby cries during storytime. She asked if we still love her the same.' },
+    ]
+  },
+  moving: {
+    title: 'About the move',
+    sub: 'Help us understand what this move means for her specifically.',
+    questions: [
+      { label: 'Where to', q: 'Where is she moving — same town, different city, different state?', placeholder: 'e.g. From Boulder, Colorado to Portland, Oregon.' },
+      { label: 'What she\'s leaving', q: 'What is she most attached to that she\'s leaving behind?', placeholder: 'e.g. Her best friend Mia who lives two doors down. The big oak tree in the backyard she climbs every day.' },
+      { label: 'What\'s waiting', q: 'Does she know anyone or anything about the new place? Is there something to look forward to?', placeholder: 'e.g. Her cousins live nearby. The new house has a bigger yard. She gets her own room for the first time.' },
+      { label: 'How she feels', q: 'How does she actually feel about the move — excited, sad, mixed?', placeholder: 'e.g. She\'s sad about leaving Mia but excited about the cousins. She keeps asking if we can bring the tree.' },
+    ]
+  },
+  learning: {
+    title: 'About what she\'s learning',
+    sub: 'The more specific you are, the more the story will feel like it\'s really about her.',
+    questions: [
+      { label: 'What she\'s learning', q: 'What is she learning to do? Be as specific as possible.', placeholder: 'e.g. Riding a bike without training wheels. Reading chapter books by herself. Swimming without floaties.' },
+      { label: 'Where she is', q: 'Where is she in the process — just starting, almost there, or somewhere in the middle?', placeholder: 'e.g. She can balance but keeps putting her foot down. She\'s read two chapter books but it\'s still slow.' },
+      { label: 'Who\'s with her', q: 'Who is teaching her, practicing with her, or cheering her on?', placeholder: 'e.g. Her dad goes out every Saturday morning to practice with her. Her older brother learned first and keeps showing off.' },
+      { label: 'How it\'s going', q: 'Has she had any setbacks, moments of frustration, or small wins she\'s proud of?', placeholder: 'e.g. She gave up for two weeks and then came back to it. She was furious when she fell off but got right back on.' },
+    ]
+  },
+  friends: {
+    title: 'About making friends',
+    sub: 'Tell us about her social world right now.',
+    questions: [
+      { label: 'The situation', q: 'What is the specific situation — new school, new neighborhood, a particular person she wants to be friends with?', placeholder: 'e.g. She\'s starting at a new school and doesn\'t know anyone yet. There\'s a girl at the park she keeps seeing but hasn\'t talked to.' },
+      { label: 'How she is socially', q: 'How does she generally approach new people — does she dive in, hang back, something in between?', placeholder: 'e.g. She\'s shy at first but loud once she\'s comfortable. She prefers one good friend over a group.' },
+      { label: 'What she wants', q: 'What does she actually want — a best friend, to feel included, to be brave enough to say hi?', placeholder: 'e.g. She just wants one person to eat lunch with. She wants to feel like she belongs.' },
+    ]
+  },
+  feelings: {
+    title: 'About big feelings',
+    sub: 'Help us understand what she\'s working through.',
+    questions: [
+      { label: 'The feeling', q: 'What feeling is this about — anger, worry, sadness, jealousy, something else?', placeholder: 'e.g. She has a really hard time when things don\'t go the way she planned. She gets overwhelmed when it\'s too loud.' },
+      { label: 'What triggers it', q: 'What tends to set it off? Are there specific situations?', placeholder: 'e.g. Transitions are hard — leaving the park, going to bed, switching activities. Losing a game.' },
+      { label: 'What helps', q: 'What already helps her when she\'s in it? What does she respond to?', placeholder: 'e.g. She calms down faster if you just sit with her and don\'t talk. A tight hug. Telling her what comes next.' },
+    ]
+  },
+  change: {
+    title: 'About this change',
+    sub: 'Tell us what\'s happening and what it means for her.',
+    questions: [
+      { label: 'What\'s changing', q: 'What is the change? Describe it in as much detail as feels relevant.', placeholder: 'e.g. Her parents are separating and she\'ll be going back and forth between two homes.' },
+      { label: 'How she understands it', q: 'What does she understand about what\'s happening? What has she been told?', placeholder: 'e.g. She knows both homes are hers. She knows it\'s not because of her. She\'s still figuring it out.' },
+      { label: 'What she needs', q: 'What do you want the story to give her — reassurance, language for her feelings, a sense of control?', placeholder: 'e.g. I want her to feel like she\'s still held. That both parents love her exactly the same.' },
+    ]
+  },
+  other: {
+    title: 'About this milestone',
+    sub: 'Tell us what\'s happening in her world.',
+    questions: [
+      { label: 'What\'s happening', q: 'Describe the milestone or situation in your own words.', placeholder: 'Tell us as much as you want. Write like you\'re explaining it to a friend.' },
+      { label: 'How she feels', q: 'How does she actually feel about it?', placeholder: 'Excited, nervous, proud, sad, confused, all of the above?' },
+      { label: 'What matters', q: 'What is the most important thing for the story to capture about this?', placeholder: 'What would make this story feel like it was written just for her?' },
+    ]
+  },
+};
+
+// ── SIDEBAR ──
+function renderSidebar() {
+  const container = document.getElementById('sidebarSteps');
+  container.innerHTML = STEPS.map((s, i) => `
+    <div class="sidebar-step ${i === currentPanel ? 'active' : i < currentPanel ? 'done' : ''}">
+      <div class="step-dot">${i < currentPanel ? '✓' : i + 1}</div>
+      <div class="step-info">
+        <div class="step-info-label">Step ${i + 1}</div>
+        <div class="step-info-title">${s.title}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderProgress() {
+  const pct = Math.round((currentPanel / (TOTAL - 1)) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+  document.getElementById('progressLabel').textContent = `Step ${currentPanel + 1} of ${TOTAL}`;
+}
+
+// ── NAVIGATION ──
+function goNext() {
+  if (currentPanel === TOTAL - 1) return;
+  document.getElementById(`panel-${currentPanel}`).classList.remove('active');
+  currentPanel++;
+  const nextPanel = document.getElementById(`panel-${currentPanel}`);
+  nextPanel.classList.add('active');
+  if (currentPanel === TOTAL - 1) buildSummary();
+  renderSidebar();
+  renderProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goBack() {
+  if (currentPanel === 0) return;
+  document.getElementById(`panel-${currentPanel}`).classList.remove('active');
+  currentPanel--;
+  document.getElementById(`panel-${currentPanel}`).classList.add('active');
+  renderSidebar();
+  renderProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function startOver() {
+  currentPanel = 0;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-0').classList.add('active');
+  renderSidebar();
+  renderProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── PILL SELECTS ──
+function selectPill(group, value, el) {
+  state[group] = value;
+  document.querySelectorAll(`#${group}Pills .pill`).forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── MILESTONE ──
+function selectMilestone(key, icon, label) {
+  state.milestone = key;
+  state.milestoneLabel = label;
+  state.milestoneIcon = icon;
+  document.querySelectorAll('.m-tile').forEach(t => t.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('otherMilestoneField').style.display = key === 'other' ? 'block' : 'none';
+  document.getElementById('milestoneNext').disabled = false;
+
+  // update sidebar badge
+  const badge = document.getElementById('milestoneBadge');
+  badge.classList.add('visible');
+  document.getElementById('badgeValue').textContent = icon + ' ' + label;
+
+  // build milestone questions for panel 3
+  buildMilestoneQuestions(key);
+}
+
+function buildMilestoneQuestions(key) {
+  const config = MILESTONE_QUESTIONS[key];
+  if (!config) return;
+  document.getElementById('milestoneQTitle').textContent = config.title;
+  document.getElementById('milestoneQSub').textContent = config.sub;
+  const container = document.getElementById('milestoneQuestions');
+  container.innerHTML = config.questions.map((q, i) => `
+    <div class="q-block">
+      <div class="q-label">${q.label}</div>
+      <div class="q-question">${q.q}</div>
+      <textarea id="mq_${i}" placeholder="${q.placeholder}" rows="3"></textarea>
+    </div>
+  `).join('');
+}
+
+// ── SUMMARY ──
+function buildSummary() {
+  const name = document.getElementById('childName').value || '—';
+  const age  = document.getElementById('childAge').value || '—';
+  const nick = document.getElementById('childNickname').value;
+
+  const sections = [
+    {
+      label: '👧 About ' + name,
+      rows: [
+        { q: 'Name', a: name + (nick ? ` (${nick})` : '') },
+        { q: 'Age', a: age },
+        { q: 'Gender', a: state.gender || '—' },
+        { q: 'Personality', a: document.getElementById('childPersonality').value },
+        { q: 'Interests', a: document.getElementById('childInterests').value },
+        { q: 'Strengths', a: document.getElementById('childStrengths').value },
+      ]
+    },
+    {
+      label: (state.milestoneIcon || '⭐') + ' Milestone',
+      rows: [
+        { q: 'Milestone', a: state.milestoneLabel || '—' },
+        ...getMilestoneAnswers(),
+      ]
+    },
+    {
+      label: '👨‍👩‍👧 The people',
+      rows: [
+        { q: 'Family', a: document.querySelectorAll('#panel-3 textarea')[0]?.value || '' },
+        { q: 'Friends', a: document.querySelectorAll('#panel-3 textarea')[1]?.value || '' },
+        { q: 'Others', a: document.querySelectorAll('#panel-3 textarea')[2]?.value || '' },
+      ]
+    },
+    {
+      label: '📌 Get it right',
+      rows: [
+        { q: 'What she can\'t do yet', a: document.querySelectorAll('#panel-4 textarea')[0]?.value || '' },
+        { q: 'Her real feelings', a: document.querySelectorAll('#panel-4 textarea')[1]?.value || '' },
+        { q: 'Things she\'d correct', a: document.querySelectorAll('#panel-4 textarea')[2]?.value || '' },
+        { q: 'What you want her to feel', a: document.querySelectorAll('#panel-4 textarea')[3]?.value || '' },
+        { q: 'Anything else', a: document.querySelectorAll('#panel-4 textarea')[4]?.value || '' },
+      ]
+    }
+  ];
+
+  document.getElementById('summaryContent').innerHTML = sections.map(s => `
+    <div class="summary-card">
+      <div class="summary-section-label">${s.label}</div>
+      ${s.rows.map(r => `
+        <div class="summary-row">
+          <div class="summary-q">${r.q}</div>
+          <div class="summary-a ${!r.a ? 'empty' : ''}">${r.a || 'Not provided'}</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function getMilestoneAnswers() {
+  if (!state.milestone) return [];
+  const config = MILESTONE_QUESTIONS[state.milestone];
+  if (!config) return [];
+  return config.questions.map((q, i) => ({
+    q: q.label,
+    a: document.getElementById(`mq_${i}`)?.value || ''
+  }));
+}
+
+function updatePreview() {}
+
+// ── INIT ──
+renderSidebar();
+renderProgress();
+</script>
+</body>
+</html>
