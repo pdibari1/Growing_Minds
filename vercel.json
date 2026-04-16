@@ -19,6 +19,7 @@
     { "source": "/intake-form", "destination": "/intake-form.html" },
     { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
     { "source": "/terms", "destination": "/terms.html" },
-    { "source": "/test", "destination": "/test.html" }
+    { "source": "/test", "destination": "/test.html" },
+    { "source": "/test2", "destination": "/test2.html" }
   ]
 }

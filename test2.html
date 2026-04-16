@@ -38,10 +38,18 @@
       color: var(--text);
     }
 
+    /* ── TEST BANNER ── */
+    .test-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: var(--yellow); padding: .45rem 1rem;
+      text-align: center; font-size: .8rem; font-weight: 800;
+      color: var(--brown); letter-spacing: .02em;
+    }
+    body { padding-top: 34px; }
 
     /* ── LAYOUT ── */
     .page {
-      min-height: 100vh;
+      min-height: calc(100vh - 34px);
       display: grid;
       grid-template-columns: 300px 1fr;
     }
@@ -51,7 +59,7 @@
       background: var(--green);
       padding: 2.5rem 1.6rem 2rem;
       display: flex; flex-direction: column;
-      position: sticky; top: 0; height: 100vh;
+      position: sticky; top: 34px; height: calc(100vh - 34px);
       overflow: hidden;
     }
     .sidebar-logo {
@@ -388,6 +396,8 @@
   </style>
 </head>
 <body>
+
+<div class="test-banner">🧪 UX TEST — No AI connected. No data is saved or submitted.</div>
 
 <div class="page">
 
