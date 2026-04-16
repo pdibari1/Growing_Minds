@@ -9,17 +9,26 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --green:       #2d6a4f;
-      --green-light: #52b788;
-      --green-pale:  #d8f3dc;
-      --yellow:      #f9c74f;
-      --yellow-dark: #e9a800;
-      --cream:       #fefae0;
-      --brown:       #5c3d2e;
-      --text:        #1a1a2e;
-      --muted:       #6b7280;
-      --white:       #ffffff;
-      --border:      #e5e7eb;
+      --green:        #2d6a4f;
+      --green-mid:    #3a8a65;
+      --green-light:  #52b788;
+      --green-pale:   #d8f3dc;
+      --green-faint:  #f0faf3;
+      --yellow:       #f9c74f;
+      --yellow-dark:  #e9a800;
+      --cream:        #fefae0;
+      --warm-white:   #fffdf7;
+      --brown:        #5c3d2e;
+      --text:         #1a1a2e;
+      --text-soft:    #374151;
+      --muted:        #6b7280;
+      --muted-light:  #9ca3af;
+      --white:        #ffffff;
+      --border:       #e5e7eb;
+      --border-soft:  #f3f4f6;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md:    0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+      --shadow-lg:    0 10px 40px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
     }
 
     html, body {
@@ -29,101 +38,125 @@
       color: var(--text);
     }
 
+    /* ── TEST BANNER ── */
+    .test-banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: var(--yellow); padding: .45rem 1rem;
+      text-align: center; font-size: .8rem; font-weight: 800;
+      color: var(--brown); letter-spacing: .02em;
+    }
+    body { padding-top: 34px; }
+
+    /* ── LAYOUT ── */
     .page {
-      min-height: 100vh;
+      min-height: calc(100vh - 34px);
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 300px 1fr;
     }
 
     /* ── SIDEBAR ── */
     .sidebar {
       background: var(--green);
-      padding: 2.5rem 1.8rem;
+      padding: 2.5rem 1.6rem 2rem;
       display: flex; flex-direction: column;
-      position: sticky; top: 0; height: 100vh;
+      position: sticky; top: 34px; height: calc(100vh - 34px);
+      overflow: hidden;
     }
     .sidebar-logo {
       font-family: 'Fraunces', serif;
-      font-size: 1.3rem; font-weight: 700;
+      font-size: 1.25rem; font-weight: 700;
       color: white; display: flex; align-items: center; gap: .5rem;
-      margin-bottom: 2.5rem; text-decoration: none;
+      margin-bottom: 2.5rem; text-decoration: none; flex-shrink: 0;
     }
-    .sidebar-steps { flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+    .sidebar-logo span { opacity: .7; font-size: .9rem; font-weight: 400; font-family: 'Nunito', sans-serif; }
+
+    .sidebar-steps { flex: 1; display: flex; flex-direction: column; gap: .2rem; overflow: hidden; }
     .sidebar-step {
-      display: flex; align-items: flex-start; gap: .9rem;
-      padding: .8rem .9rem; border-radius: 12px;
-      transition: background .2s;
+      display: flex; align-items: flex-start; gap: .85rem;
+      padding: .7rem .85rem; border-radius: 12px;
+      transition: background .2s; cursor: default;
     }
     .sidebar-step.active  { background: rgba(255,255,255,0.15); }
-    .sidebar-step.done    { opacity: .7; }
+    .sidebar-step.done    { opacity: .65; }
     .step-dot {
-      width: 30px; height: 30px; border-radius: 50%;
+      width: 28px; height: 28px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: .78rem; font-weight: 800; flex-shrink: 0; margin-top: 1px;
+      font-size: .75rem; font-weight: 800; flex-shrink: 0; margin-top: 1px;
+      transition: all .2s;
     }
     .sidebar-step.done   .step-dot { background: var(--yellow); color: var(--brown); }
     .sidebar-step.active .step-dot { background: white; color: var(--green); }
-    .sidebar-step:not(.active):not(.done) .step-dot { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.4); }
+    .sidebar-step:not(.active):not(.done) .step-dot { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.35); }
     .step-info-label {
-      font-size: .68rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: .08em; color: rgba(255,255,255,0.45); margin-bottom: .1rem;
+      font-size: .64rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .08em; color: rgba(255,255,255,0.4); margin-bottom: .1rem;
     }
-    .sidebar-step.active .step-info-label { color: rgba(255,255,255,0.75); }
-    .step-info-title { font-size: .9rem; font-weight: 700; color: rgba(255,255,255,0.55); }
+    .sidebar-step.active .step-info-label { color: rgba(255,255,255,0.7); }
+    .step-info-title { font-size: .875rem; font-weight: 700; color: rgba(255,255,255,0.45); line-height: 1.3; }
     .sidebar-step.active .step-info-title { color: white; }
-    .sidebar-step.done  .step-info-title  { color: rgba(255,255,255,0.65); }
+    .sidebar-step.done  .step-info-title  { color: rgba(255,255,255,0.6); }
 
     /* milestone badge in sidebar */
+    .sidebar-context {
+      margin-top: auto; padding-top: 1.5rem; flex-shrink: 0;
+    }
     .milestone-badge {
       display: none;
-      margin-top: 2rem;
       background: rgba(255,255,255,0.1);
       border-radius: 14px; padding: 1rem 1.1rem;
+      border: 1px solid rgba(255,255,255,0.12);
     }
     .milestone-badge.visible { display: block; }
-    .badge-label { font-size: .68rem; font-weight: 800; text-transform: uppercase;
-      letter-spacing: .08em; color: rgba(255,255,255,0.45); margin-bottom: .4rem; }
-    .badge-value { font-size: .95rem; font-weight: 800; color: white; }
-    .badge-sub   { font-size: .82rem; color: rgba(255,255,255,0.6); margin-top: .2rem; }
+    .badge-label {
+      font-size: .62rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .09em; color: rgba(255,255,255,0.4); margin-bottom: .5rem;
+    }
+    .badge-value { font-size: .95rem; font-weight: 800; color: white; line-height: 1.3; }
+    .badge-sub   { font-size: .8rem; color: rgba(255,255,255,0.55); margin-top: .3rem; font-weight: 600; }
 
-    /* ── MAIN ── */
+    /* ── MAIN AREA ── */
     .form-area {
-      padding: 3rem 3.5rem;
+      padding: 3rem 4rem 4rem;
       display: flex; flex-direction: column;
-      max-width: 680px;
+      max-width: 700px;
     }
 
-    /* progress */
-    .progress-wrap { margin-bottom: 2.5rem; }
+    /* progress bar */
+    .progress-wrap { margin-bottom: 3rem; }
     .progress-meta {
       display: flex; justify-content: space-between;
-      font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: .5rem;
+      font-size: .78rem; font-weight: 800; color: var(--muted-light); margin-bottom: .6rem;
+      text-transform: uppercase; letter-spacing: .06em;
     }
-    .progress-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
-    .progress-fill  { height: 100%; background: var(--green); border-radius: 99px; transition: width .4s cubic-bezier(.4,0,.2,1); }
+    .progress-meta .step-label { color: var(--green); }
+    .progress-track { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-fill  { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-light)); border-radius: 99px; transition: width .5s cubic-bezier(.4,0,.2,1); }
 
     /* panels */
-    .panel { display: none; animation: slideIn .3s ease both; }
-    .panel.active { display: block; }
-    @keyframes slideIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+    .panel { display: none; }
+    .panel.active { display: block; animation: fadeUp .35s ease both; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
     .eyebrow {
-      font-size: .75rem; font-weight: 800; text-transform: uppercase;
-      letter-spacing: .1em; color: var(--green); margin-bottom: .4rem;
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--green-mid); margin-bottom: .6rem;
+      background: var(--green-pale); padding: .3rem .8rem; border-radius: 99px;
     }
     .panel-title {
       font-family: 'Fraunces', serif;
-      font-size: 1.9rem; font-weight: 700; line-height: 1.2;
-      color: var(--text); margin-bottom: .5rem;
+      font-size: 2.1rem; font-weight: 700; line-height: 1.15;
+      color: var(--text); margin-bottom: .6rem;
     }
     .panel-sub {
-      font-size: .97rem; color: var(--muted); line-height: 1.6; margin-bottom: 2rem;
+      font-size: 1rem; color: var(--muted); line-height: 1.6; margin-bottom: 2.2rem;
+      max-width: 520px;
     }
 
     /* fields */
-    .field { margin-bottom: 1.5rem; }
-    .field label { display: block; font-weight: 800; font-size: .88rem; margin-bottom: .45rem; color: var(--text); }
-    .field label .opt { font-weight: 600; color: var(--muted); font-size: .8rem; margin-left: .3rem; }
+    .field { margin-bottom: 1.4rem; }
+    .field label { display: block; font-weight: 800; font-size: .875rem; margin-bottom: .5rem; color: var(--text-soft); }
+    .field label .opt { font-weight: 600; color: var(--muted-light); font-size: .78rem; margin-left: .35rem; }
     .field input[type="text"],
     .field input[type="number"],
     .field select,
@@ -133,142 +166,232 @@
       border: 2px solid var(--border);
       border-radius: 12px;
       font-family: 'Nunito', sans-serif;
-      font-size: 1rem; font-weight: 600;
+      font-size: .975rem; font-weight: 600;
       color: var(--text); background: var(--white);
       transition: border-color .2s, box-shadow .2s;
       outline: none; appearance: none;
+      box-shadow: var(--shadow-sm);
     }
-    .field textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+    .field textarea { resize: vertical; min-height: 110px; line-height: 1.65; }
     .field input:focus, .field select:focus, .field textarea:focus {
-      border-color: var(--green);
-      box-shadow: 0 0 0 3px rgba(45,106,79,0.12);
+      border-color: var(--green-light);
+      box-shadow: 0 0 0 3px rgba(82,183,136,0.15), var(--shadow-sm);
     }
-    .field input::placeholder, .field textarea::placeholder { color: #b0b8c1; font-weight: 600; }
-    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
-    .field-hint { font-size: .8rem; color: var(--muted); margin-top: .4rem; line-height: 1.5; }
+    .field input::placeholder, .field textarea::placeholder { color: var(--muted-light); font-weight: 600; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .field-hint { font-size: .79rem; color: var(--muted-light); margin-top: .4rem; line-height: 1.5; }
 
     /* pill select */
-    .pill-group { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .pill-group { display: flex; flex-wrap: wrap; gap: .45rem; }
     .pill {
-      padding: .55rem 1.1rem;
+      padding: .55rem 1.15rem;
       border: 2px solid var(--border); border-radius: 50px;
       background: var(--white); font-family: 'Nunito', sans-serif;
-      font-size: .88rem; font-weight: 700; cursor: pointer;
-      color: var(--text); transition: all .15s;
+      font-size: .875rem; font-weight: 700; cursor: pointer;
+      color: var(--text-soft); transition: all .15s;
+      box-shadow: var(--shadow-sm);
     }
-    .pill:hover  { border-color: var(--green-light); background: var(--green-pale); }
-    .pill.active { border-color: var(--green); background: var(--green); color: white; }
+    .pill:hover  { border-color: var(--green-light); background: var(--green-faint); color: var(--green); }
+    .pill.active { border-color: var(--green); background: var(--green); color: white; box-shadow: 0 2px 8px rgba(45,106,79,0.25); }
 
-    /* milestone tile grid */
+    /* ── MILESTONE GRID (Panel 0) ── */
+    .milestone-intro {
+      background: linear-gradient(135deg, var(--green) 0%, var(--green-mid) 100%);
+      border-radius: 20px; padding: 2rem 2.2rem;
+      margin-bottom: 2rem; color: white;
+      box-shadow: var(--shadow-lg);
+    }
+    .milestone-intro-title {
+      font-family: 'Fraunces', serif;
+      font-size: 1.5rem; font-weight: 700; margin-bottom: .5rem; line-height: 1.25;
+    }
+    .milestone-intro-sub {
+      font-size: .92rem; opacity: .8; line-height: 1.6; font-weight: 600;
+    }
+
     .milestone-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-      gap: .9rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .75rem;
+      margin-bottom: 1.5rem;
     }
     .m-tile {
-      border: 2px solid var(--border); border-radius: 18px;
-      padding: 1.2rem 1rem; text-align: center;
+      border: 2px solid var(--border); border-radius: 16px;
+      padding: 1.3rem .9rem 1.1rem; text-align: center;
       cursor: pointer; background: var(--white);
-      transition: all .18s;
+      transition: all .2s; box-shadow: var(--shadow-sm);
+      position: relative; overflow: hidden;
     }
-    .m-tile:hover { border-color: var(--green-light); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
-    .m-tile.active { border-color: var(--green); background: var(--green-pale); }
-    .m-tile .m-icon  { font-size: 2.2rem; margin-bottom: .5rem; }
-    .m-tile .m-label { font-size: .85rem; font-weight: 800; color: var(--text); line-height: 1.3; }
+    .m-tile::before {
+      content: ''; position: absolute; inset: 0;
+      background: var(--green-pale); opacity: 0; transition: opacity .2s;
+    }
+    .m-tile:hover { border-color: var(--green-light); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .m-tile:hover::before { opacity: 1; }
+    .m-tile.active { border-color: var(--green); box-shadow: 0 0 0 3px rgba(45,106,79,0.12), var(--shadow-md); }
+    .m-tile.active::before { opacity: 1; background: var(--green-pale); }
+    .m-tile .m-icon  { font-size: 2rem; margin-bottom: .5rem; position: relative; display: block; }
+    .m-tile .m-label {
+      font-size: .78rem; font-weight: 800; color: var(--text-soft);
+      line-height: 1.3; position: relative;
+    }
     .m-tile.active .m-label { color: var(--green); }
+    .m-tile.active .m-check {
+      position: absolute; top: .55rem; right: .6rem;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--green); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .6rem; font-weight: 900;
+    }
+    .m-check { display: none; }
+    .m-tile.active .m-check { display: flex; }
 
-    /* conversation-style question block */
+    .other-milestone-field { display: none; margin-top: .5rem; }
+    .other-milestone-field.visible { display: block; animation: fadeUp .25s ease both; }
+
+    /* selected milestone confirmation */
+    .milestone-confirm {
+      display: none; align-items: center; gap: 1rem;
+      background: var(--green-pale); border: 2px solid var(--green-light);
+      border-radius: 14px; padding: 1rem 1.3rem; margin-top: 1.2rem;
+    }
+    .milestone-confirm.visible { display: flex; animation: fadeUp .25s ease both; }
+    .mc-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .mc-text { font-size: .92rem; font-weight: 700; color: var(--green); }
+    .mc-sub  { font-size: .82rem; font-weight: 600; color: var(--muted); margin-top: .1rem; }
+
+    /* ── Q-BLOCKS ── */
     .q-block {
       background: var(--white);
       border: 2px solid var(--border);
       border-radius: 18px;
-      padding: 1.4rem 1.5rem;
-      margin-bottom: 1.2rem;
+      padding: 1.4rem 1.6rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow-sm);
+      transition: border-color .2s;
+    }
+    .q-block:focus-within {
+      border-color: var(--green-light);
     }
     .q-block .q-label {
-      font-size: .78rem; font-weight: 800; text-transform: uppercase;
-      letter-spacing: .07em; color: var(--green); margin-bottom: .5rem;
+      font-size: .66rem; font-weight: 900; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--green-mid); margin-bottom: .5rem;
     }
     .q-block .q-question {
       font-family: 'Fraunces', serif;
-      font-size: 1.05rem; font-weight: 600;
-      color: var(--text); margin-bottom: .9rem; line-height: 1.4;
+      font-size: 1rem; font-weight: 600; font-style: italic;
+      color: var(--text); margin-bottom: .9rem; line-height: 1.45;
     }
     .q-block textarea {
       width: 100%;
       padding: .8rem 1rem;
-      border: 2px solid var(--border);
+      border: 2px solid var(--border-soft);
       border-radius: 10px;
       font-family: 'Nunito', sans-serif;
-      font-size: .95rem; font-weight: 600;
-      color: var(--text); background: var(--cream);
-      outline: none; resize: vertical; min-height: 90px; line-height: 1.6;
-      transition: border-color .2s, box-shadow .2s;
+      font-size: .925rem; font-weight: 600;
+      color: var(--text); background: var(--warm-white);
+      outline: none; resize: vertical; min-height: 88px; line-height: 1.65;
+      transition: border-color .2s, box-shadow .2s, background .2s;
     }
     .q-block textarea:focus {
-      border-color: var(--green);
-      box-shadow: 0 0 0 3px rgba(45,106,79,0.1);
+      border-color: var(--green-light);
+      box-shadow: 0 0 0 3px rgba(82,183,136,0.12);
       background: var(--white);
     }
-    .q-block textarea::placeholder { color: #b0b8c1; font-weight: 600; }
+    .q-block textarea::placeholder { color: var(--muted-light); font-weight: 600; }
 
-    /* nav buttons */
-    .nav { display: flex; align-items: center; gap: 1rem; margin-top: 2.5rem; }
-    .btn-back {
-      padding: .85rem 1.5rem; border-radius: 12px;
-      border: 2px solid var(--border); background: transparent;
-      font-family: 'Nunito', sans-serif; font-size: .95rem; font-weight: 800;
-      color: var(--muted); cursor: pointer; transition: all .15s;
+    /* section divider */
+    .section-divider {
+      display: flex; align-items: center; gap: 1rem;
+      margin: 1.8rem 0 1.4rem; color: var(--muted-light);
+      font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
     }
-    .btn-back:hover { border-color: var(--green); color: var(--green); }
+    .section-divider::before, .section-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── NAV BUTTONS ── */
+    .nav { display: flex; align-items: center; gap: .9rem; margin-top: 2.8rem; }
+    .btn-back {
+      padding: .85rem 1.6rem; border-radius: 12px;
+      border: 2px solid var(--border); background: var(--white);
+      font-family: 'Nunito', sans-serif; font-size: .925rem; font-weight: 800;
+      color: var(--muted); cursor: pointer; transition: all .15s;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-back:hover { border-color: var(--green-light); color: var(--green); background: var(--green-faint); }
     .btn-next {
-      padding: .9rem 2rem; border-radius: 12px;
+      padding: .9rem 2.2rem; border-radius: 12px;
       border: none; background: var(--green);
       font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 900;
-      color: white; cursor: pointer; transition: all .18s;
+      color: white; cursor: pointer; transition: all .2s;
       box-shadow: 0 4px 14px rgba(45,106,79,0.3);
+      display: flex; align-items: center; gap: .5rem;
     }
-    .btn-next:hover { background: #235c42; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(45,106,79,0.35); }
-    .btn-next:disabled { background: var(--border); color: var(--muted); box-shadow: none; cursor: not-allowed; transform: none; }
+    .btn-next:hover { background: var(--green-mid); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,106,79,0.35); }
+    .btn-next:disabled { background: var(--border); color: var(--muted-light); box-shadow: none; cursor: not-allowed; transform: none; }
+    .btn-next:active:not(:disabled) { transform: translateY(0); }
 
-    /* summary screen */
+    /* ── MILESTONE DETAILS PANEL ── */
+    .milestone-context-bar {
+      display: none; align-items: center; gap: .9rem;
+      background: var(--green-pale);
+      border: 2px solid var(--green-light);
+      border-radius: 14px; padding: .9rem 1.2rem; margin-bottom: 2rem;
+    }
+    .milestone-context-bar.visible { display: flex; }
+    .mcb-icon { font-size: 1.4rem; }
+    .mcb-text { font-size: .88rem; font-weight: 800; color: var(--green); }
+
+    /* ── SUMMARY ── */
     .summary-card {
       background: var(--white); border: 2px solid var(--border);
-      border-radius: 20px; padding: 1.8rem 2rem; margin-bottom: 1.2rem;
+      border-radius: 20px; padding: 1.8rem 2rem; margin-bottom: 1rem;
+      box-shadow: var(--shadow-sm);
     }
     .summary-section-label {
-      font-size: .72rem; font-weight: 800; text-transform: uppercase;
-      letter-spacing: .08em; color: var(--green); margin-bottom: 1rem;
+      font-size: .7rem; font-weight: 900; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--green-mid); margin-bottom: 1.1rem;
+      display: flex; align-items: center; gap: .5rem;
     }
     .summary-row {
-      display: flex; gap: 1rem; margin-bottom: .7rem; align-items: flex-start;
+      display: flex; gap: 1rem; margin-bottom: .75rem; align-items: flex-start;
     }
-    .summary-q { font-size: .88rem; font-weight: 800; color: var(--muted); width: 180px; flex-shrink: 0; line-height: 1.4; }
-    .summary-a { font-size: .88rem; font-weight: 600; color: var(--text); line-height: 1.5; }
-    .summary-a.empty { color: var(--muted); font-style: italic; }
+    .summary-row:last-child { margin-bottom: 0; }
+    .summary-q {
+      font-size: .83rem; font-weight: 800; color: var(--muted-light);
+      width: 165px; flex-shrink: 0; line-height: 1.4; padding-top: .05rem;
+    }
+    .summary-a { font-size: .88rem; font-weight: 600; color: var(--text-soft); line-height: 1.55; flex: 1; }
+    .summary-a.empty { color: var(--muted-light); font-style: italic; font-weight: 600; }
 
     .success-banner {
-      background: var(--green-pale); border: 2px solid var(--green-light);
-      border-radius: 16px; padding: 1.5rem 1.8rem; margin-bottom: 2rem;
-      display: flex; align-items: center; gap: 1rem;
+      background: linear-gradient(135deg, var(--green-pale), #e6f7ed);
+      border: 2px solid var(--green-light);
+      border-radius: 18px; padding: 1.5rem 1.8rem; margin-bottom: 2rem;
+      display: flex; align-items: center; gap: 1.1rem;
+      box-shadow: var(--shadow-sm);
     }
-    .success-icon { font-size: 2rem; }
-    .success-text h3 { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 700; color: var(--green); }
-    .success-text p  { font-size: .9rem; color: var(--muted); margin-top: .2rem; }
-
-    /* test banner */
-    .test-banner {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: var(--yellow); padding: .5rem 1rem;
-      text-align: center; font-size: .82rem; font-weight: 800;
-      color: var(--brown); letter-spacing: .02em;
+    .success-icon { font-size: 2.2rem; }
+    .success-text h3 {
+      font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 700; color: var(--green);
     }
-    body { padding-top: 36px; }
+    .success-text p  { font-size: .88rem; color: var(--muted); margin-top: .25rem; line-height: 1.5; }
 
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .milestone-grid { grid-template-columns: repeat(2, 1fr); }
+    }
     @media (max-width: 768px) {
       .page { grid-template-columns: 1fr; }
       .sidebar { display: none; }
-      .form-area { padding: 2rem 1.5rem; max-width: 100%; }
+      .form-area { padding: 2rem 1.5rem 3rem; max-width: 100%; }
+      .milestone-grid { grid-template-columns: repeat(2, 1fr); }
+      .panel-title { font-size: 1.7rem; }
+    }
+    @media (max-width: 480px) {
+      .milestone-grid { grid-template-columns: repeat(2, 1fr); }
+      .field-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -280,12 +403,16 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <div class="sidebar-logo">🌱 Growing Minds</div>
+    <div class="sidebar-logo">
+      🌱 Growing Minds
+    </div>
     <nav class="sidebar-steps" id="sidebarSteps"></nav>
-    <div class="milestone-badge" id="milestoneBadge">
-      <div class="badge-label">Milestone</div>
-      <div class="badge-value" id="badgeValue">—</div>
-      <div class="badge-sub" id="badgeSub"></div>
+    <div class="sidebar-context">
+      <div class="milestone-badge" id="milestoneBadge">
+        <div class="badge-label">Building a story about</div>
+        <div class="badge-value" id="badgeValue">—</div>
+        <div class="badge-sub" id="badgeSub"></div>
+      </div>
     </div>
   </aside>
 
@@ -293,26 +420,95 @@
   <main class="form-area">
     <div class="progress-wrap">
       <div class="progress-meta">
-        <span id="progressLabel">Step 1 of 5</span>
+        <span class="step-label" id="progressLabel">Step 1 of 6</span>
         <span id="progressPct">0%</span>
       </div>
       <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     </div>
 
-    <!-- ── PANEL 1: About your child ── -->
+    <!-- ── PANEL 0: Milestone (FIRST) ── -->
     <div class="panel active" id="panel-0">
-      <div class="eyebrow">Step 1</div>
-      <h1 class="panel-title">Tell us about your child</h1>
-      <p class="panel-sub">Just the basics — we'll get to the good stuff next.</p>
+      <div class="eyebrow">✦ Let's get started</div>
+      <h1 class="panel-title">What's happening in their world?</h1>
+      <p class="panel-sub">Every great story is built around a real moment. Pick the one you want this book to help them through.</p>
+
+      <div class="milestone-grid" id="milestoneGrid">
+        <div class="m-tile" onclick="selectMilestone('school','🏫','Starting school')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">🏫</span>
+          <div class="m-label">Starting school or a new school</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('sibling','👶','New baby or sibling')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">👶</span>
+          <div class="m-label">New baby or sibling</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('moving','📦','Moving to a new home')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">📦</span>
+          <div class="m-label">Moving to a new home</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('learning','⭐','Learning something new')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">⭐</span>
+          <div class="m-label">Learning something new</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('friends','🤝','Making friends')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">🤝</span>
+          <div class="m-label">Making friends</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('feelings','💛','Managing big feelings')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">💛</span>
+          <div class="m-label">Managing big feelings</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('change','🌀','A big life change')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">🌀</span>
+          <div class="m-label">A big life change</div>
+        </div>
+        <div class="m-tile" onclick="selectMilestone('other','✨','Something else')">
+          <span class="m-check">✓</span>
+          <span class="m-icon">✨</span>
+          <div class="m-label">Something else</div>
+        </div>
+      </div>
+
+      <div class="other-milestone-field" id="otherMilestoneField">
+        <div class="field">
+          <label>Describe it in your own words</label>
+          <textarea id="otherMilestone" placeholder="e.g. They're learning to be away from us for a full day at their grandparents' house for the first time." rows="3"></textarea>
+        </div>
+      </div>
+
+      <div class="milestone-confirm" id="milestoneConfirm">
+        <div class="mc-icon" id="mcIcon">🏫</div>
+        <div>
+          <div class="mc-text" id="mcText">Great choice.</div>
+          <div class="mc-sub">Next, tell us about your child so we can make this story truly theirs.</div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button class="btn-next" id="milestoneNext" onclick="goNext()" disabled>Continue →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 1: About your child ── -->
+    <div class="panel" id="panel-1">
+      <div class="eyebrow">Step 2</div>
+      <h1 class="panel-title" id="childPanelTitle">Tell us about your child</h1>
+      <p class="panel-sub">The more real and specific, the more the story will feel like it was written just for them.</p>
 
       <div class="field-row">
         <div class="field">
           <label>First name</label>
-          <input type="text" id="childName" placeholder="e.g. Julianna" oninput="updatePreview()"/>
+          <input type="text" id="childName" placeholder="e.g. Julianna"/>
         </div>
         <div class="field">
           <label>Age</label>
-          <input type="number" id="childAge" min="3" max="13" placeholder="5" oninput="updatePreview()"/>
+          <input type="number" id="childAge" min="3" max="13" placeholder="5"/>
         </div>
       </div>
 
@@ -324,6 +520,8 @@
           <div class="pill" onclick="selectPill('gender','neutral',this)">Gender neutral</div>
         </div>
       </div>
+
+      <div class="section-divider">Who they are right now</div>
 
       <div class="field">
         <label>What are they really like right now? <span class="opt">Not a list of traits — real current stuff</span></label>
@@ -344,82 +542,44 @@
       <div class="field">
         <label>Do they go by a nickname? <span class="opt">Optional</span></label>
         <input type="text" id="childNickname" placeholder="e.g. Juju, Ellie, Bug"/>
-        <p class="field-hint">Only include it if the story should actually use it.</p>
-      </div>
-
-      <div class="nav">
-        <button class="btn-next" onclick="goNext()">Next →</button>
-      </div>
-    </div>
-
-    <!-- ── PANEL 2: Milestone ── -->
-    <div class="panel" id="panel-1">
-      <div class="eyebrow">Step 2</div>
-      <h1 class="panel-title">What is this story about?</h1>
-      <p class="panel-sub">Pick the milestone this story will be built around. We'll ask you specific questions about it next.</p>
-
-      <div class="milestone-grid" id="milestoneGrid">
-        <div class="m-tile" onclick="selectMilestone('school','🏫','Starting school or a new school')">
-          <div class="m-icon">🏫</div><div class="m-label">Starting school or a new school</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('sibling','👶','New baby or sibling')">
-          <div class="m-icon">👶</div><div class="m-label">New baby or sibling</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('moving','📦','Moving to a new home')">
-          <div class="m-icon">📦</div><div class="m-label">Moving to a new home</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('learning','⭐','Learning something new')">
-          <div class="m-icon">⭐</div><div class="m-label">Learning something new</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('friends','🤝','Making friends')">
-          <div class="m-icon">🤝</div><div class="m-label">Making friends</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('feelings','💛','Managing big feelings')">
-          <div class="m-icon">💛</div><div class="m-label">Managing big feelings</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('change','🌀','A big life change')">
-          <div class="m-icon">🌀</div><div class="m-label">A big life change</div>
-        </div>
-        <div class="m-tile" onclick="selectMilestone('other','✨','Something else')">
-          <div class="m-icon">✨</div><div class="m-label">Something else</div>
-        </div>
-      </div>
-
-      <div class="field" id="otherMilestoneField" style="display:none; margin-top:1.2rem;">
-        <label>Describe it in your own words</label>
-        <textarea id="otherMilestone" placeholder="e.g. She's learning to be away from us for a full day at her grandparents' house for the first time." rows="3"></textarea>
+        <p class="field-hint">Only include it if you want the story to actually use it.</p>
       </div>
 
       <div class="nav">
         <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" id="milestoneNext" onclick="goNext()" disabled>Next →</button>
+        <button class="btn-next" onclick="goNext()">Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 3: Milestone questions ── -->
+    <!-- ── PANEL 2: Milestone questions ── -->
     <div class="panel" id="panel-2">
       <div class="eyebrow">Step 3</div>
       <h1 class="panel-title" id="milestoneQTitle">About this milestone</h1>
-      <p class="panel-sub" id="milestoneQSub">These questions help the story feel true to your child's specific situation.</p>
+      <p class="panel-sub" id="milestoneQSub">These questions help the story feel true to their specific situation — not a generic version of it.</p>
+
+      <div class="milestone-context-bar" id="milestoneContextBar">
+        <div class="mcb-icon" id="mcbIcon"></div>
+        <div class="mcb-text" id="mcbText"></div>
+      </div>
 
       <div id="milestoneQuestions"></div>
 
       <div class="nav">
         <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Next →</button>
+        <button class="btn-next" onclick="goNext()">Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 4: The people ── -->
+    <!-- ── PANEL 3: The people ── -->
     <div class="panel" id="panel-3">
       <div class="eyebrow">Step 4</div>
-      <h1 class="panel-title">The people in the story</h1>
-      <p class="panel-sub">Who matters in her world right now? The more specific you are, the more real the story feels.</p>
+      <h1 class="panel-title">The people in their world</h1>
+      <p class="panel-sub">Who matters to them right now? The more specific you are, the more real the story feels.</p>
 
       <div class="q-block">
         <div class="q-label">Family</div>
         <div class="q-question">Who are the most important people in their life, and what is their relationship with each of them actually like?</div>
-        <textarea placeholder="e.g. Their brother Benjamin is 7 and in 1st grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
+        <textarea placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
       </div>
 
       <div class="q-block">
@@ -436,11 +596,11 @@
 
       <div class="nav">
         <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Next →</button>
+        <button class="btn-next" onclick="goNext()">Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 5: Get it right ── -->
+    <!-- ── PANEL 4: Get it right ── -->
     <div class="panel" id="panel-4">
       <div class="eyebrow">Step 5</div>
       <h1 class="panel-title">Things the story must get right</h1>
@@ -470,7 +630,7 @@
         <textarea placeholder="e.g. That being brave doesn't mean not being scared — it means doing it anyway. That their brother will always be on their side even at a different school." rows="3"></textarea>
       </div>
 
-      <div class="field" style="margin-top:.5rem;">
+      <div class="field" style="margin-top:.6rem;">
         <label>Anything else we should know? <span class="opt">Optional</span></label>
         <textarea placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
       </div>
@@ -481,9 +641,9 @@
       </div>
     </div>
 
-    <!-- ── PANEL 6: Summary ── -->
+    <!-- ── PANEL 5: Summary ── -->
     <div class="panel" id="panel-5">
-      <div class="eyebrow">Done!</div>
+      <div class="eyebrow">✓ All done</div>
       <h1 class="panel-title">Here's what we've got</h1>
       <p class="panel-sub">This is what would be sent to the story engine. In the real version, this triggers the story preview.</p>
 
@@ -499,7 +659,7 @@
 
       <div class="nav">
         <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="startOver()">Start over</button>
+        <button class="btn-next" onclick="startOver()">Start over →</button>
       </div>
     </div>
 
@@ -516,12 +676,12 @@ const state = {
 };
 
 const STEPS = [
-  { label: 'About your child',      title: 'About your child' },
-  { label: 'Milestone',             title: 'Milestone' },
-  { label: 'Milestone details',     title: 'Milestone details' },
-  { label: 'The people',            title: 'The people' },
-  { label: 'Get it right',          title: 'Get it right' },
-  { label: 'Review',                title: 'Review' },
+  { label: 'The milestone',      title: 'The milestone' },
+  { label: 'About your child',   title: 'About your child' },
+  { label: 'Milestone details',  title: 'Milestone details' },
+  { label: 'The people',         title: 'The people' },
+  { label: 'Get it right',       title: 'Get it right' },
+  { label: 'Review',             title: 'Review' },
 ];
 
 let currentPanel = 0;
@@ -533,12 +693,12 @@ const MILESTONE_QUESTIONS = {
     title: 'About starting school',
     sub: 'Help us understand exactly what this school experience looks like for them.',
     questions: [
-      { label: 'Which school', q: 'What is the name of the school they are starting?', placeholder: 'e.g. Foothill Elementary. If you don\'t know yet, leave blank.' },
+      { label: 'Which school', q: 'What is the name of the school they\'re starting?', placeholder: 'e.g. Foothill Elementary. Leave blank if you don\'t know yet.' },
       { label: 'Grade', q: 'What grade are they starting?', placeholder: 'e.g. Kindergarten, 1st grade.' },
       { label: 'Who they know', q: 'Do they already know anyone who will be at this school — classmates, older siblings, neighbors?', placeholder: 'e.g. Their brother Benjamin will be in 2nd grade there. Their friend Ollie from the neighborhood will be in their grade.' },
       { label: 'Their relationship to it', q: 'Have they visited the school yet? What do they think of it?', placeholder: 'e.g. They\'ve been to the open house twice and already know where their classroom is. They call it \'their school.\'' },
-      { label: 'What they\'re excited about', q: 'What specifically are they excited about — not what a typical kid would be excited about, but them?', placeholder: 'e.g. They\'ve been practicing writing their name in lowercase and can\'t wait to show the teacher. They want to eat lunch in the cafeteria.' },
-      { label: 'What gives them pause', q: 'Is there anything they\'re uncertain or nervous about — even a small thing?', placeholder: 'e.g. They\'re not sure what to do if they need to go to the bathroom. They\'re worried about not knowing where to sit at lunch.' },
+      { label: 'What they\'re excited about', q: 'What specifically are they excited about — not what a typical kid would be, but them?', placeholder: 'e.g. They\'ve been practicing writing their name in lowercase and can\'t wait to show the teacher. They want to eat lunch in the cafeteria.' },
+      { label: 'What gives them pause', q: 'Is there anything they\'re uncertain or nervous about — even a small thing?', placeholder: 'e.g. They\'re not sure what to do if they need the bathroom. They\'re worried about not knowing where to sit at lunch.' },
     ]
   },
   sibling: {
@@ -655,8 +815,17 @@ function goBack() {
 
 function startOver() {
   currentPanel = 0;
+  state.gender = null;
+  state.milestone = null;
+  state.milestoneLabel = null;
+  state.milestoneIcon = null;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-0').classList.add('active');
+  document.getElementById('milestoneNext').disabled = true;
+  document.getElementById('milestoneConfirm').classList.remove('visible');
+  document.getElementById('milestoneBadge').classList.remove('visible');
+  document.querySelectorAll('.m-tile').forEach(t => t.classList.remove('active'));
+  document.getElementById('otherMilestoneField').classList.remove('visible');
   renderSidebar();
   renderProgress();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -674,17 +843,47 @@ function selectMilestone(key, icon, label) {
   state.milestone = key;
   state.milestoneLabel = label;
   state.milestoneIcon = icon;
+
   document.querySelectorAll('.m-tile').forEach(t => t.classList.remove('active'));
   event.currentTarget.classList.add('active');
-  document.getElementById('otherMilestoneField').style.display = key === 'other' ? 'block' : 'none';
+
+  // "Other" field
+  const otherField = document.getElementById('otherMilestoneField');
+  if (key === 'other') {
+    otherField.classList.add('visible');
+  } else {
+    otherField.classList.remove('visible');
+  }
+
+  // Enable next
   document.getElementById('milestoneNext').disabled = false;
 
-  // update sidebar badge
+  // Show confirmation bar
+  const confirm = document.getElementById('milestoneConfirm');
+  confirm.classList.add('visible');
+  document.getElementById('mcIcon').textContent = icon;
+  document.getElementById('mcText').textContent = icon + ' ' + label;
+
+  // Update sidebar badge
   const badge = document.getElementById('milestoneBadge');
   badge.classList.add('visible');
-  document.getElementById('badgeValue').textContent = icon + ' ' + label;
+  document.getElementById('badgeValue').textContent = label;
+  document.getElementById('badgeSub').textContent = 'Selected milestone';
 
-  // build milestone questions for panel 3
+  // Update child panel title
+  const titleMap = {
+    school:   'Tell us about the child starting school',
+    sibling:  'Tell us about your child',
+    moving:   'Tell us about the child who\'s moving',
+    learning: 'Tell us about your child',
+    friends:  'Tell us about your child',
+    feelings: 'Tell us about your child',
+    change:   'Tell us about your child',
+    other:    'Tell us about your child',
+  };
+  document.getElementById('childPanelTitle').textContent = titleMap[key] || 'Tell us about your child';
+
+  // Build milestone questions for panel 2
   buildMilestoneQuestions(key);
 }
 
@@ -693,6 +892,13 @@ function buildMilestoneQuestions(key) {
   if (!config) return;
   document.getElementById('milestoneQTitle').textContent = config.title;
   document.getElementById('milestoneQSub').textContent = config.sub;
+
+  // Context bar
+  const bar = document.getElementById('milestoneContextBar');
+  bar.classList.add('visible');
+  document.getElementById('mcbIcon').textContent = state.milestoneIcon || '';
+  document.getElementById('mcbText').textContent = state.milestoneLabel || '';
+
   const container = document.getElementById('milestoneQuestions');
   container.innerHTML = config.questions.map((q, i) => `
     <div class="q-block">
@@ -711,7 +917,14 @@ function buildSummary() {
 
   const sections = [
     {
-      label: '👧 About ' + name,
+      label: (state.milestoneIcon || '⭐') + ' Milestone',
+      rows: [
+        { q: 'Milestone', a: state.milestoneLabel || '—' },
+        ...getMilestoneAnswers(),
+      ]
+    },
+    {
+      label: '👧 About ' + (name !== '—' ? name : 'your child'),
       rows: [
         { q: 'Name', a: name + (nick ? ` (${nick})` : '') },
         { q: 'Age', a: age },
@@ -719,13 +932,6 @@ function buildSummary() {
         { q: 'Personality', a: document.getElementById('childPersonality').value },
         { q: 'Interests', a: document.getElementById('childInterests').value },
         { q: 'Strengths', a: document.getElementById('childStrengths').value },
-      ]
-    },
-    {
-      label: (state.milestoneIcon || '⭐') + ' Milestone',
-      rows: [
-        { q: 'Milestone', a: state.milestoneLabel || '—' },
-        ...getMilestoneAnswers(),
       ]
     },
     {
@@ -739,11 +945,11 @@ function buildSummary() {
     {
       label: '📌 Get it right',
       rows: [
-        { q: 'What she can\'t do yet', a: document.querySelectorAll('#panel-4 textarea')[0]?.value || '' },
-        { q: 'Her real feelings', a: document.querySelectorAll('#panel-4 textarea')[1]?.value || '' },
-        { q: 'Things she\'d correct', a: document.querySelectorAll('#panel-4 textarea')[2]?.value || '' },
-        { q: 'What you want her to feel', a: document.querySelectorAll('#panel-4 textarea')[3]?.value || '' },
-        { q: 'Anything else', a: document.querySelectorAll('#panel-4 textarea')[4]?.value || '' },
+        { q: 'What they can\'t do yet', a: document.querySelectorAll('#panel-4 textarea')[0]?.value || '' },
+        { q: 'Their real feelings',     a: document.querySelectorAll('#panel-4 textarea')[1]?.value || '' },
+        { q: 'Things they\'d correct',  a: document.querySelectorAll('#panel-4 textarea')[2]?.value || '' },
+        { q: 'What you want them to feel', a: document.querySelectorAll('#panel-4 textarea')[3]?.value || '' },
+        { q: 'Anything else',           a: document.querySelectorAll('#panel-4 textarea')[4]?.value || '' },
       ]
     }
   ];
@@ -770,8 +976,6 @@ function getMilestoneAnswers() {
     a: document.getElementById(`mq_${i}`)?.value || ''
   }));
 }
-
-function updatePreview() {}
 
 // ── INIT ──
 renderSidebar();
