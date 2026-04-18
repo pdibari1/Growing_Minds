@@ -93,6 +93,7 @@ Rules:
 - All conflict comes from the milestone challenge itself, not from unkind friends
 - Use character names exactly as given — never invent nicknames, never write that anyone dislikes or hates a name or nickname
 - No teasing, mocking, or unkind banter between any characters
+- GRADE LEVELS: The story takes place AT the milestone moment. If custom details specify what grade a sibling will be in when the hero reaches this milestone, use that future grade — not their current grade. Re-read the custom details carefully and calculate sibling grades relative to the milestone, not today
 
 Return only the arc summary, no title or labels.`;
 
@@ -134,6 +135,8 @@ RULES:
 - No assumed disabilities for any character
 - NAMES AND NICKNAMES: Use every character's name exactly as written. Only use a nickname if the custom details explicitly state one. Never invent nicknames. Never write that a character dislikes, hates, or is embarrassed by a nickname or their name — if a nickname exists it is always used warmly and affectionately
 - No teasing, mocking, or playful insults between characters — all banter must be warm and kind
+- GRADE LEVELS AND AGES: The story takes place AT the milestone moment — not today. If custom details specify what grade a sibling or friend will be in when the hero reaches this milestone, use that future grade, not their current grade. Example: if the hero is starting kindergarten and a sibling is currently in 1st grade, that sibling will be in 2nd grade during the story — write it that way. Double-check all sibling/friend grade levels against the milestone timing before writing
+- PHYSICAL DETAILS: If custom details describe a character's hair (length, texture, style), use exactly those details. Do not invent or change hair descriptions for any character
 - SAFETY: Never include anything inappropriate for children
 
 INSTRUCTIONS:
