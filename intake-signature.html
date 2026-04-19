@@ -574,6 +574,25 @@
         <p class="field-hint">Only include it if you want the story to actually use it.</p>
       </div>
 
+      <div class="section-divider">Where they live &amp; your email</div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>City or town</label>
+          <input type="text" id="childCity" placeholder="e.g. Denver"/>
+        </div>
+        <div class="field">
+          <label>State / Province <span class="opt">Optional</span></label>
+          <input type="text" id="childRegion" placeholder="e.g. Colorado"/>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Your email <span class="opt">For your preview link</span></label>
+        <input type="email" id="parentEmail" placeholder="you@example.com"/>
+        <p class="field-hint">We'll send your story preview here. No spam, ever.</p>
+      </div>
+
       <div class="nav">
         <button class="btn-back" onclick="goBack()">← Back</button>
         <button class="btn-next" onclick="goNext()">Continue →</button>
@@ -608,19 +627,19 @@
       <div class="q-block">
         <div class="q-label">Family</div>
         <div class="q-question">Who are the most important people in their life, and what is their relationship with each of them actually like?</div>
-        <textarea placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
+        <textarea id="familyInfo" placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Friends</div>
         <div class="q-question">Do they have a best friend or close friends? Tell us about them.</div>
-        <textarea placeholder="e.g. Their best friend Mia lives two doors down — they've been friends since they were babies. They already know Ollie and Scout will be in their grade at the new school." rows="3"></textarea>
+        <textarea id="friendsInfo" placeholder="e.g. Their best friend Mia lives two doors down — they've been friends since they were babies. They already know Ollie and Scout will be in their grade at the new school." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Anyone else</div>
         <div class="q-question">Is there anyone else who should be in the story — a grandparent, a teacher, a pet?</div>
-        <textarea placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
+        <textarea id="othersInfo" placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
       </div>
 
       <div class="nav">
@@ -638,30 +657,30 @@
       <div class="q-block">
         <div class="q-label">What they can't do yet</div>
         <div class="q-question">Is there anything a typical child their age might do that they can't yet — or haven't done yet?</div>
-        <textarea placeholder="e.g. They can't tie their own shoes yet. They haven't slept away from home without us. They still need help with buttons." rows="3"></textarea>
+        <textarea id="cantDoYet" placeholder="e.g. They can't tie their own shoes yet. They haven't slept away from home without us. They still need help with buttons." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Their real feelings</div>
         <div class="q-question">How do they actually feel about this milestone — not how a typical child might feel, but how they specifically feel?</div>
-        <textarea placeholder="e.g. They're not nervous at all — they've been asking when school starts every day for two months. They already think of it as 'their' school." rows="3"></textarea>
+        <textarea id="realFeelings" placeholder="e.g. They're not nervous at all — they've been asking when school starts every day for two months. They already think of it as 'their' school." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Things they'd notice were wrong</div>
         <div class="q-question">If they heard a story about themselves that got something wrong, what would they correct?</div>
-        <textarea placeholder="e.g. They'd be annoyed if the story said they were scared. They hate being called 'little' — they consider themselves big. They always use both hands when carrying something important." rows="3"></textarea>
+        <textarea id="wouldCorrect" placeholder="e.g. They'd be annoyed if the story said they were scared. They hate being called 'little' — they consider themselves big. They always use both hands when carrying something important." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">What you want them to feel</div>
         <div class="q-question">By the end of the story, what do you want them to feel or believe about themselves?</div>
-        <textarea placeholder="e.g. That being brave doesn't mean not being scared — it means doing it anyway. That their brother will always be on their side even at a different school." rows="3"></textarea>
+        <textarea id="wantToFeel" placeholder="e.g. That being brave doesn't mean not being scared — it means doing it anyway. That their brother will always be on their side even at a different school." rows="3"></textarea>
       </div>
 
       <div class="field" style="margin-top:.6rem;">
         <label>Anything else we should know? <span class="opt">Optional</span></label>
-        <textarea placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
+        <textarea id="anythingElse" placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
       </div>
 
       <div class="nav">
