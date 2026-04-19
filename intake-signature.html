@@ -693,7 +693,7 @@
     <div class="panel" id="panel-5">
       <div class="eyebrow">✓ All done</div>
       <h1 class="panel-title">Here's what we've got</h1>
-      <p class="panel-sub">This is what would be sent to the story engine. In the real version, this triggers the story preview.</p>
+      <p class="panel-sub">Review your answers, then hit the button — we'll write the opening of your child's story.</p>
 
       <div id="summaryContent"></div>
 
@@ -977,19 +977,19 @@ function buildSummary() {
     {
       label: '👨‍👩‍👧 The people',
       rows: [
-        { q: 'Family', a: document.querySelectorAll('#panel-3 textarea')[0]?.value || '' },
-        { q: 'Friends', a: document.querySelectorAll('#panel-3 textarea')[1]?.value || '' },
-        { q: 'Others', a: document.querySelectorAll('#panel-3 textarea')[2]?.value || '' },
+        { q: 'Family',  a: document.getElementById('familyInfo')?.value  || '' },
+        { q: 'Friends', a: document.getElementById('friendsInfo')?.value || '' },
+        { q: 'Others',  a: document.getElementById('othersInfo')?.value  || '' },
       ]
     },
     {
       label: '📌 Get it right',
       rows: [
-        { q: 'What they can\'t do yet', a: document.querySelectorAll('#panel-4 textarea')[0]?.value || '' },
-        { q: 'Their real feelings',     a: document.querySelectorAll('#panel-4 textarea')[1]?.value || '' },
-        { q: 'Things they\'d correct',  a: document.querySelectorAll('#panel-4 textarea')[2]?.value || '' },
-        { q: 'What you want them to feel', a: document.querySelectorAll('#panel-4 textarea')[3]?.value || '' },
-        { q: 'Anything else',           a: document.querySelectorAll('#panel-4 textarea')[4]?.value || '' },
+        { q: 'What they can\'t do yet',    a: document.getElementById('cantDoYet')?.value   || '' },
+        { q: 'Their real feelings',        a: document.getElementById('realFeelings')?.value || '' },
+        { q: 'Things they\'d correct',     a: document.getElementById('wouldCorrect')?.value || '' },
+        { q: 'What you want them to feel', a: document.getElementById('wantToFeel')?.value   || '' },
+        { q: 'Anything else',              a: document.getElementById('anythingElse')?.value  || '' },
       ]
     }
   ];
@@ -1019,16 +1019,16 @@ function getMilestoneAnswers() {
 
 // ── SUBMIT ──
 async function submitForm() {
-  const name        = document.getElementById('childName').value.trim();
-  const age         = document.getElementById('childAge').value;
-  const email       = document.getElementById('parentEmail').value.trim();
-  const city        = document.getElementById('childCity').value.trim();
-  const region      = document.getElementById('childRegion').value.trim();
-  const personality = document.getElementById('childPersonality').value.trim();
-  const interests   = document.getElementById('childInterests').value.trim();
+  const name        = (document.getElementById('childName')?.value        || '').trim();
+  const age         = (document.getElementById('childAge')?.value         || '');
+  const email       = (document.getElementById('parentEmail')?.value      || '').trim();
+  const city        = (document.getElementById('childCity')?.value        || '').trim();
+  const region      = (document.getElementById('childRegion')?.value      || '').trim();
+  const personality = (document.getElementById('childPersonality')?.value || '').trim();
+  const interests   = (document.getElementById('childInterests')?.value   || '').trim();
 
-  if (!name || !age || !email || !city) {
-    alert('Please go back and fill in all required fields.');
+  if (!name || !age || !email || !city || !personality || !interests) {
+    alert('Please go back and fill in all required fields (name, age, email, city, personality, and interests).');
     return;
   }
 
