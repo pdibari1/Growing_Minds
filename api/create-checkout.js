@@ -8,9 +8,9 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { storyToken, childName, storyId, discountCode, customerEmail, customDetails } = req.body;
+  const { childName, storyId, discountCode, customerEmail, customDetails } = req.body;
 
-  if (!storyToken || !childName || !storyId) {
+  if (!childName || !storyId) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
@@ -56,7 +56,8 @@ module.exports = async function handler(req, res) {
       shipping_address_collection: {
         allowed_countries: ["US", "CA", "GB", "AU"],
       },
-      metadata: { storyId, storyToken, childName, customerEmail: customerEmail || '', customDetails: (customDetails || '').slice(0, 500) },
+      // storyToken is stored in Redis (key: token:{storyId}) — kept out of metadata to avoid Stripe's 500-char limit
+      metadata: { storyId, childName, customerEmail: customerEmail || '', customDetails: (customDetails || '').slice(0, 500) },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/story-preview?cancelled=true`,
     });

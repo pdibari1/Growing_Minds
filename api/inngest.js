@@ -154,7 +154,7 @@ const generateStoryOrder = inngest.createFunction(
 
         // Deterministic regex enforcement: replace any unapproved diminutive with the full name
         batchChapters = batchChapters.map(ch =>
-          enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedCustomDetails)
+          enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts)
         );
 
         // Correct any named-character kindness violations before saving

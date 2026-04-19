@@ -630,8 +630,8 @@
       window._storyToken = storyToken;
       window._storyId = storyId;
       window._childName = childName;
-      window._customerEmail = data.customerEmail || '';
-      window._customDetails = data.customDetails || '';
+      window._customerEmail = story.customerEmail || '';
+      window._customDetails = story.customDetails || '';
 
       // GA4 - preview viewed
       if (typeof gtag !== 'undefined') {
@@ -645,16 +645,16 @@
         gtag('event', 'begin_checkout', { currency: 'USD', value: 35 });
       }
       const btn = document.getElementById('buy-btn');
-      const discountCode = document.getElementById('discount-code').value.trim();
-      btn.textContent = 'Preparing checkout…';
-      btn.disabled = true;
+      const discountCode = (document.getElementById('discount-code')?.value || '').trim();
+      const errMsg = document.getElementById('discount-msg');
+
+      if (btn) { btn.textContent = 'Preparing checkout…'; btn.disabled = true; }
 
       try {
         const response = await fetch('/api/create-checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            storyToken:    window._storyToken,
             storyId:       window._storyId,
             childName:     window._childName,
             customerEmail: window._customerEmail || '',
@@ -674,10 +674,8 @@
         }
       } catch (err) {
         console.error(err);
-        btn.textContent = '🌟 Get the Full Story — $35';
-        btn.disabled = false;
-        document.getElementById('discount-msg').style.color = '#dc2626';
-        document.getElementById('discount-msg').textContent = err.message || 'Something went wrong. Please try again.';
+        if (btn) { btn.textContent = '🌟 Get the Full Story — $35'; btn.disabled = false; }
+        if (errMsg) { errMsg.style.color = '#dc2626'; errMsg.textContent = err.message || 'Something went wrong. Please try again.'; }
       }
     }
 

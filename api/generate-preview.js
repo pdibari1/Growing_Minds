@@ -161,6 +161,14 @@ INSTRUCTIONS:
       name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, ethnicity: ethnicity || ''
     })).toString("base64url");
 
+    // Cache the storyToken for 48 hours so the webhook can retrieve it via storyId.
+    // Stripe metadata has a 500-char limit per value; the token often exceeds that.
+    try {
+      await redisRequest("SET", [`token:${storyId}`, storyToken, "EX", 172800]);
+    } catch (e) {
+      console.warn("Redis token cache failed (non-fatal):", e.message);
+    }
+
     return res.status(200).json({ preview: previewText, storyToken, storyId, childName: name, customerEmail: email, customDetails: customDetails || '' });
 
   } catch (error) {

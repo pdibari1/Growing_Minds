@@ -2,6 +2,32 @@
 const Stripe = require("stripe");
 const https = require("https");
 
+// ── Redis (Upstash REST) — retrieves storyToken stored by generate-preview.js ──
+async function redisGet(key) {
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  const payload = JSON.stringify(["GET", key]);
+  return new Promise((resolve) => {
+    const urlObj = new URL(url);
+    const options = {
+      hostname: urlObj.hostname, port: 443, path: "/",
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+      timeout: 8000
+    };
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => { try { resolve(JSON.parse(body).result); } catch { resolve(null); } });
+    });
+    req.on("error", () => resolve(null));
+    req.on("timeout", () => resolve(null));
+    req.write(payload);
+    req.end();
+  });
+}
+
 module.exports.config = { api: { bodyParser: false } };
 
 module.exports = async function handler(req, res) {
@@ -24,8 +50,14 @@ module.exports = async function handler(req, res) {
   }
 
   const session = event.data.object;
-  const { storyToken, childName, storyId, customDetails } = session.metadata;
+  const { childName, storyId, customDetails } = session.metadata;
   const customerEmail = session.customer_details?.email;
+
+  // storyToken is stored in Redis to avoid Stripe's 500-char metadata limit
+  const storyToken = await redisGet(`token:${storyId}`);
+  if (!storyToken) {
+    console.error(`No storyToken found in Redis for storyId ${storyId} — story generation may fail`);
+  }
 
   console.log(`Order received for ${childName} — sending to Inngest`);
 
