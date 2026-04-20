@@ -53,10 +53,19 @@ module.exports = async function handler(req, res) {
   const { childName, storyId, customDetails } = session.metadata;
   const customerEmail = session.customer_details?.email;
 
-  // storyToken is stored in Redis to avoid Stripe's 500-char metadata limit
-  const storyToken = await redisGet(`token:${storyId}`);
+  // Primary: storyToken stored in Redis by generate-preview.js (avoids Stripe's 500-char limit)
+  // Fallback: storyToken in Stripe metadata (written by old create-checkout.js during transition period)
+  let storyToken = await redisGet(`token:${storyId}`);
+  if (!storyToken && session.metadata.storyToken) {
+    storyToken = session.metadata.storyToken;
+    console.log(`storyToken retrieved from Stripe metadata fallback for ${storyId}`);
+  }
+
   if (!storyToken) {
-    console.error(`No storyToken found in Redis for storyId ${storyId} — story generation may fail`);
+    // Hard stop — sending a null token to Inngest causes an immediate crash and wastes a run.
+    // Return 200 so Stripe doesn't retry; alert via log so it's visible in Vercel/Inngest dashboards.
+    console.error(`FATAL: No storyToken found for storyId ${storyId} (childName: ${childName}). Order not queued. Manually re-trigger from Inngest dashboard after recovering the token.`);
+    return res.status(200).json({ received: true, error: "missing_token" });
   }
 
   console.log(`Order received for ${childName} — sending to Inngest`);
