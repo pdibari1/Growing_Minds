@@ -305,7 +305,7 @@
     <div class="celebration-inner">
       <div class="check-circle">🎉</div>
       <h1>You're all set! 🎉</h1>
-      <p id="confirm-subtitle">Their story is being written right now. Check your email for the PDF download link — it's on its way!</p>
+      <p id="confirm-subtitle">Their story is being written right now. Your personalized hardcover book will be on its way soon!</p>
     </div>
   </div>
 
@@ -317,19 +317,19 @@
       <div class="next-steps-title">📬 What happens next</div>
 
       <div class="step-row">
-        <div class="step-icon-wrap">📄</div>
+        <div class="step-icon-wrap">✍️</div>
         <div class="step-content">
-          <div class="step-title">PDF arriving in your inbox</div>
-          <div class="step-desc">We're generating the full story right now and will email you a download link as soon as it's ready. Check your spam folder if you don't see it.</div>
-          <div class="step-timing">⚡ Within the next few minutes</div>
+          <div class="step-title">Your story is being written</div>
+          <div class="step-desc">Our storyteller is personalizing every detail — your child's name, personality, milestone, and all the people they love are being woven into a one-of-a-kind adventure.</div>
+          <div class="step-timing">⚡ Happening right now</div>
         </div>
       </div>
 
       <div class="step-row">
         <div class="step-icon-wrap">📦</div>
         <div class="step-content">
-          <div class="step-title">Printed book on its way</div>
-          <div class="step-desc">Your beautifully printed softcover book has been sent to our print partner. It will be produced and shipped directly to the address you provided.</div>
+          <div class="step-title">Printed hardcover book on its way</div>
+          <div class="step-desc">Once your story is complete it will be sent to our print partner, who will produce and ship your beautifully bound hardcover book directly to your door.</div>
           <div class="step-timing">📮 13–15 business days</div>
         </div>
       </div>
@@ -337,8 +337,8 @@
       <div class="step-row">
         <div class="step-icon-wrap">🌟</div>
         <div class="step-content">
-          <div class="step-title">Read it together tonight</div>
-          <div class="step-desc">Once you have the PDF, read it to your child before bed. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
+          <div class="step-title">Read it together</div>
+          <div class="step-desc">Find a cozy spot and read it to your child for the first time. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
           <div class="step-timing">💛 The best part</div>
         </div>
       </div>
@@ -352,11 +352,7 @@
         <span class="value" id="summary-name">Your child</span>
       </div>
       <div class="order-row">
-        <span class="label">First Half — by Email</span>
-        <span class="value">✓ In your inbox within 30 min</span>
-      </div>
-      <div class="order-row">
-        <span class="label">Printed Hardcover Book</span>
+        <span class="label">Personalized Hardcover Book</span>
         <span class="value">✓ Included</span>
       </div>
       <div class="order-row">
@@ -421,7 +417,7 @@
 
     if (childName) {
       document.getElementById('confirm-subtitle').textContent =
-        `${childName}'s story is being written right now. The first half of their story will be in your inbox within 30 minutes. The complete hardcover book ships within 13–15 business days.`;
+        `${childName}'s story is being written right now. Your personalized hardcover book ships within 13–15 business days.`;
       document.getElementById('summary-name').textContent = childName;
 
       // GA4 - purchase complete

@@ -184,6 +184,25 @@
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .field-hint { font-size: .79rem; color: var(--muted-light); margin-top: .4rem; line-height: 1.5; }
 
+    /* ── SWATCHES ── */
+    .swatch-group { display: flex; flex-wrap: wrap; gap: .6rem; }
+    .swatch-wrap { display: flex; flex-direction: column; align-items: center; gap: .35rem; cursor: pointer; transition: transform .15s; }
+    .swatch-wrap:hover { transform: scale(1.06); }
+    .swatch { width: 38px; height: 38px; border-radius: 50%; border: 3px solid var(--border); transition: border-color .15s, box-shadow .15s; position: relative; }
+    .swatch-wrap.selected .swatch { border-color: var(--green); box-shadow: 0 0 0 3px rgba(45,106,79,0.2); }
+    .swatch-wrap.selected .swatch::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: .7rem; font-weight: 900; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+    .swatch-label { font-size: .72rem; font-weight: 700; color: var(--muted); text-align: center; }
+    .swatch-wrap.selected .swatch-label { color: var(--green); font-weight: 800; }
+
+    /* ── EMOJI CARDS ── */
+    .card-group { display: flex; flex-wrap: wrap; gap: .65rem; }
+    .card-option { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: .9rem .7rem; min-width: 80px; border-radius: 14px; border: 2px solid var(--border); background: var(--white); cursor: pointer; transition: all .18s; box-shadow: var(--shadow-sm); }
+    .card-option:hover { border-color: var(--green-light); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .card-option.selected { border-color: var(--green); background: var(--green-pale); box-shadow: 0 0 0 3px rgba(45,106,79,0.12); }
+    .card-icon  { font-size: 1.6rem; line-height: 1; }
+    .card-label { font-size: .75rem; font-weight: 800; color: var(--text-soft); text-align: center; line-height: 1.3; }
+    .card-option.selected .card-label { color: var(--green); }
+
     /* pill select */
     .pill-group { display: flex; flex-wrap: wrap; gap: .45rem; }
     .pill {
@@ -576,6 +595,53 @@
         <p class="field-hint">Only include it if you want the story to actually use it.</p>
       </div>
 
+      <div class="section-divider">What do they look like?</div>
+      <p class="panel-sub" style="margin-bottom:1.2rem;font-size:.88rem;">These details help paint a vivid picture of your little hero in the story.</p>
+
+      <div class="field">
+        <label>Hair color</label>
+        <div class="swatch-group" id="sigHairSwatches">
+          <div class="swatch-wrap" data-val="Black"      onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#1a1a1a;"></div><div class="swatch-label">Black</div></div>
+          <div class="swatch-wrap" data-val="Dark Brown" onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#3b1f0a;"></div><div class="swatch-label">Dark Brown</div></div>
+          <div class="swatch-wrap" data-val="Brown"      onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#7b4f2e;"></div><div class="swatch-label">Brown</div></div>
+          <div class="swatch-wrap" data-val="Blonde"     onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#f5d06e;border-color:#ddb83a;"></div><div class="swatch-label">Blonde</div></div>
+          <div class="swatch-wrap" data-val="Red"        onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#c0392b;"></div><div class="swatch-label">Red</div></div>
+          <div class="swatch-wrap" data-val="Auburn"     onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#a0522d;"></div><div class="swatch-label">Auburn</div></div>
+          <div class="swatch-wrap" data-val="White/Grey" onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#d0d0d0;"></div><div class="swatch-label">White/Grey</div></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Hair length</label>
+        <div class="card-group" id="sigHairLengthCards">
+          <div class="card-option" data-val="crew cut"         onclick="pickCard('hairLength',this)"><div class="card-icon">👨</div><div class="card-label">Crew Cut</div></div>
+          <div class="card-option" data-val="regular cut"      onclick="pickCard('hairLength',this)"><div class="card-icon">🧑</div><div class="card-label">Regular Cut</div></div>
+          <div class="card-option" data-val="past the ears"    onclick="pickCard('hairLength',this)"><div class="card-icon">👱</div><div class="card-label">Past the Ears</div></div>
+          <div class="card-option" data-val="to the shoulders" onclick="pickCard('hairLength',this)"><div class="card-icon">👩</div><div class="card-label">To the Shoulders</div></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Hair style</label>
+        <div class="card-group" id="sigHairStyleCards">
+          <div class="card-option" data-val="Straight" onclick="pickCard('hairStyle',this)"><div class="card-icon">〰️</div><div class="card-label">Straight</div></div>
+          <div class="card-option" data-val="Wavy"     onclick="pickCard('hairStyle',this)"><div class="card-icon">🌊</div><div class="card-label">Wavy</div></div>
+          <div class="card-option" data-val="Curly"    onclick="pickCard('hairStyle',this)"><div class="card-icon">🌀</div><div class="card-label">Curly</div></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Eye color</label>
+        <div class="swatch-group" id="sigEyeSwatches">
+          <div class="swatch-wrap" data-val="Brown"      onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#6b3a1f;"></div><div class="swatch-label">Brown</div></div>
+          <div class="swatch-wrap" data-val="Dark Brown" onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#2c1a0e;"></div><div class="swatch-label">Dark Brown</div></div>
+          <div class="swatch-wrap" data-val="Blue"       onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#4b9fd5;"></div><div class="swatch-label">Blue</div></div>
+          <div class="swatch-wrap" data-val="Green"      onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#3a8c4e;"></div><div class="swatch-label">Green</div></div>
+          <div class="swatch-wrap" data-val="Hazel"      onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#8d7340;"></div><div class="swatch-label">Hazel</div></div>
+          <div class="swatch-wrap" data-val="Grey"       onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#8a9099;"></div><div class="swatch-label">Grey</div></div>
+        </div>
+      </div>
+
       <div class="section-divider">Where they live &amp; your email</div>
 
       <div class="field-row">
@@ -715,6 +781,10 @@ const state = {
   milestone: null,
   milestoneLabel: null,
   milestoneIcon: null,
+  hair: '',
+  hairLength: '',
+  hairStyle: '',
+  eye: '',
 };
 
 const STEPS = [
@@ -873,6 +943,21 @@ function startOver() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ── SWATCH & CARD SELECTS ──
+function pickSwatch(type, el) {
+  const group = el.closest('.swatch-group');
+  group.querySelectorAll('.swatch-wrap').forEach(w => w.classList.remove('selected'));
+  el.classList.add('selected');
+  state[type] = el.dataset.val;
+}
+
+function pickCard(type, el) {
+  const group = el.closest('.card-group');
+  group.querySelectorAll('.card-option').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state[type] = el.dataset.val;
+}
+
 // ── PILL SELECTS ──
 function selectPill(group, value, el) {
   state[group] = value;
@@ -972,8 +1057,10 @@ function buildSummary() {
         { q: 'Age', a: age },
         { q: 'Gender', a: state.gender || '—' },
         { q: 'Personality', a: document.getElementById('childPersonality').value },
-        { q: 'Interests', a: document.getElementById('childInterests').value },
-        { q: 'Strengths', a: document.getElementById('childStrengths').value },
+        { q: 'Interests',   a: document.getElementById('childInterests').value },
+        { q: 'Strengths',   a: document.getElementById('childStrengths').value },
+        { q: 'Hair',        a: [state.hair, state.hairLength, state.hairStyle].filter(Boolean).join(', ') },
+        { q: 'Eyes',        a: state.eye },
       ]
     },
     {
@@ -1087,8 +1174,11 @@ async function submitForm() {
 
   const payload = {
     name, age,
-    gender:       state.gender || '',
-    hair:         '', hairLength: '', hairStyle: '', eye: '',
+    gender:       state.gender    || '',
+    hair:         state.hair      || '',
+    hairLength:   state.hairLength|| '',
+    hairStyle:    state.hairStyle || '',
+    eye:          state.eye       || '',
     trait:        personality,
     favorite:     interests,
     friend:       family || 'none',

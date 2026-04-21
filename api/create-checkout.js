@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
           unit_amount: PRICE_CENTS,
           product_data: {
             name: `${childName}'s Personalized Story Book`,
-            description: "Includes instant PDF download + printed hardcover book shipped to your door",
+            description: "Personalized hardcover book — printed and shipped to your door in 13–15 business days",
           },
         },
         quantity: 1,
