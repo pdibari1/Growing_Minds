@@ -295,19 +295,39 @@ const generateStoryOrder = inngest.createFunction(
           const customDetailsLower = (childData.customDetails || '').toLowerCase();
 
           // Build a secondary character description string — everyone except the main character
-          // For male characters, append an explicit masculine rendering note to prevent feminization
+          // Enforce gender, age, and clothing distinctness for every secondary character
           const secondaryDesc = Object.entries(cast)
             .filter(([n]) => n !== name)
             .map(([n, d]) => {
               const nLower = n.toLowerCase();
-              // Detect if this character is described as male anywhere in the custom details
+
+              // ── Gender enforcement ──
               const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
               const masculineNote = isMale
                 ? ` CRITICAL: ${n} is a BOY — MALE. Render with a clearly boyish/masculine face: strong brow, boyish jaw, masculine features. Do NOT make ${n} look like a girl under any circumstances, regardless of hair length or style.`
                 : '';
-              // Clothing must differ from main character — prevent outfit copying
+
+              // ── Age enforcement ──
+              // Extract age from the character description (e.g. "a 7-year-old boy")
+              const ageMatch = d.match(/\b(\d+)-year-old\b/);
+              const charAge = ageMatch ? parseInt(ageMatch[1]) : null;
+              let ageNote = '';
+              if (charAge !== null) {
+                const ageAppearance =
+                  charAge <= 2  ? `a toddler — very small, chubby round face, barely walking height, clearly a baby or toddler` :
+                  charAge <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
+                  charAge <= 6  ? `a kindergarten-age child — small, round face, clearly a little kid, noticeably shorter than a 7-year-old` :
+                  charAge <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, clearly a child, taller than a 5-year-old but still small` :
+                  charAge <= 11 ? `an older elementary child — taller, leaner face, but unmistakably still a child, NOT a teenager` :
+                  charAge <= 14 ? `a middle-school-aged child — approaching adolescence but clearly still a kid, NOT an adult` :
+                                  `a teenager or adult`;
+                ageNote = ` CRITICAL: ${n} is ${charAge} years old — they must look like ${ageAppearance}. Do NOT render ${n} younger or older than ${charAge}. Body size, face shape, and proportions must match an actual ${charAge}-year-old.`;
+              }
+
+              // ── Clothing distinctness ──
               const clothingNote = ` ${n} must wear clothing that is completely different in color and style from ${name}'s outfit — do NOT dress ${n} in the same outfit as ${name}.`;
-              return `${n}: ${d}${masculineNote}${clothingNote}`;
+
+              return `${n}: ${d}${masculineNote}${ageNote}${clothingNote}`;
             })
             .join(' ');
 
@@ -1409,14 +1429,20 @@ Task:
 2. For each recurring character, write a specific, consistent physical description (hair color, hair length, hair texture, eyes, skin, clothing style, distinguishing features). CRITICAL: If the custom details above describe a character's appearance, use those details exactly — do not invent different ones. If the custom details say a character has shoulder-length straight hair, write that. If they say a character is a boy or uses he/him, mark them as male.
 3. Also write the definitive description for ${name} using their known details
 
-Return ONLY a valid JSON object. Keys are character names, values are 1-2 sentence physical descriptions that include gender, hair (color, length, texture), and a clothing style. Example:
+Return ONLY a valid JSON object. Keys are character names, values are 1-2 sentence physical descriptions. Each description MUST include: the character's exact age as "X-year-old" (this is mandatory — an illustrator will use this to determine body size and face maturity), gender, hair (color, length, texture), eye color, and a clothing style hint. Example:
 {
   "${name}": "a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing a teal pinafore dress and white shirt",
   "Jake": "a stocky 9-year-old boy with short red hair, pale freckled skin, and a green t-shirt",
+  "Mom": "a tall adult woman with shoulder-length dark hair, warm brown eyes, and a floral blouse",
   "Biscuit": "a fluffy golden retriever with floppy ears and a red collar"
 }
 
-Only include characters appearing in multiple scenes. Keep descriptions warm and child-appropriate. No markdown, no explanation — just the JSON.`;
+CRITICAL RULES:
+- Every human character description must start with their exact age ("a 7-year-old boy", "an adult woman", "a 35-year-old dad") — never omit this
+- Ages must be accurate: if a sibling is described as older but still in elementary school, they are a child, not a teenager
+- A 7-year-old looks like an actual 7-year-old: round face, small body, clearly a young child — taller than a 5-year-old but nowhere near adult or teenage height
+- Do not round ages up or make children look older than they are
+- Only include characters appearing in multiple scenes. Keep descriptions warm and child-appropriate. No markdown, no explanation — just the JSON.`;
 
   const raw = await callClaude(prompt, 800);
   try {

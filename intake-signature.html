@@ -710,6 +710,12 @@
       </div>
 
       <div class="q-block">
+        <div class="q-label">What do those friends look like?</div>
+        <div class="q-question">Describe the friends above so they can be drawn accurately in the illustrations.</div>
+        <textarea id="friendsLook" placeholder="e.g. Mia has long dark curly hair, brown eyes, and usually wears bright colors. Ollie is a tall boy with short blond hair and blue eyes. Scout has red hair in a ponytail and freckles." rows="3"></textarea>
+      </div>
+
+      <div class="q-block">
         <div class="q-label">Anyone else</div>
         <div class="q-question">Is there anyone else who should be in the story — a grandparent, a teacher, a pet?</div>
         <textarea id="othersInfo" placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
@@ -729,13 +735,13 @@
 
       <div class="q-block">
         <div class="q-label">What they can't do yet</div>
-        <div class="q-question">Is there anything a typical child their age might do that they can't yet — or haven't done yet?</div>
+        <div class="q-question">What are they working on? Is there something they think they should be doing that they are working to be able to do?</div>
         <textarea id="cantDoYet" placeholder="e.g. They can't tie their own shoes yet. They haven't slept away from home without us. They still need help with buttons." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Their real feelings</div>
-        <div class="q-question">How do they actually feel about this milestone — not how a typical child might feel, but how they specifically feel?</div>
+        <div class="q-question">How do they feel about this milestone? — be as specific to them as possible.</div>
         <textarea id="realFeelings" placeholder="e.g. They're not nervous at all — they've been asking when school starts every day for two months. They already think of it as 'their' school." rows="3"></textarea>
       </div>
 
@@ -1111,6 +1117,7 @@ function buildSummary() {
       rows: [
         { q: 'Family',  a: document.getElementById('familyInfo')?.value  || '' },
         { q: 'Friends', a: document.getElementById('friendsInfo')?.value || '' },
+        { q: 'Friends — appearance', a: document.getElementById('friendsLook')?.value || '' },
         { q: 'Others',  a: document.getElementById('othersInfo')?.value  || '' },
       ]
     },
@@ -1189,14 +1196,16 @@ async function submitForm() {
       if (val) parts.push(`${q.label}: ${val}`);
     });
   }
-  const family  = (document.getElementById('familyInfo')?.value  || '').trim();
-  const friends = (document.getElementById('friendsInfo')?.value || '').trim();
-  const others  = (document.getElementById('othersInfo')?.value  || '').trim();
+  const family      = (document.getElementById('familyInfo')?.value   || '').trim();
+  const friends     = (document.getElementById('friendsInfo')?.value  || '').trim();
+  const friendsLook = (document.getElementById('friendsLook')?.value  || '').trim();
+  const others      = (document.getElementById('othersInfo')?.value   || '').trim();
   if (family || friends || others) {
     parts.push(`\n=== THE PEOPLE ===`);
-    if (family)  parts.push(`Family: ${family}`);
-    if (friends) parts.push(`Friends: ${friends}`);
-    if (others)  parts.push(`Others: ${others}`);
+    if (family)      parts.push(`Family: ${family}`);
+    if (friends)     parts.push(`Friends: ${friends}`);
+    if (friendsLook) parts.push(`Friends appearance (for illustrations): ${friendsLook}`);
+    if (others)      parts.push(`Others: ${others}`);
   }
   const strengths  = (document.getElementById('childStrengths')?.value || '').trim();
   const cantDo     = (document.getElementById('cantDoYet')?.value      || '').trim();
