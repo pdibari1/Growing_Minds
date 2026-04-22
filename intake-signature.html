@@ -47,7 +47,6 @@
       color: var(--text);
     }
 
-
     /* ── LAYOUT ── */
     .page {
       min-height: 100vh;
@@ -69,7 +68,6 @@
       color: white; display: flex; align-items: center; gap: .5rem;
       margin-bottom: 2.5rem; text-decoration: none; flex-shrink: 0;
     }
-    .sidebar-logo span { opacity: .7; font-size: .9rem; font-weight: 400; font-family: 'Nunito', sans-serif; }
 
     .sidebar-steps { flex: 1; display: flex; flex-direction: column; gap: .2rem; overflow: hidden; }
     .sidebar-step {
@@ -183,6 +181,15 @@
     .field input:invalid { box-shadow: none; border-color: var(--border); }
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .field-hint { font-size: .79rem; color: var(--muted-light); margin-top: .4rem; line-height: 1.5; }
+    .field-error { font-size: .78rem; color: #dc2626; margin-top: .35rem; display: none; font-weight: 700; }
+    .field-error.show { display: block; }
+
+    /* ── EMAIL BOX ── */
+    .email-box { background: var(--green); border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1.4rem; }
+    .email-box label { color: white; font-weight: 800; font-size: .95rem; margin-bottom: .3rem; display: flex; align-items: center; gap: .5rem; }
+    .email-box p { color: rgba(255,255,255,0.75); font-size: .82rem; margin-bottom: .85rem; line-height: 1.55; }
+    .email-box input { background: white; border: 2px solid transparent; font-size: .975rem; }
+    .email-box input:focus { border-color: var(--green-light); }
 
     /* ── SWATCHES ── */
     .swatch-group { display: flex; flex-wrap: wrap; gap: .6rem; }
@@ -203,34 +210,17 @@
     .card-label { font-size: .75rem; font-weight: 800; color: var(--text-soft); text-align: center; line-height: 1.3; }
     .card-option.selected .card-label { color: var(--green); }
 
-    /* pill select */
-    .pill-group { display: flex; flex-wrap: wrap; gap: .45rem; }
-    .pill {
-      padding: .55rem 1.15rem;
-      border: 2px solid var(--border); border-radius: 50px;
-      background: var(--white); font-family: 'Nunito', sans-serif;
-      font-size: .875rem; font-weight: 700; cursor: pointer;
-      color: var(--text-soft); transition: all .15s;
-      box-shadow: var(--shadow-sm);
+    /* section divider */
+    .section-divider {
+      display: flex; align-items: center; gap: 1rem;
+      margin: 1.8rem 0 1.4rem; color: var(--muted-light);
+      font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
     }
-    .pill:hover  { border-color: var(--green-light); background: var(--green-faint); color: var(--green); }
-    .pill.active { border-color: var(--green); background: var(--green); color: white; box-shadow: 0 2px 8px rgba(45,106,79,0.25); }
+    .section-divider::before, .section-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
 
     /* ── MILESTONE GRID (Panel 0) ── */
-    .milestone-intro {
-      background: linear-gradient(135deg, var(--green) 0%, var(--green-mid) 100%);
-      border-radius: 20px; padding: 2rem 2.2rem;
-      margin-bottom: 2rem; color: white;
-      box-shadow: var(--shadow-lg);
-    }
-    .milestone-intro-title {
-      font-family: 'Fraunces', serif;
-      font-size: 1.5rem; font-weight: 700; margin-bottom: .5rem; line-height: 1.25;
-    }
-    .milestone-intro-sub {
-      font-size: .92rem; opacity: .8; line-height: 1.6; font-weight: 600;
-    }
-
     .milestone-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -250,37 +240,35 @@
     }
     .m-tile:hover { border-color: var(--green-light); transform: translateY(-2px); box-shadow: var(--shadow-md); }
     .m-tile:hover::before { opacity: 1; }
-    .m-tile.active { border-color: var(--green); box-shadow: 0 0 0 3px rgba(45,106,79,0.12), var(--shadow-md); }
-    .m-tile.active::before { opacity: 1; background: var(--green-pale); }
+    .m-tile.selected { border-color: var(--green); box-shadow: 0 0 0 3px rgba(45,106,79,0.12), var(--shadow-md); }
+    .m-tile.selected::before { opacity: 1; background: var(--green-pale); }
     .m-tile .m-icon  { font-size: 2rem; margin-bottom: .5rem; position: relative; display: block; }
     .m-tile .m-label {
       font-size: .78rem; font-weight: 800; color: var(--text-soft);
       line-height: 1.3; position: relative;
     }
-    .m-tile.active .m-label { color: var(--green); }
-    .m-tile.active .m-check {
-      position: absolute; top: .55rem; right: .6rem;
+    .m-tile.selected .m-label { color: var(--green); }
+    .m-check { display: none; position: absolute; top: .55rem; right: .6rem;
       width: 20px; height: 20px; border-radius: 50%;
       background: var(--green); color: white;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .6rem; font-weight: 900;
+      align-items: center; justify-content: center;
+      font-size: .6rem; font-weight: 900; z-index: 1;
     }
-    .m-check { display: none; }
-    .m-tile.active .m-check { display: flex; }
+    .m-tile.selected .m-check { display: flex; }
 
-    .other-milestone-field { display: none; margin-top: .5rem; }
-    .other-milestone-field.visible { display: block; animation: fadeUp .25s ease both; }
+    .other-milestone-wrap { display: none; margin-top: .5rem; }
+    .other-milestone-wrap.show { display: block; animation: fadeUp .25s ease both; }
 
     /* selected milestone confirmation */
     .milestone-confirm {
-      display: none; align-items: center; gap: 1rem;
+      display: none; align-items: center; gap: .9rem;
       background: var(--green-pale); border: 2px solid var(--green-light);
-      border-radius: 14px; padding: 1rem 1.3rem; margin-top: 1.2rem;
+      border-radius: 14px; padding: .9rem 1.2rem; margin-top: 1rem;
     }
-    .milestone-confirm.visible { display: flex; animation: fadeUp .25s ease both; }
-    .mc-icon { font-size: 1.6rem; flex-shrink: 0; }
-    .mc-text { font-size: .92rem; font-weight: 700; color: var(--green); }
-    .mc-sub  { font-size: .82rem; font-weight: 600; color: var(--muted); margin-top: .1rem; }
+    .milestone-confirm.show { display: flex; animation: fadeUp .25s ease both; }
+    .mc-icon { font-size: 1.5rem; flex-shrink: 0; }
+    .mc-body { font-size: .9rem; font-weight: 700; color: var(--green); }
+    .mc-sub  { font-size: .8rem; font-weight: 600; color: var(--muted); margin-top: .1rem; }
 
     /* ── Q-BLOCKS ── */
     .q-block {
@@ -292,9 +280,7 @@
       box-shadow: var(--shadow-sm);
       transition: border-color .2s;
     }
-    .q-block:focus-within {
-      border-color: var(--green-light);
-    }
+    .q-block:focus-within { border-color: var(--green-light); }
     .q-block .q-label {
       font-size: .66rem; font-weight: 900; text-transform: uppercase;
       letter-spacing: .1em; color: var(--green-mid); margin-bottom: .5rem;
@@ -322,15 +308,16 @@
     }
     .q-block textarea::placeholder { color: var(--muted-light); font-weight: 600; }
 
-    /* section divider */
-    .section-divider {
-      display: flex; align-items: center; gap: 1rem;
-      margin: 1.8rem 0 1.4rem; color: var(--muted-light);
-      font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+    /* ── MILESTONE CONTEXT BAR ── */
+    .milestone-context-bar {
+      display: none; align-items: center; gap: .9rem;
+      background: var(--green-pale);
+      border: 2px solid var(--green-light);
+      border-radius: 14px; padding: .9rem 1.2rem; margin-bottom: 2rem;
     }
-    .section-divider::before, .section-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
+    .milestone-context-bar.visible { display: flex; }
+    .mcb-icon { font-size: 1.4rem; }
+    .mcb-text { font-size: .88rem; font-weight: 800; color: var(--green); }
 
     /* ── NAV BUTTONS ── */
     .nav { display: flex; align-items: center; gap: .9rem; margin-top: 2.8rem; }
@@ -354,17 +341,6 @@
     .btn-next:disabled { background: var(--border); color: var(--muted-light); box-shadow: none; cursor: not-allowed; transform: none; }
     .btn-next:active:not(:disabled) { transform: translateY(0); }
 
-    /* ── MILESTONE DETAILS PANEL ── */
-    .milestone-context-bar {
-      display: none; align-items: center; gap: .9rem;
-      background: var(--green-pale);
-      border: 2px solid var(--green-light);
-      border-radius: 14px; padding: .9rem 1.2rem; margin-bottom: 2rem;
-    }
-    .milestone-context-bar.visible { display: flex; }
-    .mcb-icon { font-size: 1.4rem; }
-    .mcb-text { font-size: .88rem; font-weight: 800; color: var(--green); }
-
     /* ── SUMMARY ── */
     .summary-card {
       background: var(--white); border: 2px solid var(--border);
@@ -386,19 +362,6 @@
     }
     .summary-a { font-size: .88rem; font-weight: 600; color: var(--text-soft); line-height: 1.55; flex: 1; }
     .summary-a.empty { color: var(--muted-light); font-style: italic; font-weight: 600; }
-
-    .success-banner {
-      background: linear-gradient(135deg, var(--green-pale), #e6f7ed);
-      border: 2px solid var(--green-light);
-      border-radius: 18px; padding: 1.5rem 1.8rem; margin-bottom: 2rem;
-      display: flex; align-items: center; gap: 1.1rem;
-      box-shadow: var(--shadow-sm);
-    }
-    .success-icon { font-size: 2.2rem; }
-    .success-text h3 {
-      font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 700; color: var(--green);
-    }
-    .success-text p  { font-size: .88rem; color: var(--muted); margin-top: .25rem; line-height: 1.5; }
 
     /* submit button */
     .btn-submit { padding: 1rem 2.5rem; border-radius: 14px; border: none; background: var(--yellow); color: var(--brown); font-family: 'Nunito', sans-serif; font-size: 1.05rem; font-weight: 900; cursor: pointer; transition: all .2s; box-shadow: 0 4px 16px rgba(249,199,79,0.45); }
@@ -458,131 +421,157 @@
   <main class="form-area">
     <div class="progress-wrap">
       <div class="progress-meta">
-        <span class="step-label" id="progressLabel">Step 1 of 6</span>
+        <span class="step-label" id="progressLabel">Step 1 of 8</span>
         <span id="progressPct">0%</span>
       </div>
       <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     </div>
 
-    <!-- ── PANEL 0: Milestone (FIRST) ── -->
+    <!-- ── PANEL 0: Milestone ── -->
     <div class="panel active" id="panel-0">
       <div class="eyebrow">✦ Let's get started</div>
       <h1 class="panel-title">What's happening in their world?</h1>
       <p class="panel-sub">Every great story is built around a real milestone. Pick the one you want this book to help them through.</p>
 
-      <div class="milestone-grid" id="milestoneGrid">
-        <div class="m-tile" onclick="selectMilestone('school','🏫','Starting school')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">🏫</span>
-          <div class="m-label">Starting school or a new school</div>
+      <div class="milestone-grid">
+        <div class="m-tile" onclick="pickMilestone(this,'school','🏫','Starting school')">
+          <span class="m-check">✓</span><span class="m-icon">🏫</span><div class="m-label">Starting school or a new school</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('sibling','👶','New baby or sibling')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">👶</span>
-          <div class="m-label">New baby or sibling</div>
+        <div class="m-tile" onclick="pickMilestone(this,'sibling','👶','New baby or sibling')">
+          <span class="m-check">✓</span><span class="m-icon">👶</span><div class="m-label">New baby or sibling</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('moving','📦','Moving to a new home')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">📦</span>
-          <div class="m-label">Moving to a new home</div>
+        <div class="m-tile" onclick="pickMilestone(this,'moving','📦','Moving to a new home')">
+          <span class="m-check">✓</span><span class="m-icon">📦</span><div class="m-label">Moving to a new home</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('learning','⭐','Learning something new')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">⭐</span>
-          <div class="m-label">Learning something new</div>
+        <div class="m-tile" onclick="pickMilestone(this,'learning','⭐','Learning something new')">
+          <span class="m-check">✓</span><span class="m-icon">⭐</span><div class="m-label">Learning something new</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('friends','🤝','Making friends')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">🤝</span>
-          <div class="m-label">Making friends</div>
+        <div class="m-tile" onclick="pickMilestone(this,'friends','🤝','Making friends')">
+          <span class="m-check">✓</span><span class="m-icon">🤝</span><div class="m-label">Making friends</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('feelings','💛','Managing big feelings')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">💛</span>
-          <div class="m-label">Managing big feelings</div>
+        <div class="m-tile" onclick="pickMilestone(this,'feelings','💛','Managing big feelings')">
+          <span class="m-check">✓</span><span class="m-icon">💛</span><div class="m-label">Managing big feelings</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('change','🌀','A big life change')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">🌀</span>
-          <div class="m-label">A big life change</div>
+        <div class="m-tile" onclick="pickMilestone(this,'change','🌀','A big life change')">
+          <span class="m-check">✓</span><span class="m-icon">🌀</span><div class="m-label">A big life change</div>
         </div>
-        <div class="m-tile" onclick="selectMilestone('other','✨','Something else')">
-          <span class="m-check">✓</span>
-          <span class="m-icon">✨</span>
-          <div class="m-label">Something else</div>
+        <div class="m-tile" onclick="pickMilestone(this,'other','✨','Something else')">
+          <span class="m-check">✓</span><span class="m-icon">✨</span><div class="m-label">Something else</div>
         </div>
       </div>
 
-      <div class="other-milestone-field" id="otherMilestoneField">
+      <div class="other-milestone-wrap" id="otherWrap">
         <div class="field">
           <label>Describe it in your own words</label>
-          <textarea id="otherMilestone" placeholder="e.g. They're learning to be away from us for a full day at their grandparents' house for the first time." rows="3"></textarea>
+          <input type="text" id="otherMilestone" placeholder="e.g. Learning to sleep in their own room for the first time" maxlength="80"/>
         </div>
       </div>
 
       <div class="milestone-confirm" id="milestoneConfirm">
-        <div class="mc-icon" id="mcIcon">🏫</div>
+        <div class="mc-icon" id="mcIcon"></div>
         <div>
-          <div class="mc-text" id="mcText">Great choice.</div>
-          <div class="mc-sub">Next, tell us about your child so we can make this story truly theirs.</div>
+          <div class="mc-body" id="mcBody"></div>
+          <div class="mc-sub">Next, tell us a little about your child.</div>
         </div>
       </div>
 
       <div class="nav">
-        <button class="btn-next" id="milestoneNext" onclick="goNext()" disabled>Continue →</button>
+        <button class="btn-next" id="milestoneNextBtn" onclick="goTo(1)" disabled>Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 1: About your child ── -->
+    <!-- ── PANEL 1: The basics ── -->
     <div class="panel" id="panel-1">
       <div class="eyebrow">Step 2</div>
-      <h1 class="panel-title" id="childPanelTitle">Tell us about your child</h1>
-      <p class="panel-sub">The basics first — we'll go deeper on the next page.</p>
+      <h1 class="panel-title" id="basicsPanelTitle">Tell us about them</h1>
+      <p class="panel-sub">Just the basics — this takes about a minute.</p>
+
+      <div class="email-box">
+        <label>📬 Where should we send your preview?</label>
+        <p>We'll email you a link to your story preview the moment it's ready. No spam, ever.</p>
+        <div class="field" style="margin:0;">
+          <input type="text" inputmode="email" autocomplete="email" id="parentEmail" placeholder="your@email.com" maxlength="120"/>
+        </div>
+        <div class="field-error" id="err-email" style="color:rgba(255,220,150,1); display:none;"></div>
+      </div>
+      <div class="field-error" id="err-email-show">Please enter a valid email address.</div>
+
+      <div class="field">
+        <label>What's your child's first name?</label>
+        <input type="text" id="childName" placeholder="e.g. Mia, Jake, Zara…" maxlength="30"/>
+        <div class="field-error" id="err-name">Please enter their name.</div>
+      </div>
 
       <div class="field-row">
         <div class="field">
-          <label>First name</label>
-          <input type="text" id="childName" placeholder="e.g. Julianna"/>
+          <label>How old are they?</label>
+          <select id="childAge">
+            <option value="" disabled selected>Select age…</option>
+            <option value="3">3 years old</option>
+            <option value="4">4 years old</option>
+            <option value="5">5 years old</option>
+            <option value="6">6 years old</option>
+            <option value="7">7 years old</option>
+            <option value="8">8 years old</option>
+            <option value="9">9 years old</option>
+            <option value="10">10 years old</option>
+            <option value="11">11 years old</option>
+            <option value="12">12 years old</option>
+          </select>
+          <div class="field-error" id="err-age">Please select their age.</div>
         </div>
         <div class="field">
-          <label>Age</label>
-          <select id="childAge">
-            <option value="" disabled selected>Select age</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11</option>
-            <option value="12">12</option>
+          <label>Gender <span class="opt">(optional)</span></label>
+          <select id="childGender">
+            <option value="">Prefer not to say</option>
+            <option value="girl">Girl</option>
+            <option value="boy">Boy</option>
+            <option value="nonbinary">Non-binary</option>
           </select>
         </div>
       </div>
 
       <div class="field">
-        <label>Do they go by a nickname? <span class="opt">Optional</span></label>
-        <input type="text" id="childNickname" placeholder="e.g. Juju, Ellie, Bug"/>
-        <p class="field-hint">Only include it if you want the story to actually use it.</p>
-      </div>
-
-      <div class="field">
-        <label>Gender</label>
-        <div class="pill-group" id="genderPills">
-          <div class="pill" onclick="selectPill('gender','girl',this)">Girl</div>
-          <div class="pill" onclick="selectPill('gender','boy',this)">Boy</div>
-          <div class="pill" onclick="selectPill('gender','neutral',this)">Gender neutral</div>
+        <label>Ethnicity <span class="opt">(optional — helps us describe them accurately)</span></label>
+        <select id="childEthnicity" onchange="document.getElementById('ethnicityOtherWrap').style.display = this.value === 'other' ? 'block' : 'none'">
+          <option value="">Prefer not to say</option>
+          <option value="White / Caucasian">White / Caucasian</option>
+          <option value="Hispanic or Latino">Hispanic or Latino</option>
+          <option value="Black or African American">Black or African American</option>
+          <option value="East Asian">East Asian</option>
+          <option value="South Asian">South Asian</option>
+          <option value="Middle Eastern or North African">Middle Eastern or North African</option>
+          <option value="Native American or Alaska Native">Native American or Alaska Native</option>
+          <option value="Pacific Islander">Pacific Islander</option>
+          <option value="Multiracial">Multiracial</option>
+          <option value="other">Other…</option>
+        </select>
+        <div id="ethnicityOtherWrap" style="display:none; margin-top:.7rem;">
+          <input type="text" id="ethnicityOther" placeholder="Please describe…" maxlength="80"/>
         </div>
       </div>
 
-      <div class="section-divider">What do they look like?</div>
-      <p class="panel-sub" style="margin-bottom:1.2rem;font-size:.88rem;">These details help paint a vivid picture of your little hero in the story.</p>
+      <div class="field">
+        <label>Family Story ID <span class="opt">(optional — from a previous order)</span></label>
+        <input type="text" id="priorStoryId" placeholder="e.g. story_1773029275842_vmum15" maxlength="60"/>
+        <p class="field-hint">Have a previous story? Enter the ID to continue their world in this new adventure.</p>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(0)">← Back</button>
+        <button class="btn-next" onclick="goTo(2)">Next: Their Look →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 2: Their look ── -->
+    <div class="panel" id="panel-2">
+      <div class="eyebrow">Step 3</div>
+      <h1 class="panel-title">What do they look like?</h1>
+      <p class="panel-sub">These details paint a vivid picture of your child in the story and illustrations.</p>
 
       <div class="field">
         <label>Hair color</label>
-        <div class="swatch-group" id="sigHairSwatches">
+        <div class="swatch-group" id="hairSwatches">
           <div class="swatch-wrap" data-val="Black"      onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#1a1a1a;"></div><div class="swatch-label">Black</div></div>
           <div class="swatch-wrap" data-val="Dark Brown" onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#3b1f0a;"></div><div class="swatch-label">Dark Brown</div></div>
           <div class="swatch-wrap" data-val="Brown"      onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#7b4f2e;"></div><div class="swatch-label">Brown</div></div>
@@ -591,30 +580,35 @@
           <div class="swatch-wrap" data-val="Auburn"     onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#a0522d;"></div><div class="swatch-label">Auburn</div></div>
           <div class="swatch-wrap" data-val="White/Grey" onclick="pickSwatch('hair',this)"><div class="swatch" style="background:#d0d0d0;"></div><div class="swatch-label">White/Grey</div></div>
         </div>
+        <div class="field-error" id="err-hair">Please select a hair color.</div>
       </div>
 
-      <div class="field">
+      <div class="field" style="margin-top:1.8rem;">
         <label>Hair length</label>
-        <div class="card-group" id="sigHairLengthCards">
+        <div class="card-group" id="hairLengthCards">
           <div class="card-option" data-val="crew cut"         onclick="pickCard('hairLength',this)"><div class="card-icon">👨</div><div class="card-label">Crew Cut</div></div>
           <div class="card-option" data-val="regular cut"      onclick="pickCard('hairLength',this)"><div class="card-icon">🧑</div><div class="card-label">Regular Cut</div></div>
           <div class="card-option" data-val="past the ears"    onclick="pickCard('hairLength',this)"><div class="card-icon">👱</div><div class="card-label">Past the Ears</div></div>
           <div class="card-option" data-val="to the shoulders" onclick="pickCard('hairLength',this)"><div class="card-icon">👩</div><div class="card-label">To the Shoulders</div></div>
+          <div class="card-option" data-val="long"             onclick="pickCard('hairLength',this)"><div class="card-icon">👸</div><div class="card-label">Long</div></div>
         </div>
+        <div class="field-error" id="err-hairLength">Please select a hair length.</div>
       </div>
 
-      <div class="field">
-        <label>Hair style</label>
-        <div class="card-group" id="sigHairStyleCards">
+      <div class="field" style="margin-top:1.8rem;">
+        <label>Hair texture</label>
+        <div class="card-group" id="hairStyleCards">
           <div class="card-option" data-val="Straight" onclick="pickCard('hairStyle',this)"><div class="card-icon">〰️</div><div class="card-label">Straight</div></div>
           <div class="card-option" data-val="Wavy"     onclick="pickCard('hairStyle',this)"><div class="card-icon">🌊</div><div class="card-label">Wavy</div></div>
           <div class="card-option" data-val="Curly"    onclick="pickCard('hairStyle',this)"><div class="card-icon">🌀</div><div class="card-label">Curly</div></div>
+          <div class="card-option" data-val="Coily"    onclick="pickCard('hairStyle',this)"><div class="card-icon">🍥</div><div class="card-label">Coily</div></div>
         </div>
+        <div class="field-error" id="err-hairStyle">Please select a hair texture.</div>
       </div>
 
-      <div class="field">
+      <div class="field" style="margin-top:1.8rem;">
         <label>Eye color</label>
-        <div class="swatch-group" id="sigEyeSwatches">
+        <div class="swatch-group" id="eyeSwatches">
           <div class="swatch-wrap" data-val="Brown"      onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#6b3a1f;"></div><div class="swatch-label">Brown</div></div>
           <div class="swatch-wrap" data-val="Dark Brown" onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#2c1a0e;"></div><div class="swatch-label">Dark Brown</div></div>
           <div class="swatch-wrap" data-val="Blue"       onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#4b9fd5;"></div><div class="swatch-label">Blue</div></div>
@@ -622,36 +616,18 @@
           <div class="swatch-wrap" data-val="Hazel"      onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#8d7340;"></div><div class="swatch-label">Hazel</div></div>
           <div class="swatch-wrap" data-val="Grey"       onclick="pickSwatch('eye',this)"><div class="swatch" style="background:#8a9099;"></div><div class="swatch-label">Grey</div></div>
         </div>
-      </div>
-
-      <div class="section-divider">Where they live &amp; your email</div>
-
-      <div class="field-row">
-        <div class="field">
-          <label>City or town</label>
-          <input type="text" id="childCity" placeholder="e.g. Denver"/>
-        </div>
-        <div class="field">
-          <label>State / Province <span class="opt">Optional</span></label>
-          <input type="text" id="childRegion" placeholder="e.g. Colorado"/>
-        </div>
-      </div>
-
-      <div class="field">
-        <label>Your email <span class="opt">For your preview link</span></label>
-        <input type="text" inputmode="email" autocomplete="email" id="parentEmail" placeholder="you@example.com"/>
-        <p class="field-hint">We'll send your story preview here. No spam, ever.</p>
+        <div class="field-error" id="err-eye">Please select an eye color.</div>
       </div>
 
       <div class="nav">
-        <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Continue →</button>
+        <button class="btn-back" onclick="goTo(1)">← Back</button>
+        <button class="btn-next" onclick="goTo(3)">Next: Who they are →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 2: Who they are ── -->
-    <div class="panel" id="panel-2">
-      <div class="eyebrow">Step 3</div>
+    <!-- ── PANEL 3: Who they are ── -->
+    <div class="panel" id="panel-3">
+      <div class="eyebrow">Step 4</div>
       <h1 class="panel-title">Who they are right now</h1>
       <p class="panel-sub">Not a list of traits — real, specific, current stuff. The more vivid, the more the story will sound like them.</p>
 
@@ -671,15 +647,34 @@
         <textarea id="childStrengths" placeholder="e.g. They can read chapter books by themselves. They're fearless on the climbing frame. They remember every person's name they've ever met." rows="3"></textarea>
       </div>
 
+      <div class="field">
+        <label>Do they go by a nickname? <span class="opt">Optional</span></label>
+        <input type="text" id="childNickname" placeholder="e.g. Juju, Ellie, Bug"/>
+        <p class="field-hint">Only include it if you want the story to actually use it.</p>
+      </div>
+
+      <div class="section-divider">Where they live</div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>City or town</label>
+          <input type="text" id="childCity" placeholder="e.g. Denver"/>
+        </div>
+        <div class="field">
+          <label>State / Province <span class="opt">Optional</span></label>
+          <input type="text" id="childRegion" placeholder="e.g. Colorado"/>
+        </div>
+      </div>
+
       <div class="nav">
-        <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Continue →</button>
+        <button class="btn-back" onclick="goTo(2)">← Back</button>
+        <button class="btn-next" onclick="goTo(4)">Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 3: Milestone questions ── -->
-    <div class="panel" id="panel-3">
-      <div class="eyebrow">Step 4</div>
+    <!-- ── PANEL 4: Milestone questions ── -->
+    <div class="panel" id="panel-4">
+      <div class="eyebrow">Step 5</div>
       <h1 class="panel-title" id="milestoneQTitle">About this milestone</h1>
       <p class="panel-sub" id="milestoneQSub">These questions help the story feel true to their specific situation — not a generic version of it.</p>
 
@@ -691,14 +686,14 @@
       <div id="milestoneQuestions"></div>
 
       <div class="nav">
-        <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Continue →</button>
+        <button class="btn-back" onclick="goTo(3)">← Back</button>
+        <button class="btn-next" onclick="goTo(5)">Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 4: The people ── -->
-    <div class="panel" id="panel-4">
-      <div class="eyebrow">Step 5</div>
+    <!-- ── PANEL 5: The people ── -->
+    <div class="panel" id="panel-5">
+      <div class="eyebrow">Step 6</div>
       <h1 class="panel-title">The people in their world</h1>
       <p class="panel-sub">Who matters to them right now? The more specific you are, the more real the story feels.</p>
 
@@ -721,14 +716,14 @@
       </div>
 
       <div class="nav">
-        <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Continue →</button>
+        <button class="btn-back" onclick="goTo(4)">← Back</button>
+        <button class="btn-next" onclick="goTo(6)">Continue →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 5: Get it right ── -->
-    <div class="panel" id="panel-5">
-      <div class="eyebrow">Step 6</div>
+    <!-- ── PANEL 6: Get it right ── -->
+    <div class="panel" id="panel-6">
+      <div class="eyebrow">Step 7</div>
       <h1 class="panel-title">Things the story must get right</h1>
       <p class="panel-sub">This is the most important step. Tell us anything the story would get wrong if we didn't know it.</p>
 
@@ -762,13 +757,13 @@
       </div>
 
       <div class="nav">
-        <button class="btn-back" onclick="goBack()">← Back</button>
-        <button class="btn-next" onclick="goNext()">Review & finish →</button>
+        <button class="btn-back" onclick="goTo(5)">← Back</button>
+        <button class="btn-next" onclick="goTo(7)">Review &amp; finish →</button>
       </div>
     </div>
 
-    <!-- ── PANEL 6: Summary ── -->
-    <div class="panel" id="panel-6">
+    <!-- ── PANEL 7: Summary ── -->
+    <div class="panel" id="panel-7">
       <div class="eyebrow">✓ All done</div>
       <h1 class="panel-title">Here's what we've got</h1>
       <p class="panel-sub">Review your answers, then hit the button — we'll write the opening of your child's story.</p>
@@ -777,17 +772,31 @@
 
       <div class="nav" style="flex-direction:column; align-items:flex-start; gap:1rem;">
         <button class="btn-submit" onclick="submitForm()">✨ Generate my preview →</button>
-        <button class="btn-back" style="margin-top:0;" onclick="goBack()">← Go back and edit</button>
+        <button class="btn-back" style="margin-top:0;" onclick="goTo(6)">← Go back and edit</button>
       </div>
     </div>
 
   </main>
 </div>
 
+<!-- Loading overlay -->
+<div class="overlay" id="loadingOverlay">
+  <div class="loading-sparkle">✨</div>
+  <h2 class="overlay-title" id="loadingTitle">Writing the opening…</h2>
+  <p class="overlay-sub" id="loadingSub">This usually takes about 20 seconds.</p>
+  <div class="loading-dots"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>
+</div>
+<!-- Error overlay -->
+<div class="overlay" id="errorOverlay">
+  <div style="font-size:3rem;margin-bottom:1rem;">😔</div>
+  <h2 class="overlay-title">Something went wrong</h2>
+  <p class="overlay-sub" id="errorMessage">We couldn't generate the story preview. Please try again.</p>
+  <button class="btn-retry" onclick="document.getElementById('errorOverlay').classList.remove('show')">Try again →</button>
+</div>
+
 <script>
 // ── STATE ──
 const state = {
-  gender: null,
   milestone: null,
   milestoneLabel: null,
   milestoneIcon: null,
@@ -798,13 +807,14 @@ const state = {
 };
 
 const STEPS = [
-  { label: 'The milestone',      title: 'The milestone' },
-  { label: 'About your child',   title: 'About your child' },
-  { label: 'Who they are',       title: 'Who they are' },
-  { label: 'Milestone details',  title: 'Milestone details' },
-  { label: 'The people',         title: 'The people' },
-  { label: 'Get it right',       title: 'Get it right' },
-  { label: 'Review',             title: 'Review' },
+  { label: 'The milestone',    title: 'The milestone' },
+  { label: 'The basics',       title: 'The basics' },
+  { label: 'Their look',       title: 'Their look' },
+  { label: 'Who they are',     title: 'Who they are' },
+  { label: 'Their world',      title: 'Milestone details' },
+  { label: 'The people',       title: 'The people' },
+  { label: 'Get it right',     title: 'Get it right' },
+  { label: 'Review',           title: 'Review' },
 ];
 
 let currentPanel = 0;
@@ -913,94 +923,95 @@ function renderProgress() {
   document.getElementById('progressLabel').textContent = `Step ${currentPanel + 1} of ${TOTAL}`;
 }
 
+// ── VALIDATION ──
+function validate(step) {
+  const show = (id, on) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('show', on);
+  };
+  let ok = true;
+
+  if (step === 0) {
+    if (!state.milestone) ok = false; // tile selection gives visual feedback
+  }
+
+  if (step === 1) {
+    const email = document.getElementById('parentEmail').value.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    show('err-email-show', !emailOk); if (!emailOk) ok = false;
+    const name = document.getElementById('childName').value.trim();
+    show('err-name', !name); if (!name) ok = false;
+    const age = document.getElementById('childAge').value;
+    show('err-age', !age); if (!age) ok = false;
+  }
+
+  if (step === 2) {
+    show('err-hair',       !state.hair);       if (!state.hair)       ok = false;
+    show('err-hairLength', !state.hairLength); if (!state.hairLength) ok = false;
+    show('err-hairStyle',  !state.hairStyle);  if (!state.hairStyle)  ok = false;
+    show('err-eye',        !state.eye);        if (!state.eye)        ok = false;
+  }
+
+  if (!ok) {
+    const firstErr = document.querySelector('.field-error.show');
+    if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  return ok;
+}
+
 // ── NAVIGATION ──
-function goNext() {
-  if (currentPanel === TOTAL - 1) return;
+function goTo(step) {
+  if (step > currentPanel && !validate(currentPanel)) return;
+  if (step >= TOTAL) return;
+
+  // Email capture when leaving basics panel
+  if (currentPanel === 1 && step > 1) {
+    const email = document.getElementById('parentEmail').value.trim();
+    const name  = document.getElementById('childName').value.trim();
+    const age   = document.getElementById('childAge').value;
+    if (email) {
+      fetch('/api/capture-email', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, childName: name, childAge: age })
+      }).catch(() => {});
+      if (typeof gtag !== 'undefined') {
+        gtag('config', 'G-P6FLSR57GV', { user_id: btoa(email).replace(/=/g, '') });
+      }
+    }
+  }
+
+  if (typeof gtag !== 'undefined') gtag('event', 'form_step_complete', { step_number: currentPanel + 1, form_type: 'signature' });
+
   document.getElementById(`panel-${currentPanel}`).classList.remove('active');
-  currentPanel++;
-  const nextPanel = document.getElementById(`panel-${currentPanel}`);
-  nextPanel.classList.add('active');
+  currentPanel = step;
+  const panel = document.getElementById(`panel-${currentPanel}`);
+  panel.classList.add('active');
   if (currentPanel === TOTAL - 1) buildSummary();
   renderSidebar();
   renderProgress();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function goBack() {
-  if (currentPanel === 0) return;
-  document.getElementById(`panel-${currentPanel}`).classList.remove('active');
-  currentPanel--;
-  document.getElementById(`panel-${currentPanel}`).classList.add('active');
-  renderSidebar();
-  renderProgress();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function startOver() {
-  currentPanel = 0;
-  state.gender = null;
-  state.milestone = null;
-  state.milestoneLabel = null;
-  state.milestoneIcon = null;
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-0').classList.add('active');
-  document.getElementById('milestoneNext').disabled = true;
-  document.getElementById('milestoneConfirm').classList.remove('visible');
-  document.getElementById('milestoneBadge').classList.remove('visible');
-  document.querySelectorAll('.m-tile').forEach(t => t.classList.remove('active'));
-  document.getElementById('otherMilestoneField').classList.remove('visible');
-  renderSidebar();
-  renderProgress();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ── SWATCH & CARD SELECTS ──
-function pickSwatch(type, el) {
-  const group = el.closest('.swatch-group');
-  group.querySelectorAll('.swatch-wrap').forEach(w => w.classList.remove('selected'));
-  el.classList.add('selected');
-  state[type] = el.dataset.val;
-}
-
-function pickCard(type, el) {
-  const group = el.closest('.card-group');
-  group.querySelectorAll('.card-option').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  state[type] = el.dataset.val;
-}
-
-// ── PILL SELECTS ──
-function selectPill(group, value, el) {
-  state[group] = value;
-  document.querySelectorAll(`#${group}Pills .pill`).forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-}
-
 // ── MILESTONE ──
-function selectMilestone(key, icon, label) {
+function pickMilestone(el, key, icon, label) {
   state.milestone = key;
   state.milestoneLabel = label;
   state.milestoneIcon = icon;
 
-  document.querySelectorAll('.m-tile').forEach(t => t.classList.remove('active'));
-  event.currentTarget.classList.add('active');
+  document.querySelectorAll('.m-tile').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
 
   // "Other" field
-  const otherField = document.getElementById('otherMilestoneField');
-  if (key === 'other') {
-    otherField.classList.add('visible');
-  } else {
-    otherField.classList.remove('visible');
-  }
+  document.getElementById('otherWrap').classList.toggle('show', key === 'other');
 
   // Enable next
-  document.getElementById('milestoneNext').disabled = false;
+  document.getElementById('milestoneNextBtn').disabled = false;
 
   // Show confirmation bar
   const confirm = document.getElementById('milestoneConfirm');
-  confirm.classList.add('visible');
+  confirm.classList.add('show');
   document.getElementById('mcIcon').textContent = icon;
-  document.getElementById('mcText').textContent = icon + ' ' + label;
+  document.getElementById('mcBody').textContent = icon + ' ' + label;
 
   // Update sidebar badge
   const badge = document.getElementById('milestoneBadge');
@@ -1008,20 +1019,14 @@ function selectMilestone(key, icon, label) {
   document.getElementById('badgeValue').textContent = label;
   document.getElementById('badgeSub').textContent = 'Selected milestone';
 
-  // Update child panel title
+  // Update panel-1 title
   const titleMap = {
     school:   'Tell us about the child starting school',
-    sibling:  'Tell us about your child',
     moving:   'Tell us about the child who\'s moving',
-    learning: 'Tell us about your child',
-    friends:  'Tell us about your child',
-    feelings: 'Tell us about your child',
-    change:   'Tell us about your child',
-    other:    'Tell us about your child',
   };
-  document.getElementById('childPanelTitle').textContent = titleMap[key] || 'Tell us about your child';
+  document.getElementById('basicsPanelTitle').textContent = titleMap[key] || 'Tell us about them';
 
-  // Build milestone questions for panel 2
+  // Build milestone questions for panel 4
   buildMilestoneQuestions(key);
 }
 
@@ -1047,11 +1052,36 @@ function buildMilestoneQuestions(key) {
   `).join('');
 }
 
+// ── SWATCH & CARD SELECTS ──
+function pickSwatch(type, el) {
+  const group = el.closest('.swatch-group');
+  group.querySelectorAll('.swatch-wrap').forEach(w => w.classList.remove('selected'));
+  el.classList.add('selected');
+  state[type] = el.dataset.val;
+  const errMap = { hair: 'err-hair', eye: 'err-eye' };
+  if (errMap[type]) document.getElementById(errMap[type]).classList.remove('show');
+}
+
+function pickCard(type, el) {
+  const group = el.closest('.card-group');
+  group.querySelectorAll('.card-option').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state[type] = el.dataset.val;
+  const errMap = { hairLength: 'err-hairLength', hairStyle: 'err-hairStyle' };
+  if (errMap[type]) document.getElementById(errMap[type]).classList.remove('show');
+}
+
 // ── SUMMARY ──
 function buildSummary() {
-  const name = document.getElementById('childName').value || '—';
-  const age  = document.getElementById('childAge').value || '—';
-  const nick = document.getElementById('childNickname').value;
+  const name    = document.getElementById('childName')?.value || '—';
+  const age     = document.getElementById('childAge')?.value  || '—';
+  const gender  = document.getElementById('childGender')?.value || '—';
+  const nick    = document.getElementById('childNickname')?.value || '';
+  const ethnicity = (() => {
+    const v = document.getElementById('childEthnicity')?.value || '';
+    if (v === 'other') return document.getElementById('ethnicityOther')?.value || '';
+    return v;
+  })();
 
   const sections = [
     {
@@ -1064,14 +1094,16 @@ function buildSummary() {
     {
       label: '👧 About ' + (name !== '—' ? name : 'your child'),
       rows: [
-        { q: 'Name', a: name + (nick ? ` (${nick})` : '') },
-        { q: 'Age', a: age },
-        { q: 'Gender', a: state.gender || '—' },
-        { q: 'Personality', a: document.getElementById('childPersonality').value },
-        { q: 'Interests',   a: document.getElementById('childInterests').value },
-        { q: 'Strengths',   a: document.getElementById('childStrengths').value },
+        { q: 'Name',        a: name + (nick ? ` (${nick})` : '') },
+        { q: 'Age',         a: age },
+        { q: 'Gender',      a: gender },
+        { q: 'Ethnicity',   a: ethnicity },
+        { q: 'Personality', a: document.getElementById('childPersonality')?.value || '' },
+        { q: 'Interests',   a: document.getElementById('childInterests')?.value   || '' },
+        { q: 'Strengths',   a: document.getElementById('childStrengths')?.value   || '' },
         { q: 'Hair',        a: [state.hair, state.hairLength, state.hairStyle].filter(Boolean).join(', ') },
         { q: 'Eyes',        a: state.eye },
+        { q: 'Hometown',    a: [document.getElementById('childCity')?.value, document.getElementById('childRegion')?.value].filter(Boolean).join(', ') },
       ]
     },
     {
@@ -1085,11 +1117,11 @@ function buildSummary() {
     {
       label: '📌 Get it right',
       rows: [
-        { q: 'What they can\'t do yet',    a: document.getElementById('cantDoYet')?.value   || '' },
+        { q: 'What they can\'t do yet',    a: document.getElementById('cantDoYet')?.value    || '' },
         { q: 'Their real feelings',        a: document.getElementById('realFeelings')?.value || '' },
         { q: 'Things they\'d correct',     a: document.getElementById('wouldCorrect')?.value || '' },
         { q: 'What you want them to feel', a: document.getElementById('wantToFeel')?.value   || '' },
-        { q: 'Anything else',              a: document.getElementById('anythingElse')?.value  || '' },
+        { q: 'Anything else',              a: document.getElementById('anythingElse')?.value || '' },
       ]
     }
   ];
@@ -1121,14 +1153,22 @@ function getMilestoneAnswers() {
 async function submitForm() {
   const name        = (document.getElementById('childName')?.value        || '').trim();
   const age         = (document.getElementById('childAge')?.value         || '');
+  const gender      = (document.getElementById('childGender')?.value      || '');
   const email       = (document.getElementById('parentEmail')?.value      || '').trim();
   const city        = (document.getElementById('childCity')?.value        || '').trim();
   const region      = (document.getElementById('childRegion')?.value      || '').trim();
   const personality = (document.getElementById('childPersonality')?.value || '').trim();
   const interests   = (document.getElementById('childInterests')?.value   || '').trim();
+  const nickname    = (document.getElementById('childNickname')?.value    || '').trim();
+  const priorStoryId = (document.getElementById('priorStoryId')?.value    || '').trim();
 
-  if (!name || !age || !email || !city || !personality || !interests) {
-    alert('Please go back and fill in all required fields (name, age, email, city, personality, and interests).');
+  // Ethnicity
+  const ethnicityVal   = document.getElementById('childEthnicity')?.value || '';
+  const ethnicityOther = (document.getElementById('ethnicityOther')?.value || '').trim();
+  const ethnicity      = ethnicityVal === 'other' ? (ethnicityOther || '') : ethnicityVal;
+
+  if (!name || !age || !email || !personality || !interests) {
+    alert('Please go back and fill in all required fields (name, age, email, personality, and interests).');
     return;
   }
 
@@ -1149,9 +1189,9 @@ async function submitForm() {
       if (val) parts.push(`${q.label}: ${val}`);
     });
   }
-  const family  = (document.getElementById('familyInfo')?.value || '').trim();
+  const family  = (document.getElementById('familyInfo')?.value  || '').trim();
   const friends = (document.getElementById('friendsInfo')?.value || '').trim();
-  const others  = (document.getElementById('othersInfo')?.value || '').trim();
+  const others  = (document.getElementById('othersInfo')?.value  || '').trim();
   if (family || friends || others) {
     parts.push(`\n=== THE PEOPLE ===`);
     if (family)  parts.push(`Family: ${family}`);
@@ -1159,20 +1199,23 @@ async function submitForm() {
     if (others)  parts.push(`Others: ${others}`);
   }
   const strengths  = (document.getElementById('childStrengths')?.value || '').trim();
-  const nickname   = (document.getElementById('childNickname')?.value || '').trim();
-  const cantDo     = (document.getElementById('cantDoYet')?.value || '').trim();
-  const realFeel   = (document.getElementById('realFeelings')?.value || '').trim();
-  const wouldCorr  = (document.getElementById('wouldCorrect')?.value || '').trim();
-  const wantFeel   = (document.getElementById('wantToFeel')?.value || '').trim();
-  const extra      = (document.getElementById('anythingElse')?.value || '').trim();
-  if (strengths || nickname) { parts.push(`\n=== ABOUT ${name.toUpperCase()} ===`); if (strengths) parts.push(`Great at: ${strengths}`); if (nickname) parts.push(`Nickname: ${nickname}`); }
+  const cantDo     = (document.getElementById('cantDoYet')?.value      || '').trim();
+  const realFeel   = (document.getElementById('realFeelings')?.value   || '').trim();
+  const wouldCorr  = (document.getElementById('wouldCorrect')?.value   || '').trim();
+  const wantFeel   = (document.getElementById('wantToFeel')?.value     || '').trim();
+  const extra      = (document.getElementById('anythingElse')?.value   || '').trim();
+  if (strengths || nickname) {
+    parts.push(`\n=== ABOUT ${name.toUpperCase()} ===`);
+    if (strengths) parts.push(`Great at: ${strengths}`);
+    if (nickname)  parts.push(`Nickname: ${nickname}`);
+  }
   if (cantDo || realFeel || wouldCorr || wantFeel || extra) {
     parts.push(`\n=== THINGS THE STORY MUST GET RIGHT ===`);
-    if (cantDo)   parts.push(`Can't do yet: ${cantDo}`);
-    if (realFeel) parts.push(`Real feelings: ${realFeel}`);
+    if (cantDo)    parts.push(`Can't do yet: ${cantDo}`);
+    if (realFeel)  parts.push(`Real feelings: ${realFeel}`);
     if (wouldCorr) parts.push(`Would correct: ${wouldCorr}`);
-    if (wantFeel) parts.push(`Want them to feel: ${wantFeel}`);
-    if (extra)    parts.push(`Additional: ${extra}`);
+    if (wantFeel)  parts.push(`Want them to feel: ${wantFeel}`);
+    if (extra)     parts.push(`Additional: ${extra}`);
   }
   const customDetails = parts.join('\n');
 
@@ -1184,20 +1227,23 @@ async function submitForm() {
   }
 
   const payload = {
-    name, age,
-    gender:       state.gender    || '',
-    hair:         state.hair      || '',
-    hairLength:   state.hairLength|| '',
-    hairStyle:    state.hairStyle || '',
-    eye:          state.eye       || '',
+    name,
+    age,
+    gender,
+    ethnicity,
+    hair:         state.hair       || '',
+    hairLength:   state.hairLength || '',
+    hairStyle:    state.hairStyle  || '',
+    eye:          state.eye        || '',
     trait:        personality,
     favorite:     interests,
     friend:       family || 'none',
-    city, region,
+    city,
+    region,
     milestone:    milestoneStr,
     email,
+    priorStoryId,
     customDetails,
-    ethnicity:    '',
   };
 
   try {
@@ -1210,8 +1256,16 @@ async function submitForm() {
       throw new Error(err.error || 'Story generation failed');
     }
     const data = await response.json();
-    sessionStorage.setItem('storyPreview', JSON.stringify({ preview: data.preview, storyToken: data.storyToken, storyId: data.storyId, childName: data.childName, customerEmail: email, customDetails: data.customDetails || customDetails, childData: payload }));
-    localStorage.setItem('gm_last_story_id', data.storyId);
+    sessionStorage.setItem('storyPreview', JSON.stringify({
+      preview:       data.preview,
+      storyToken:    data.storyToken,
+      storyId:       data.storyId,
+      childName:     data.childName,
+      customerEmail: email,
+      customDetails: data.customDetails || customDetails,
+      childData:     payload,
+    }));
+    localStorage.setItem('gm_last_story_id',   data.storyId);
     localStorage.setItem('gm_last_child_name', data.childName);
     if (typeof gtag !== 'undefined') gtag('event', 'preview_generated', { story_id: data.storyId, form_type: 'signature' });
     window.location.href = 'story-preview.html';
@@ -1227,21 +1281,6 @@ async function submitForm() {
 renderSidebar();
 renderProgress();
 </script>
-
-<!-- Loading overlay -->
-<div class="overlay" id="loadingOverlay">
-  <div class="loading-sparkle">✨</div>
-  <h2 class="overlay-title" id="loadingTitle">Writing the opening…</h2>
-  <p class="overlay-sub" id="loadingSub">This usually takes about 20 seconds.</p>
-  <div class="loading-dots"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>
-</div>
-<!-- Error overlay -->
-<div class="overlay" id="errorOverlay">
-  <div style="font-size:3rem;margin-bottom:1rem;">😔</div>
-  <h2 class="overlay-title">Something went wrong</h2>
-  <p class="overlay-sub" id="errorMessage">We couldn't generate the story preview. Please try again.</p>
-  <button class="btn-retry" onclick="document.getElementById('errorOverlay').classList.remove('show')">Try again →</button>
-</div>
 
 </body>
 </html>
