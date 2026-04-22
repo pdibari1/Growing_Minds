@@ -537,7 +537,7 @@
     <div class="panel" id="panel-1">
       <div class="eyebrow">Step 2</div>
       <h1 class="panel-title" id="childPanelTitle">Tell us about your child</h1>
-      <p class="panel-sub">The more real and specific, the more the story will feel like it was written just for them.</p>
+      <p class="panel-sub">The basics first — we'll go deeper on the next page.</p>
 
       <div class="field-row">
         <div class="field">
@@ -563,36 +563,18 @@
       </div>
 
       <div class="field">
+        <label>Do they go by a nickname? <span class="opt">Optional</span></label>
+        <input type="text" id="childNickname" placeholder="e.g. Juju, Ellie, Bug"/>
+        <p class="field-hint">Only include it if you want the story to actually use it.</p>
+      </div>
+
+      <div class="field">
         <label>Gender</label>
         <div class="pill-group" id="genderPills">
           <div class="pill" onclick="selectPill('gender','girl',this)">Girl</div>
           <div class="pill" onclick="selectPill('gender','boy',this)">Boy</div>
           <div class="pill" onclick="selectPill('gender','neutral',this)">Gender neutral</div>
         </div>
-      </div>
-
-      <div class="section-divider">Who they are right now</div>
-
-      <div class="field">
-        <label>What are they really like right now? <span class="opt">Not a list of traits — real current stuff</span></label>
-        <textarea id="childPersonality" placeholder="e.g. They narrate everything they do like they're on a cooking show. They've been obsessed with sharks for three months straight. They cry if you use the wrong bowl for their cereal." rows="4"></textarea>
-        <p class="field-hint">Think of how you'd describe them to a friend who's never met them.</p>
-      </div>
-
-      <div class="field">
-        <label>What are they really into right now? <span class="opt">Specific beats general</span></label>
-        <textarea id="childInterests" placeholder="e.g. Not just 'unicorns' — they have a specific stuffed unicorn named Periwinkle that goes everywhere with them. They've watched Bluey about 200 times." rows="3"></textarea>
-      </div>
-
-      <div class="field">
-        <label>What are they great at for their age?</label>
-        <textarea id="childStrengths" placeholder="e.g. They can read chapter books by themselves. They're fearless on the climbing frame. They remember every person's name they've ever met." rows="3"></textarea>
-      </div>
-
-      <div class="field">
-        <label>Do they go by a nickname? <span class="opt">Optional</span></label>
-        <input type="text" id="childNickname" placeholder="e.g. Juju, Ellie, Bug"/>
-        <p class="field-hint">Only include it if you want the story to actually use it.</p>
       </div>
 
       <div class="section-divider">What do they look like?</div>
@@ -667,9 +649,37 @@
       </div>
     </div>
 
-    <!-- ── PANEL 2: Milestone questions ── -->
+    <!-- ── PANEL 2: Who they are ── -->
     <div class="panel" id="panel-2">
       <div class="eyebrow">Step 3</div>
+      <h1 class="panel-title">Who they are right now</h1>
+      <p class="panel-sub">Not a list of traits — real, specific, current stuff. The more vivid, the more the story will sound like them.</p>
+
+      <div class="field">
+        <label>What are they really like right now?</label>
+        <textarea id="childPersonality" placeholder="e.g. They narrate everything they do like they're on a cooking show. They've been obsessed with sharks for three months straight. They cry if you use the wrong bowl for their cereal." rows="4"></textarea>
+        <p class="field-hint">Think of how you'd describe them to a friend who's never met them.</p>
+      </div>
+
+      <div class="field">
+        <label>What are they really into right now? <span class="opt">Specific beats general</span></label>
+        <textarea id="childInterests" placeholder="e.g. Not just 'unicorns' — they have a specific stuffed unicorn named Periwinkle that goes everywhere with them. They've watched Bluey about 200 times." rows="3"></textarea>
+      </div>
+
+      <div class="field">
+        <label>What are they great at for their age?</label>
+        <textarea id="childStrengths" placeholder="e.g. They can read chapter books by themselves. They're fearless on the climbing frame. They remember every person's name they've ever met." rows="3"></textarea>
+      </div>
+
+      <div class="nav">
+        <button class="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn-next" onclick="goNext()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- ── PANEL 3: Milestone questions ── -->
+    <div class="panel" id="panel-3">
+      <div class="eyebrow">Step 4</div>
       <h1 class="panel-title" id="milestoneQTitle">About this milestone</h1>
       <p class="panel-sub" id="milestoneQSub">These questions help the story feel true to their specific situation — not a generic version of it.</p>
 
@@ -686,9 +696,9 @@
       </div>
     </div>
 
-    <!-- ── PANEL 3: The people ── -->
-    <div class="panel" id="panel-3">
-      <div class="eyebrow">Step 4</div>
+    <!-- ── PANEL 4: The people ── -->
+    <div class="panel" id="panel-4">
+      <div class="eyebrow">Step 5</div>
       <h1 class="panel-title">The people in their world</h1>
       <p class="panel-sub">Who matters to them right now? The more specific you are, the more real the story feels.</p>
 
@@ -716,9 +726,9 @@
       </div>
     </div>
 
-    <!-- ── PANEL 4: Get it right ── -->
-    <div class="panel" id="panel-4">
-      <div class="eyebrow">Step 5</div>
+    <!-- ── PANEL 5: Get it right ── -->
+    <div class="panel" id="panel-5">
+      <div class="eyebrow">Step 6</div>
       <h1 class="panel-title">Things the story must get right</h1>
       <p class="panel-sub">This is the most important step. Tell us anything the story would get wrong if we didn't know it.</p>
 
@@ -757,8 +767,8 @@
       </div>
     </div>
 
-    <!-- ── PANEL 5: Summary ── -->
-    <div class="panel" id="panel-5">
+    <!-- ── PANEL 6: Summary ── -->
+    <div class="panel" id="panel-6">
       <div class="eyebrow">✓ All done</div>
       <h1 class="panel-title">Here's what we've got</h1>
       <p class="panel-sub">Review your answers, then hit the button — we'll write the opening of your child's story.</p>
@@ -790,6 +800,7 @@ const state = {
 const STEPS = [
   { label: 'The milestone',      title: 'The milestone' },
   { label: 'About your child',   title: 'About your child' },
+  { label: 'Who they are',       title: 'Who they are' },
   { label: 'Milestone details',  title: 'Milestone details' },
   { label: 'The people',         title: 'The people' },
   { label: 'Get it right',       title: 'Get it right' },
