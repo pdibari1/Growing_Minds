@@ -195,7 +195,7 @@
     .details-box textarea { width: 100%; padding: .75rem .9rem; border: 2px solid var(--border-soft); border-radius: 10px; font-family: 'Nunito', sans-serif; font-size: .925rem; font-weight: 600; color: var(--text); background: var(--warm-white); outline: none; resize: vertical; min-height: 100px; line-height: 1.65; transition: border-color .2s, background .2s; }
     .details-box textarea:focus { border-color: var(--green-light); background: var(--white); }
     .details-box textarea::placeholder { color: var(--muted-light); font-weight: 600; }
-    .char-count { text-align: right; font-size: .72rem; color: var(--muted-light); margin-top: .3rem; }
+    .char-count { text-align: right; font-size: .72rem; color: var(--muted-light); margin-top: .3rem; font-weight: 600; }
 
     /* consent */
     .consent-label { display: flex; align-items: flex-start; gap: .75rem; cursor: pointer; font-size: .86rem; color: var(--muted); font-weight: 600; line-height: 1.55; }
@@ -527,7 +527,6 @@
           <strong>For nicknames, say who calls whom</strong> so we get it exactly right.
         </div>
         <textarea id="customDetails" placeholder="Write as much as you like — family structure, pet names, habits, fears, favourite sayings, inside jokes…" maxlength="1000"></textarea>
-        <div class="char-count"><span id="charCount">0</span>/1000</div>
       </div>
 
       <div class="nav">
@@ -759,10 +758,22 @@ function updateCityPreview() {
   updatePreview('prev-city', [city, region].filter(Boolean).join(', '));
 }
 
-// ── CHARACTER COUNTER ──
-document.getElementById('customDetails').addEventListener('input', function() {
-  document.getElementById('charCount').textContent = this.value.length;
-});
+// ── CHARACTER COUNTERS ──
+function initCharCounters(root) {
+  const scope = root || document;
+  scope.querySelectorAll('textarea[maxlength]').forEach(ta => {
+    if (ta.nextElementSibling?.classList.contains('char-count')) return;
+    const max = parseInt(ta.getAttribute('maxlength'));
+    const counter = document.createElement('div');
+    counter.className = 'char-count';
+    counter.textContent = `0 / ${max}`;
+    ta.parentNode.insertBefore(counter, ta.nextSibling);
+    ta.addEventListener('input', () => {
+      counter.textContent = `${ta.value.length} / ${max}`;
+    });
+  });
+}
+initCharCounters();
 
 // ── SUBMIT ──
 async function submitForm() {

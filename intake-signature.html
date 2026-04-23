@@ -183,6 +183,7 @@
     .field-hint { font-size: .79rem; color: var(--muted-light); margin-top: .4rem; line-height: 1.5; }
     .field-error { font-size: .78rem; color: #dc2626; margin-top: .35rem; display: none; font-weight: 700; }
     .field-error.show { display: block; }
+    .char-count { font-size: .74rem; color: var(--muted-light); text-align: right; margin-top: .3rem; font-weight: 600; }
 
     /* ── EMAIL BOX ── */
     .email-box { background: var(--green); border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1.4rem; }
@@ -633,18 +634,18 @@
 
       <div class="field">
         <label>What are they really like right now?</label>
-        <textarea id="childPersonality" placeholder="e.g. They narrate everything they do like they're on a cooking show. They've been obsessed with sharks for three months straight. They cry if you use the wrong bowl for their cereal." rows="4"></textarea>
+        <textarea id="childPersonality" maxlength="600" placeholder="e.g. They narrate everything they do like they're on a cooking show. They've been obsessed with sharks for three months straight. They cry if you use the wrong bowl for their cereal." rows="4"></textarea>
         <p class="field-hint">Think of how you'd describe them to a friend who's never met them.</p>
       </div>
 
       <div class="field">
         <label>What are they really into right now? <span class="opt">Specific beats general</span></label>
-        <textarea id="childInterests" placeholder="e.g. Not just 'unicorns' — they have a specific stuffed unicorn named Periwinkle that goes everywhere with them. They've watched Bluey about 200 times." rows="3"></textarea>
+        <textarea id="childInterests" maxlength="500" placeholder="e.g. Not just 'unicorns' — they have a specific stuffed unicorn named Periwinkle that goes everywhere with them. They've watched Bluey about 200 times." rows="3"></textarea>
       </div>
 
       <div class="field">
         <label>What are they great at for their age?</label>
-        <textarea id="childStrengths" placeholder="e.g. They can read chapter books by themselves. They're fearless on the climbing frame. They remember every person's name they've ever met." rows="3"></textarea>
+        <textarea id="childStrengths" maxlength="500" placeholder="e.g. They can read chapter books by themselves. They're fearless on the climbing frame. They remember every person's name they've ever met." rows="3"></textarea>
       </div>
 
       <div class="field">
@@ -700,25 +701,25 @@
       <div class="q-block">
         <div class="q-label">Family</div>
         <div class="q-question">Who are the most important people in their life, and what is their relationship with each of them actually like?</div>
-        <textarea id="familyInfo" placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
+        <textarea id="familyInfo" maxlength="700" placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Friends</div>
         <div class="q-question">Do they have a best friend or close friends? Tell us about them.</div>
-        <textarea id="friendsInfo" placeholder="e.g. Their best friend Mia lives two doors down — they've been friends since they were babies. They already know Ollie and Scout will be in their grade at the new school." rows="3"></textarea>
+        <textarea id="friendsInfo" maxlength="600" placeholder="e.g. Their best friend Mia lives two doors down — they've been friends since they were babies. They already know Ollie and Scout will be in their grade at the new school." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">What do those friends look like?</div>
         <div class="q-question">Describe the friends above so they can be drawn accurately in the illustrations.</div>
-        <textarea id="friendsLook" placeholder="e.g. Mia has long dark curly hair, brown eyes, and usually wears bright colors. Ollie is a tall boy with short blond hair and blue eyes. Scout has red hair in a ponytail and freckles." rows="3"></textarea>
+        <textarea id="friendsLook" maxlength="600" placeholder="e.g. Mia has long dark curly hair, brown eyes, and usually wears bright colors. Ollie is a tall boy with short blond hair and blue eyes. Scout has red hair in a ponytail and freckles." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Anyone else</div>
         <div class="q-question">Is there anyone else who should be in the story — a grandparent, a teacher, a pet?</div>
-        <textarea id="othersInfo" placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
+        <textarea id="othersInfo" maxlength="500" placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
       </div>
 
       <div class="nav">
@@ -736,30 +737,30 @@
       <div class="q-block">
         <div class="q-label">What they can't do yet</div>
         <div class="q-question">What are they working on? Is there something they think they should be doing that they are working to be able to do?</div>
-        <textarea id="cantDoYet" placeholder="e.g. They can't tie their own shoes yet. They haven't slept away from home without us. They still need help with buttons." rows="3"></textarea>
+        <textarea id="cantDoYet" maxlength="500" placeholder="e.g. They can't tie their own shoes yet. They haven't slept away from home without us. They still need help with buttons." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Their real feelings</div>
         <div class="q-question">How do they feel about this milestone? — be as specific to them as possible.</div>
-        <textarea id="realFeelings" placeholder="e.g. They're not nervous at all — they've been asking when school starts every day for two months. They already think of it as 'their' school." rows="3"></textarea>
+        <textarea id="realFeelings" maxlength="500" placeholder="e.g. They're not nervous at all — they've been asking when school starts every day for two months. They already think of it as 'their' school." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">Things they'd notice were wrong</div>
         <div class="q-question">Are there any details about them that need to be correct to make the story feel real?</div>
-        <textarea id="wouldCorrect" placeholder="e.g. They'd be annoyed if the story said they were scared. They hate being called 'little' — they consider themselves big. They always use both hands when carrying something important." rows="3"></textarea>
+        <textarea id="wouldCorrect" maxlength="500" placeholder="e.g. They'd be annoyed if the story said they were scared. They hate being called 'little' — they consider themselves big. They always use both hands when carrying something important." rows="3"></textarea>
       </div>
 
       <div class="q-block">
         <div class="q-label">What you want them to feel</div>
         <div class="q-question">By the end of the story, what do you want them to feel or believe about themselves?</div>
-        <textarea id="wantToFeel" placeholder="e.g. That being brave doesn't mean not being scared — it means doing it anyway. That their brother will always be on their side even at a different school." rows="3"></textarea>
+        <textarea id="wantToFeel" maxlength="500" placeholder="e.g. That being brave doesn't mean not being scared — it means doing it anyway. That their brother will always be on their side even at a different school." rows="3"></textarea>
       </div>
 
       <div class="field" style="margin-top:.6rem;">
         <label>Anything else we should know? <span class="opt">Optional</span></label>
-        <textarea id="anythingElse" placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
+        <textarea id="anythingElse" maxlength="700" placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
       </div>
 
       <div class="nav">
@@ -1053,9 +1054,10 @@ function buildMilestoneQuestions(key) {
     <div class="q-block">
       <div class="q-label">${q.label}</div>
       <div class="q-question">${q.q}</div>
-      <textarea id="mq_${i}" placeholder="${q.placeholder}" rows="3"></textarea>
+      <textarea id="mq_${i}" maxlength="500" placeholder="${q.placeholder}" rows="3"></textarea>
     </div>
   `).join('');
+  initCharCounters(container);
 }
 
 // ── SWATCH & CARD SELECTS ──
@@ -1286,9 +1288,26 @@ async function submitForm() {
   }
 }
 
+// ── CHARACTER COUNTERS ──
+function initCharCounters(root) {
+  const scope = root || document;
+  scope.querySelectorAll('textarea[maxlength]').forEach(ta => {
+    if (ta.nextElementSibling?.classList.contains('char-count')) return;
+    const max = parseInt(ta.getAttribute('maxlength'));
+    const counter = document.createElement('div');
+    counter.className = 'char-count';
+    counter.textContent = `0 / ${max}`;
+    ta.parentNode.insertBefore(counter, ta.nextSibling);
+    ta.addEventListener('input', () => {
+      counter.textContent = `${ta.value.length} / ${max}`;
+    });
+  });
+}
+
 // ── INIT ──
 renderSidebar();
 renderProgress();
+initCharCounters();
 </script>
 
 </body>
