@@ -229,7 +229,23 @@ const generateStoryOrder = inngest.createFunction(
         const wavyNote = hairStyle && (hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly'))
           ? ` MANDATORY HAIR TEXTURE: ${name}'s hair is ${hairStyle.toUpperCase()} — every strand must show visible ${hairStyle} texture. This hair is NOT straight. Do NOT render straight hair. Waves or curls must be clearly visible from root to tip.`
           : '';
-        const coverPrompt = `${styleGuide} IMPORTANT: The main character is a CHILD, age ${age} — render with the face, body proportions, and size of a real ${age}-year-old ${genderDesc}. NOT a teenager. NOT an adult. A young child, age ${age}. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image.`;
+
+        // Tiered age descriptor for cover — same approach as secondary character age enforcement
+        const coverAgeNum = parseInt(age);
+        const coverAgeAppearance =
+          coverAgeNum <= 2  ? `a toddler — tiny body, very chubby round face, barely walking height, clearly a baby or toddler` :
+          coverAgeNum <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
+          coverAgeNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid, very small compared to an adult` :
+          coverAgeNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, clearly a child, small body` :
+          coverAgeNum <= 11 ? `an older elementary child — taller, leaner face, but unmistakably still a child, NOT a teenager` :
+          coverAgeNum <= 14 ? `a middle-school-aged child — approaching adolescence but clearly still a kid, NOT an adult` :
+                              `a teenager or adult`;
+
+        const coverPrompt = `Fully rendered full-color digital illustration — style of a Pixar or Disney animated feature film. Rich saturated colors throughout, expressive character with detailed painted background. Every single element is fully colored and painted — NO line art, NO coloring book outlines, NO sketches, NO black-and-white elements anywhere. Entire image is completely colored.
+
+CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} as a teenager or adult. Small child body, young child face shape and proportions of a real ${age}-year-old. NOT a teenager. NOT an adult. Age ${age}.
+
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky, fully illustrated in the same rich animated style as the character. Single continuous fully-colored scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image. No text or words anywhere.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -281,6 +297,14 @@ const generateStoryOrder = inngest.createFunction(
 
           // Age-specific illustration style directive
           const ageNum = parseInt(age);
+          const mainAgeAppearance =
+            ageNum <= 2  ? `a toddler — tiny body, very chubby round face, barely walking height` :
+            ageNum <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
+            ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid` :
+            ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, small body, clearly a child` :
+            ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child, NOT a teenager` :
+            ageNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
+                           `a teenager or adult`;
           const illustrationStyle = ageNum <= 7
             ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition — one clear action in focus. The illustration should make the scene immediately readable without the text.`
             : ageNum <= 10
@@ -339,7 +363,7 @@ const generateStoryOrder = inngest.createFunction(
 
           // Scene prompt: main character appearance comes from the reference image
           // Secondary characters are described in text so they render consistently
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. The main character is a ${age}-year-old ${genderDesc} — render with the face and body proportions of a real ${age}-year-old child. The main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters in this story: ${secondaryDesc}. Render each exactly as described.` : ''} Every character in the scene wears a distinctly different outfit — no matching clothes between any two characters. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — they must look like ${mainAgeAppearance}. Do NOT render the main character as a teenager or adult. The main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters in this story: ${secondaryDesc}. Render each exactly as described.` : ''} Every character in the scene wears a distinctly different outfit — no matching clothes between any two characters. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -1340,7 +1364,13 @@ async function callFalInstantCharacterOnce(referenceImageUrl, scenePrompt) {
       const imageUrl = result?.images?.[0]?.url;
       if (!imageUrl) throw new Error("fal.ai: no image URL in result");
       console.log(`fal.ai instant-character done: ${imageUrl.slice(0, 60)}`);
-      return await fetchImageBytes(imageUrl);
+      const imageBytes = await fetchImageBytes(imageUrl);
+      // A real square_hd illustration should be well over 50KB — anything smaller is likely
+      // a black/failed image returned silently by fal.ai (content rejection or model error)
+      if (imageBytes.length < 20000) {
+        throw new Error(`fal.ai returned a suspiciously small image (${imageBytes.length} bytes) — likely a black or failed image`);
+      }
+      return imageBytes;
     }
 
     if (status.status === 'FAILED') {
@@ -1358,6 +1388,12 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
     if (e.message.includes("timed out")) {
       console.warn("fal.ai timed out on first attempt — resubmitting to queue");
       return await callFalInstantCharacterOnce(referenceImageUrl, scenePrompt);
+    }
+    if (e.message.includes("suspiciously small") || e.message.includes("black or failed")) {
+      // Retry with a stripped-down prompt — complex prompts occasionally trigger silent rejection
+      const fallbackPrompt = scenePrompt.split('.').slice(0, 3).join('.') + '. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors.';
+      console.warn(`fal.ai returned black image — retrying with simplified prompt: ${fallbackPrompt.slice(0, 120)}`);
+      return await callFalInstantCharacterOnce(referenceImageUrl, fallbackPrompt);
     }
     throw e;
   }
