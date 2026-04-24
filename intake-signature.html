@@ -185,6 +185,66 @@
     .field-error.show { display: block; }
     .char-count { font-size: .74rem; color: var(--muted-light); text-align: right; margin-top: .3rem; font-weight: 600; }
 
+    /* ── ILLUSTRATION DETAILS TOGGLE ── */
+    .illus-toggle-wrap { margin-top: .75rem; }
+    .illus-toggle {
+      background: none; border: none; padding: 0; cursor: pointer;
+      font-family: 'Nunito', sans-serif; font-size: .8rem; font-weight: 700;
+      color: var(--green); display: flex; align-items: center; gap: .35rem;
+    }
+    .illus-toggle:hover { color: var(--green-dark); }
+    .illus-arrow { display: inline-block; transition: transform .2s; font-size: .7rem; }
+    .illus-toggle.open .illus-arrow { transform: rotate(90deg); }
+    .illus-details { margin-top: .75rem; display: none; }
+    .illus-details.open { display: block; }
+    .illus-hint { font-size: .78rem; color: var(--muted); font-weight: 600; margin: 0 0 .6rem; }
+    .illus-card {
+      background: var(--warm-white); border: 1.5px solid var(--border-soft);
+      border-radius: 10px; padding: .65rem .75rem; margin-bottom: .5rem;
+    }
+    .illus-card-row {
+      display: flex; gap: .5rem; align-items: center; margin-bottom: .45rem; flex-wrap: wrap;
+    }
+    .illus-name {
+      flex: 1 1 90px; min-width: 80px; padding: .4rem .6rem;
+      border: 1.5px solid var(--border-soft); border-radius: 7px;
+      font-family: 'Nunito', sans-serif; font-size: .85rem; font-weight: 700;
+      color: var(--text); background: var(--white); outline: none;
+    }
+    .illus-age {
+      width: 60px; padding: .4rem .5rem;
+      border: 1.5px solid var(--border-soft); border-radius: 7px;
+      font-family: 'Nunito', sans-serif; font-size: .85rem; font-weight: 700;
+      color: var(--text); background: var(--white); outline: none;
+    }
+    .illus-gender {
+      flex: 0 0 auto; padding: .4rem .5rem;
+      border: 1.5px solid var(--border-soft); border-radius: 7px;
+      font-family: 'Nunito', sans-serif; font-size: .85rem; font-weight: 700;
+      color: var(--text); background: var(--white); outline: none; cursor: pointer;
+    }
+    .illus-name:focus, .illus-age:focus, .illus-gender:focus { border-color: var(--green-light); }
+    .illus-remove {
+      background: none; border: none; color: var(--muted-light); cursor: pointer;
+      font-size: 1rem; line-height: 1; padding: .2rem; margin-left: auto; flex-shrink: 0;
+    }
+    .illus-remove:hover { color: #dc2626; }
+    .illus-appearance {
+      width: 100%; padding: .4rem .6rem; box-sizing: border-box;
+      border: 1.5px solid var(--border-soft); border-radius: 7px;
+      font-family: 'Nunito', sans-serif; font-size: .82rem; font-weight: 600;
+      color: var(--text); background: var(--white); outline: none;
+    }
+    .illus-appearance:focus { border-color: var(--green-light); }
+    .illus-appearance::placeholder { color: var(--muted-light); }
+    .illus-add-btn {
+      background: none; border: 1.5px dashed var(--border-soft); border-radius: 8px;
+      padding: .4rem .85rem; cursor: pointer; font-family: 'Nunito', sans-serif;
+      font-size: .8rem; font-weight: 700; color: var(--muted); width: 100%;
+      margin-top: .25rem; transition: border-color .2s, color .2s;
+    }
+    .illus-add-btn:hover { border-color: var(--green-light); color: var(--green); }
+
     /* ── EMAIL BOX ── */
     .email-box { background: var(--green); border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1.4rem; }
     .email-box label { color: white; font-weight: 800; font-size: .95rem; margin-bottom: .3rem; display: flex; align-items: center; gap: .5rem; }
@@ -702,24 +762,48 @@
         <div class="q-label">Family</div>
         <div class="q-question">Who are the most important people in their life, and what is their relationship with each of them actually like?</div>
         <textarea id="familyInfo" maxlength="700" placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
+        <div class="illus-toggle-wrap">
+          <button type="button" class="illus-toggle" onclick="toggleIllus(this)">
+            🎨 Add details for illustrations <span class="illus-arrow">▸</span>
+          </button>
+          <div class="illus-details" data-section="family">
+            <p class="illus-hint">Name, age, and gender help the most — appearance note is optional.</p>
+            <div class="illus-cards"></div>
+            <button type="button" class="illus-add-btn" onclick="addIllusCard(this)">+ Add a person</button>
+          </div>
+        </div>
       </div>
 
       <div class="q-block">
         <div class="q-label">Friends</div>
         <div class="q-question">Do they have a best friend or close friends? Tell us about them.</div>
         <textarea id="friendsInfo" maxlength="600" placeholder="e.g. Their best friend Mia lives two doors down — they've been friends since they were babies. They already know Ollie and Scout will be in their grade at the new school." rows="3"></textarea>
-      </div>
-
-      <div class="q-block">
-        <div class="q-label">What do those friends look like?</div>
-        <div class="q-question">Describe the friends above so they can be drawn accurately in the illustrations.</div>
-        <textarea id="friendsLook" maxlength="600" placeholder="e.g. Mia has long dark curly hair, brown eyes, and usually wears bright colors. Ollie is a tall boy with short blond hair and blue eyes. Scout has red hair in a ponytail and freckles." rows="3"></textarea>
+        <div class="illus-toggle-wrap">
+          <button type="button" class="illus-toggle" onclick="toggleIllus(this)">
+            🎨 Add details for illustrations <span class="illus-arrow">▸</span>
+          </button>
+          <div class="illus-details" data-section="friends">
+            <p class="illus-hint">Name, age, and gender help the most — appearance note is optional.</p>
+            <div class="illus-cards"></div>
+            <button type="button" class="illus-add-btn" onclick="addIllusCard(this)">+ Add a person</button>
+          </div>
+        </div>
       </div>
 
       <div class="q-block">
         <div class="q-label">Anyone else</div>
         <div class="q-question">Is there anyone else who should be in the story — a grandparent, a teacher, a pet?</div>
         <textarea id="othersInfo" maxlength="500" placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
+        <div class="illus-toggle-wrap">
+          <button type="button" class="illus-toggle" onclick="toggleIllus(this)">
+            🎨 Add details for illustrations <span class="illus-arrow">▸</span>
+          </button>
+          <div class="illus-details" data-section="others">
+            <p class="illus-hint">Name, age, and gender help the most — appearance note is optional.</p>
+            <div class="illus-cards"></div>
+            <button type="button" class="illus-add-btn" onclick="addIllusCard(this)">+ Add a person</button>
+          </div>
+        </div>
       </div>
 
       <div class="nav">
@@ -1119,8 +1203,8 @@ function buildSummary() {
       rows: [
         { q: 'Family',  a: document.getElementById('familyInfo')?.value  || '' },
         { q: 'Friends', a: document.getElementById('friendsInfo')?.value || '' },
-        { q: 'Friends — appearance', a: document.getElementById('friendsLook')?.value || '' },
         { q: 'Others',  a: document.getElementById('othersInfo')?.value  || '' },
+        { q: 'Illustration details', a: collectIllusData() || '' },
       ]
     },
     {
@@ -1200,14 +1284,14 @@ async function submitForm() {
   }
   const family      = (document.getElementById('familyInfo')?.value   || '').trim();
   const friends     = (document.getElementById('friendsInfo')?.value  || '').trim();
-  const friendsLook = (document.getElementById('friendsLook')?.value  || '').trim();
   const others      = (document.getElementById('othersInfo')?.value   || '').trim();
-  if (family || friends || others) {
+  const illusData   = collectIllusData();
+  if (family || friends || others || illusData) {
     parts.push(`\n=== THE PEOPLE ===`);
-    if (family)      parts.push(`Family: ${family}`);
-    if (friends)     parts.push(`Friends: ${friends}`);
-    if (friendsLook) parts.push(`Friends appearance (for illustrations): ${friendsLook}`);
-    if (others)      parts.push(`Others: ${others}`);
+    if (family)    parts.push(`Family: ${family}`);
+    if (friends)   parts.push(`Friends: ${friends}`);
+    if (others)    parts.push(`Others: ${others}`);
+    if (illusData) parts.push(illusData);
   }
   const strengths  = (document.getElementById('childStrengths')?.value || '').trim();
   const cantDo     = (document.getElementById('cantDoYet')?.value      || '').trim();
@@ -1286,6 +1370,63 @@ async function submitForm() {
     document.getElementById('errorMessage').textContent = err.message || 'We couldn\'t generate the preview. Please try again.';
     document.getElementById('errorOverlay').classList.add('show');
   }
+}
+
+// ── ILLUSTRATION DETAIL CARDS ──
+function toggleIllus(btn) {
+  const details = btn.parentElement.querySelector('.illus-details');
+  const isOpen = details.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  // Pre-add one blank card the first time it's opened
+  if (isOpen && details.querySelector('.illus-cards').children.length === 0) {
+    addIllusCard(details.querySelector('.illus-add-btn'));
+  }
+}
+
+function addIllusCard(addBtn) {
+  const cards = addBtn.previousElementSibling;
+  const card = document.createElement('div');
+  card.className = 'illus-card';
+  card.innerHTML = `
+    <div class="illus-card-row">
+      <input class="illus-name" type="text" placeholder="Name" maxlength="30">
+      <input class="illus-age"  type="number" placeholder="Age" min="0" max="99">
+      <select class="illus-gender">
+        <option value="">Gender</option>
+        <option value="girl">Girl</option>
+        <option value="boy">Boy</option>
+        <option value="nonbinary">Non-binary</option>
+      </select>
+      <button type="button" class="illus-remove" onclick="this.closest('.illus-card').remove()" title="Remove">✕</button>
+    </div>
+    <input class="illus-appearance" type="text" placeholder="Appearance note — e.g. red hair, glasses, freckles (optional)" maxlength="120">
+  `;
+  cards.appendChild(card);
+  card.querySelector('.illus-name').focus();
+}
+
+function collectIllusData() {
+  const sections = document.querySelectorAll('.illus-details');
+  const lines = [];
+  sections.forEach(section => {
+    const label = section.dataset.section;
+    const cards = section.querySelectorAll('.illus-card');
+    const entries = [];
+    cards.forEach(card => {
+      const name = card.querySelector('.illus-name').value.trim();
+      if (!name) return;
+      const age    = card.querySelector('.illus-age').value.trim();
+      const gender = card.querySelector('.illus-gender').value;
+      const look   = card.querySelector('.illus-appearance').value.trim();
+      let desc = name;
+      if (age)    desc += `, ${age} years old`;
+      if (gender) desc += `, ${gender}`;
+      if (look)   desc += `, ${look}`;
+      entries.push(desc);
+    });
+    if (entries.length) lines.push(`Illustration details — ${label}: ${entries.join('; ')}`);
+  });
+  return lines.join('\n');
 }
 
 // ── CHARACTER COUNTERS ──
