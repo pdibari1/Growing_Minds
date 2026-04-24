@@ -185,19 +185,12 @@
     .field-error.show { display: block; }
     .char-count { font-size: .74rem; color: var(--muted-light); text-align: right; margin-top: .3rem; font-weight: 600; }
 
-    /* ── ILLUSTRATION DETAILS TOGGLE ── */
-    .illus-toggle-wrap { margin-top: .75rem; }
-    .illus-toggle {
-      background: none; border: none; padding: 0; cursor: pointer;
-      font-family: 'Nunito', sans-serif; font-size: .8rem; font-weight: 700;
-      color: var(--green); display: flex; align-items: center; gap: .35rem;
+    /* ── ILLUSTRATION DETAILS ── */
+    .illus-section { margin-top: .85rem; }
+    .illus-label {
+      font-size: .66rem; font-weight: 900; text-transform: uppercase;
+      letter-spacing: .05em; color: var(--muted-light); margin-bottom: .55rem;
     }
-    .illus-toggle:hover { color: var(--green-dark); }
-    .illus-arrow { display: inline-block; transition: transform .2s; font-size: .7rem; }
-    .illus-toggle.open .illus-arrow { transform: rotate(90deg); }
-    .illus-details { margin-top: .75rem; display: none; }
-    .illus-details.open { display: block; }
-    .illus-hint { font-size: .78rem; color: var(--muted); font-weight: 600; margin: 0 0 .6rem; }
     .illus-card {
       background: var(--warm-white); border: 1.5px solid var(--border-soft);
       border-radius: 10px; padding: .65rem .75rem; margin-bottom: .5rem;
@@ -762,12 +755,9 @@
         <div class="q-label">Family</div>
         <div class="q-question">Who are the most important people in their life, and what is their relationship with each of them actually like?</div>
         <textarea id="familyInfo" maxlength="700" placeholder="e.g. Their brother Benjamin is 7 and in 2nd grade — they copy everything he does and he secretly loves it. Their dad does bedtime every night and always makes up silly voices." rows="4"></textarea>
-        <div class="illus-toggle-wrap">
-          <button type="button" class="illus-toggle" onclick="toggleIllus(this)">
-            🎨 Add details for illustrations <span class="illus-arrow">▸</span>
-          </button>
+        <div class="illus-section">
+          <div class="illus-label">For illustrations <span style="font-weight:600;text-transform:none;letter-spacing:0;font-size:.72rem;">(optional)</span></div>
           <div class="illus-details" data-section="family">
-            <p class="illus-hint">Name, age, and gender help the most — appearance note is optional.</p>
             <div class="illus-cards"></div>
             <button type="button" class="illus-add-btn" onclick="addIllusCard(this)">+ Add a person</button>
           </div>
@@ -778,12 +768,9 @@
         <div class="q-label">Friends</div>
         <div class="q-question">Do they have a best friend or close friends? Tell us about them.</div>
         <textarea id="friendsInfo" maxlength="600" placeholder="e.g. Their best friend Mia lives two doors down — they've been friends since they were babies. They already know Ollie and Scout will be in their grade at the new school." rows="3"></textarea>
-        <div class="illus-toggle-wrap">
-          <button type="button" class="illus-toggle" onclick="toggleIllus(this)">
-            🎨 Add details for illustrations <span class="illus-arrow">▸</span>
-          </button>
+        <div class="illus-section">
+          <div class="illus-label">For illustrations <span style="font-weight:600;text-transform:none;letter-spacing:0;font-size:.72rem;">(optional)</span></div>
           <div class="illus-details" data-section="friends">
-            <p class="illus-hint">Name, age, and gender help the most — appearance note is optional.</p>
             <div class="illus-cards"></div>
             <button type="button" class="illus-add-btn" onclick="addIllusCard(this)">+ Add a person</button>
           </div>
@@ -794,12 +781,9 @@
         <div class="q-label">Anyone else</div>
         <div class="q-question">Is there anyone else who should be in the story — a grandparent, a teacher, a pet?</div>
         <textarea id="othersInfo" maxlength="500" placeholder="e.g. Their dog Biscuit comes everywhere with them in their imagination. Their grandma calls them 'Ladybug.'" rows="3"></textarea>
-        <div class="illus-toggle-wrap">
-          <button type="button" class="illus-toggle" onclick="toggleIllus(this)">
-            🎨 Add details for illustrations <span class="illus-arrow">▸</span>
-          </button>
+        <div class="illus-section">
+          <div class="illus-label">For illustrations <span style="font-weight:600;text-transform:none;letter-spacing:0;font-size:.72rem;">(optional)</span></div>
           <div class="illus-details" data-section="others">
-            <p class="illus-hint">Name, age, and gender help the most — appearance note is optional.</p>
             <div class="illus-cards"></div>
             <button type="button" class="illus-add-btn" onclick="addIllusCard(this)">+ Add a person</button>
           </div>
@@ -1373,16 +1357,6 @@ async function submitForm() {
 }
 
 // ── ILLUSTRATION DETAIL CARDS ──
-function toggleIllus(btn) {
-  const details = btn.parentElement.querySelector('.illus-details');
-  const isOpen = details.classList.toggle('open');
-  btn.classList.toggle('open', isOpen);
-  // Pre-add one blank card the first time it's opened
-  if (isOpen && details.querySelector('.illus-cards').children.length === 0) {
-    addIllusCard(details.querySelector('.illus-add-btn'));
-  }
-}
-
 function addIllusCard(addBtn) {
   const cards = addBtn.previousElementSibling;
   const card = document.createElement('div');
@@ -1449,6 +1423,10 @@ function initCharCounters(root) {
 renderSidebar();
 renderProgress();
 initCharCounters();
+// Pre-populate one blank illustration card per section
+document.querySelectorAll('.illus-details').forEach(section => {
+  addIllusCard(section.querySelector('.illus-add-btn'));
+});
 </script>
 
 </body>
