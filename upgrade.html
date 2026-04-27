@@ -239,8 +239,8 @@
   <div class="credit-banner">
     <div class="credit-icon">✅</div>
     <div class="credit-text">
-      <strong>Your $4.99 preview is already credited</strong>
-      <span>You're only paying the difference — $30 today to complete the full $34.99 hardcover book.</span>
+      <strong>Your $2.99 preview is already credited</strong>
+      <span>You're only paying the difference — $32 today to complete the full $35 hardcover book.</span>
     </div>
   </div>
 
@@ -276,21 +276,21 @@
   <div class="price-box">
     <div class="price-row">
       <span class="label">Full personalized hardcover book</span>
-      <span class="value">$34.99</span>
+      <span class="value">$35.00</span>
     </div>
     <div class="price-row credit">
       <span class="label">Preview credit applied</span>
-      <span class="value">− $4.99</span>
+      <span class="value">− $2.99</span>
     </div>
     <div class="price-row total">
       <span class="label">Due today</span>
-      <span class="value">$30</span>
+      <span class="value">$32</span>
     </div>
   </div>
 
   <!-- CTA -->
   <button class="btn-upgrade" id="upgrade-btn" onclick="handleUpgrade()">
-    ✨ Complete the Story — Pay $30
+    ✨ Complete the Story — Pay $32
   </button>
   <p class="stripe-note">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -353,7 +353,7 @@
 
     } catch (err) {
       console.error('Upgrade checkout error:', err);
-      btn.textContent = '✨ Complete the Story — Pay $30';
+      btn.textContent = '✨ Complete the Story — Pay $32';
       btn.disabled = false;
       errEl.textContent = err.message || 'Something went wrong — please try again.';
       errEl.classList.add('show');

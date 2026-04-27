@@ -1,7 +1,7 @@
-// api/create-upgrade-checkout.js — $30 upgrade checkout (full book, $4.99 already credited)
+// api/create-upgrade-checkout.js — $32 upgrade checkout (full book, $2.99 already credited)
 const Stripe = require("stripe");
 
-const UPGRADE_PRICE_CENTS = 3000; // $35 total minus $4.99 preview = $30.01 → rounded to $30
+const UPGRADE_PRICE_CENTS = 3200; // $35 total minus $2.99 preview = $32.01 → rounded to $32
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
           unit_amount: UPGRADE_PRICE_CENTS,
           product_data: {
             name: `${childName}'s Personalized Story Book — Full Edition`,
-            description: "Complete personalized hardcover book (your $4.99 preview payment has been credited). Printed and shipped in 13–15 business days.",
+            description: "Complete personalized hardcover book (your $2.99 preview payment has been credited). Printed and shipped in 13–15 business days.",
           },
         },
         quantity: 1,

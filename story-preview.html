@@ -443,14 +443,14 @@
 
       <div class="purchase-hero">
         <div class="purchase-hero-label" id="purchase-child-name">Read the First 3 Chapters</div>
-        <div class="purchase-price"><sup>$</sup>4.99</div>
-        <div class="purchase-price-note">Credited toward the $34.99 hardcover book</div>
+        <div class="purchase-price"><sup>$</sup>2.99</div>
+        <div class="purchase-price-note">Credited toward the $35 hardcover book</div>
       </div>
 
       <div class="urgency-bar">⏳ Your story preview is saved for 7 days</div>
 
       <button class="btn-buy" id="buy-btn-top" onclick="handlePurchase()">
-        📖 Read 3 Chapters — $4.99
+        📖 Read 3 Chapters — $2.99
       </button>
 
       <div>
@@ -473,8 +473,8 @@
           <li>
             <div class="li-icon">✨</div>
             <div>
-              <div class="li-title">$4.99 Credited to Full Book</div>
-              <div class="li-sub" id="unique-sub">Loved it? Upgrade for just $30 more — get every chapter + printed hardcover</div>
+              <div class="li-title">$2.99 Credited to Full Book</div>
+              <div class="li-sub" id="unique-sub">Loved it? Upgrade for just $32 more — get every chapter + printed hardcover</div>
             </div>
           </li>
           <li>
@@ -488,7 +488,7 @@
       </div>
 
       <button class="btn-buy" id="buy-btn" onclick="handlePurchase()">
-        📖 Read 3 Chapters — $4.99
+        📖 Read 3 Chapters — $2.99
       </button>
 
       <div id="discount-msg"></div>
@@ -497,11 +497,11 @@
 
       <div class="trust-strip">
         <div class="trust-item"><span>🔒</span> Secure checkout via Stripe</div>
-        <div class="trust-item"><span>✅</span> $4.99 credited to full book</div>
+        <div class="trust-item"><span>✅</span> $2.99 credited to full book</div>
         <div class="trust-item"><span>💛</span> Every story is one of a kind</div>
       </div>
 
-      <p style="font-size:.75rem;color:#9ca3af;text-align:center;line-height:1.5;">Preview chapters are delivered by email within minutes. Your $4.99 is credited toward the $34.99 full hardcover book if you choose to upgrade.</p>
+      <p style="font-size:.75rem;color:#9ca3af;text-align:center;line-height:1.5;">Preview chapters are delivered by email within minutes. Your $2.99 is credited toward the $34.99 full hardcover book if you choose to upgrade.</p>
 
     </div>
   </div>
@@ -580,7 +580,7 @@
 
     // ── PURCHASE ──
     async function handlePurchase() {
-      if (typeof gtag !== 'undefined') gtag('event', 'begin_checkout', { currency: 'USD', value: 4.99 });
+      if (typeof gtag !== 'undefined') gtag('event', 'begin_checkout', { currency: 'USD', value: 2.99 });
       const btns = [document.getElementById('buy-btn'), document.getElementById('buy-btn-top')];
       const errMsg = document.getElementById('discount-msg');
 
@@ -605,7 +605,7 @@
         }
       } catch (err) {
         console.error(err);
-        btns.forEach(b => { if (b) { b.textContent = '📖 Read 3 Chapters — $4.99'; b.disabled = false; } });
+        btns.forEach(b => { if (b) { b.textContent = '📖 Read 3 Chapters — $2.99'; b.disabled = false; } });
         if (errMsg) { errMsg.style.color = '#dc2626'; errMsg.textContent = err.message || 'Something went wrong. Please try again.'; }
       }
     }

@@ -1,7 +1,7 @@
-// api/create-preview-checkout.js — $4.99 preview checkout (3 chapters, credited toward full book)
+// api/create-preview-checkout.js — $2.99 preview checkout (3 chapters, credited toward full book)
 const Stripe = require("stripe");
 
-const PREVIEW_PRICE_CENTS = 499;
+const PREVIEW_PRICE_CENTS = 299;
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
           unit_amount: PREVIEW_PRICE_CENTS,
           product_data: {
             name: `${childName}'s Story Preview — First 3 Chapters`,
-            description: "Read the opening 3 chapters of your personalized story. $4.99 is credited toward the full $35 hardcover book.",
+            description: "Read the opening 3 chapters of your personalized story. $2.99 is credited toward the full $35 hardcover book.",
           },
         },
         quantity: 1,

@@ -241,11 +241,11 @@ const generateStoryOrder = inngest.createFunction(
           coverAgeNum <= 14 ? `a middle-school-aged child — approaching adolescence but clearly still a kid, NOT an adult` :
                               `a teenager or adult`;
 
-        const coverPrompt = `Fully rendered full-color digital illustration — style of a Pixar or Disney animated feature film. Rich saturated colors throughout, expressive character with detailed painted background. Every single element is fully colored and painted — NO line art, NO coloring book outlines, NO sketches, NO black-and-white elements anywhere. Entire image is completely colored.
+        const coverPrompt = `Bright cheerful children's book cartoon illustration. Bold clean cartoon outlines, vibrant flat colors, soft even lighting — like a modern animated children's TV series. Warm sunny atmosphere. NO dramatic shadows. NO photorealistic rendering. NO dark or moody lighting. Fully colored throughout — NO line art only, NO coloring book outlines.
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} as a teenager or adult. Small child body, young child face shape and proportions of a real ${age}-year-old. NOT a teenager. NOT an adult. Age ${age}.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene with mountains and sky, fully illustrated in the same rich animated style as the character. Single continuous fully-colored scene. No insets, no secondary images, no borders, no picture frames, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no design elements of any kind floating in the image. No text or words anywhere.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling happily in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no borders, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no painting tools of any kind. No text or words anywhere.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -631,7 +631,7 @@ const generatePreviewChapters = inngest.createFunction(
         coverAgeNum <= 11 ? `an older elementary child — taller but unmistakably still a child, NOT a teenager` :
         coverAgeNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
                             `a teenager or adult`;
-      const coverPrompt = `Fully rendered full-color digital illustration — style of a Pixar or Disney animated feature film. Rich saturated colors throughout. Every element fully colored and painted — NO line art, NO coloring book outlines. CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render as a teenager or adult. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Single continuous fully-colored scene. No insets, no borders, no design elements, no text.`;
+      const coverPrompt = `Bright cheerful children's book cartoon illustration. Bold clean cartoon outlines, vibrant flat colors, soft even lighting — like a modern animated children's TV series. Warm sunny atmosphere. NO dramatic shadows. NO photorealistic rendering. NO dark or moody lighting. Fully colored throughout — NO line art only, NO coloring book outlines. CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render as a teenager or adult. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling happily in a wide open ${region} outdoor scene. Single continuous scene. No insets, no borders, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no painting tools of any kind. No text or words anywhere.`;
       const coverUrl = await callDallE(coverPrompt);
       const coverBytes = await fetchImageBytes(coverUrl);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -2823,9 +2823,9 @@ async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, c
 
   const ctaButton = `<div style="text-align:center;margin:1.5rem 0 2rem;">
     <a href="${upgradeUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:1.05rem;letter-spacing:.01em;box-shadow:0 3px 10px rgba(45,106,79,.3);">
-      ✨ Get the Full Book — $30
+      ✨ Get the Full Book — $32
     </a>
-    <p style="font-size:.8rem;color:#6b7280;margin:.6rem 0 0;">Your $4.99 preview has already been credited toward the $35 total.</p>
+    <p style="font-size:.8rem;color:#6b7280;margin:.6rem 0 0;">Your $2.99 preview has already been credited toward the $35 total.</p>
   </div>`;
 
   try {
