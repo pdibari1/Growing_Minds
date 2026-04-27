@@ -860,7 +860,7 @@ If the outline is already fully consistent, return it unchanged.
 Return ONLY a valid JSON array with the same structure as the input — same number of chapters, each with "title", "summary", and "imagePrompt". No explanation, no markdown.`;
 
   try {
-    const raw = await callClaude(prompt, 6000);
+    const raw = await callClaudeOpus(prompt, 6000);
     const match = raw.match(/\[[\s\S]*\]/);
     if (match) {
       const parsed = JSON.parse(match[0]);
@@ -904,7 +904,7 @@ Example format (for "starting a new school"):
 3. Noticing small wins each day — finding the bathroom, remembering a classmate's name — builds confidence faster than waiting for a big breakthrough.`;
 
   try {
-    const raw = await callClaude(prompt, 600);
+    const raw = await callClaudeOpus(prompt, 600);
     console.log(`Milestone guidance for "${milestone}": ${raw.slice(0, 100)}...`);
     return raw.trim();
   } catch(e) {
@@ -1001,7 +1001,7 @@ Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object
 
 No markdown, no explanation, just the JSON array.`;
 
-  const raw = await callClaude(prompt, 6000);
+  const raw = await callClaudeOpus(prompt, 6000);
   try {
     // Strip markdown, find the JSON array
     let cleaned = raw.replace(/```json|```/g, "").trim();
@@ -1080,7 +1080,7 @@ FORMAT:
 - Then the full story text
 - Nothing else`;
 
-  return await callClaude(prompt, tier.maxTokensPerChap + 200);
+  return await callClaudeOpus(prompt, tier.maxTokensPerChap + 200);
 }
 
 // ════════════════════════════════════════════
@@ -1195,7 +1195,7 @@ ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with
 ${customReminder}
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
-  const raw = await callClaude(prompt, tier.maxTokensPerChap * (endIdx - startIdx) + 500);
+  const raw = await callClaudeOpus(prompt, tier.maxTokensPerChap * (endIdx - startIdx) + 500);
 
   // Split the response into individual chapters
   const chapTexts = raw.split(/(?=Chapter \d+:)/g).filter(c => c.trim());
@@ -1219,7 +1219,7 @@ Chapter ${missingNum}: ${missingOutline?.title}
 
 Nothing else before or after the chapter.`;
 
-      const retryRaw = await callClaude(retryPrompt, tier.maxTokensPerChap + 300);
+      const retryRaw = await callClaudeOpus(retryPrompt, tier.maxTokensPerChap + 300);
       const retryText = retryRaw.trim();
       // Ensure it starts with the chapter header
       if (retryText.startsWith('Chapter')) {
@@ -1480,7 +1480,7 @@ CRITICAL RULES:
 - Do not round ages up or make children look older than they are
 - Only include characters appearing in multiple scenes. Keep descriptions warm and child-appropriate. No markdown, no explanation — just the JSON.`;
 
-  const raw = await callClaude(prompt, 800);
+  const raw = await callClaudeOpus(prompt, 800);
   try {
     let cleaned = raw.replace(/```json|```/g, "").trim();
     const start = cleaned.indexOf('{');
@@ -2525,6 +2525,66 @@ async function callClaude(prompt, maxTokens, attempt = 0) {
       console.warn(`Claude overloaded (attempt ${attempt + 1}/${MAX_RETRIES}) — retrying in ${delay / 1000}s`);
       await new Promise(res => setTimeout(res, delay));
       return callClaude(prompt, maxTokens, attempt + 1);
+    }
+    throw e;
+  }
+}
+
+// ── OPUS — used for all creative writing calls ──
+function callClaudeOpusOnce(prompt, maxTokens) {
+  const payload = JSON.stringify({
+    model: "claude-opus-4-6",
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: prompt }]
+  });
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.anthropic.com",
+      port: 443,
+      path: "/v1/messages",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      timeout: 300000  // 5 min — Opus is slower on long outputs
+    };
+
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.error) return reject(new Error(data.error.message, { cause: data.error.type }));
+          resolve(data.content[0].text.trim());
+        } catch(e) {
+          reject(new Error("Claude Opus parse error: " + body.slice(0, 200)));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("Claude Opus timeout")));
+    req.write(payload);
+    req.end();
+  });
+}
+
+async function callClaudeOpus(prompt, maxTokens, attempt = 0) {
+  const MAX_RETRIES = 4;
+  const BACKOFF = [30000, 60000, 120000, 240000];
+  try {
+    return await callClaudeOpusOnce(prompt, maxTokens);
+  } catch(e) {
+    const isOverloaded = e.message.toLowerCase().includes("overload") || e.message.toLowerCase().includes("529");
+    if (isOverloaded && attempt < MAX_RETRIES) {
+      const delay = BACKOFF[attempt];
+      console.warn(`Claude Opus overloaded (attempt ${attempt + 1}/${MAX_RETRIES}) — retrying in ${delay / 1000}s`);
+      await new Promise(res => setTimeout(res, delay));
+      return callClaudeOpus(prompt, maxTokens, attempt + 1);
     }
     throw e;
   }

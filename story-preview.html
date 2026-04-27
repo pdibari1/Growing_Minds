@@ -449,6 +449,10 @@
 
       <div class="urgency-bar">⏳ Your story is saved for 24 hours</div>
 
+      <button class="btn-buy" id="buy-btn-top" onclick="handlePurchase()">
+        🌟 Get the Full Story — $35
+      </button>
+
       <div>
         <div class="includes-title">Everything included</div>
         <ul class="includes-list">
@@ -584,11 +588,11 @@
     // ── PURCHASE ──
     async function handlePurchase() {
       if (typeof gtag !== 'undefined') gtag('event', 'begin_checkout', { currency: 'USD', value: 35 });
-      const btn = document.getElementById('buy-btn');
+      const btns = [document.getElementById('buy-btn'), document.getElementById('buy-btn-top')];
       const discountCode = (document.getElementById('discount-code')?.value || '').trim();
       const errMsg = document.getElementById('discount-msg');
 
-      if (btn) { btn.textContent = 'Preparing checkout…'; btn.disabled = true; }
+      btns.forEach(b => { if (b) { b.textContent = 'Preparing checkout…'; b.disabled = true; } });
 
       try {
         const response = await fetch('/api/create-checkout', {
@@ -610,7 +614,7 @@
         }
       } catch (err) {
         console.error(err);
-        if (btn) { btn.textContent = '🌟 Get the Full Story — $35'; btn.disabled = false; }
+        btns.forEach(b => { if (b) { b.textContent = '🌟 Get the Full Story — $35'; b.disabled = false; } });
         if (errMsg) { errMsg.style.color = '#dc2626'; errMsg.textContent = err.message || 'Something went wrong. Please try again.'; }
       }
     }
