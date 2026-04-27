@@ -496,10 +496,6 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
   }
 );
 
-// ── SERVE ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, generateRemainingChapters] });
-module.exports = handler;
-
 // ════════════════════════════════════════════
 // PREVIEW — generate chapters 1-3 + email
 // ════════════════════════════════════════════
@@ -3288,3 +3284,7 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
     req.end();
   });
 }
+
+// ── SERVE — must be after all function definitions ──
+const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, generateRemainingChapters] });
+module.exports = handler;
