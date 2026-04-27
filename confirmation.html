@@ -303,9 +303,9 @@
     <div class="confetti-ring"></div>
     <div class="confetti-ring"></div>
     <div class="celebration-inner">
-      <div class="check-circle">🎉</div>
-      <h1>You're all set! 🎉</h1>
-      <p id="confirm-subtitle">Their story is being written right now. Your personalized hardcover book will be on its way soon!</p>
+      <div class="check-circle" id="confirm-icon">🎉</div>
+      <h1 id="confirm-title">You're all set! 🎉</h1>
+      <p id="confirm-subtitle">Their story is being written right now.</p>
     </div>
   </div>
 
@@ -325,7 +325,25 @@
         </div>
       </div>
 
-      <div class="step-row">
+      <div class="step-row" id="step-preview" style="display:none;">
+        <div class="step-icon-wrap">📖</div>
+        <div class="step-content">
+          <div class="step-title">3 chapters arriving in your inbox</div>
+          <div class="step-desc">Your child's opening chapters are being written right now — with their name, personality, and world woven in. Check your email in a few minutes.</div>
+          <div class="step-timing">📬 Coming in a few minutes</div>
+        </div>
+      </div>
+
+      <div class="step-row" id="step-upgrade-cta" style="display:none;">
+        <div class="step-icon-wrap">✨</div>
+        <div class="step-content">
+          <div class="step-title">Love it? Get the full book</div>
+          <div class="step-desc">Your email will include a button to upgrade for $32 more — unlock every chapter and we'll print and ship your hardcover book. Your $2.99 is already credited.</div>
+          <div class="step-timing">💛 No pressure, decide after reading</div>
+        </div>
+      </div>
+
+      <div class="step-row" id="step-book" style="display:none;">
         <div class="step-icon-wrap">📦</div>
         <div class="step-content">
           <div class="step-title">Printed hardcover book on its way</div>
@@ -334,7 +352,7 @@
         </div>
       </div>
 
-      <div class="step-row">
+      <div class="step-row" id="step-read">
         <div class="step-icon-wrap">🌟</div>
         <div class="step-content">
           <div class="step-title">Read it together</div>
@@ -351,17 +369,17 @@
         <span class="label">Story for</span>
         <span class="value" id="summary-name">Your child</span>
       </div>
-      <div class="order-row">
-        <span class="label">Personalized Hardcover Book</span>
-        <span class="value">✓ Included</span>
+      <div class="order-row" id="summary-item-row">
+        <span class="label" id="summary-item-label">Preview — First 3 Chapters</span>
+        <span class="value" id="summary-item-value">✓ Included</span>
       </div>
-      <div class="order-row">
+      <div class="order-row" id="summary-shipping-row" style="display:none;">
         <span class="label">Shipping</span>
         <span class="value">✓ Free</span>
       </div>
       <div class="order-total">
         <span class="label">Total paid</span>
-        <span class="value">$35.00</span>
+        <span class="value" id="summary-total">$2.99</span>
       </div>
     </div>
 
@@ -415,16 +433,34 @@
     const childName = urlChildName || (parsed ? parsed.childName : localStorage.getItem('gm_last_child_name'));
     const storyId = urlStoryId || (parsed ? parsed.storyId : localStorage.getItem('gm_last_story_id'));
 
-    if (childName) {
+    const type = params.get('type'); // 'preview' | null (upgrade or full)
+    const isPreview = type === 'preview';
+
+    if (isPreview) {
+      // Preview confirmation
+      document.getElementById('confirm-title').textContent = 'Check your inbox! 📬';
       document.getElementById('confirm-subtitle').textContent =
-        `${childName}'s story is being written right now. Your personalized hardcover book ships within 13–15 business days.`;
+        childName ? `${childName}'s first 3 chapters are being written right now — check your email in a few minutes.`
+                  : 'The first 3 chapters are being written right now — check your email in a few minutes.';
+      document.getElementById('step-preview').style.display = '';
+      document.getElementById('step-upgrade-cta').style.display = '';
+      document.getElementById('summary-item-label').textContent = 'Preview — First 3 Chapters';
+      document.getElementById('summary-total').textContent = '$2.99';
+      if (typeof gtag !== 'undefined') gtag('event', 'purchase', { currency: 'USD', value: 2.99, transaction_id: Date.now().toString() });
+    } else {
+      // Upgrade or full book confirmation
+      document.getElementById('confirm-subtitle').textContent =
+        childName ? `${childName}'s complete story is being written. Your hardcover book ships within 13–15 business days.`
+                  : 'The complete story is being written. Your hardcover book ships within 13–15 business days.';
+      document.getElementById('step-book').style.display = '';
+      document.getElementById('summary-item-label').textContent = 'Personalized Hardcover Book';
+      document.getElementById('summary-shipping-row').style.display = '';
+      document.getElementById('summary-total').textContent = '$35.00';
+      if (typeof gtag !== 'undefined') gtag('event', 'purchase', { currency: 'USD', value: 35, transaction_id: Date.now().toString() });
+    }
+
+    if (childName) {
       document.getElementById('summary-name').textContent = childName;
-
-      // GA4 - purchase complete
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'purchase', { currency: 'USD', value: 35, transaction_id: Date.now().toString() });
-      }
-
       sessionStorage.removeItem('storyPreview');
     }
 
