@@ -442,32 +442,39 @@
     <div class="purchase-col">
 
       <div class="purchase-hero">
-        <div class="purchase-hero-label" id="purchase-child-name">Complete Your Story</div>
-        <div class="purchase-price"><sup>$</sup>35</div>
-        <div class="purchase-price-note">Personalized hardcover book — free shipping</div>
+        <div class="purchase-hero-label" id="purchase-child-name">Read the First 3 Chapters</div>
+        <div class="purchase-price"><sup>$</sup>4.99</div>
+        <div class="purchase-price-note">Credited toward the $34.99 hardcover book</div>
       </div>
 
-      <div class="urgency-bar">⏳ Your story is saved for 24 hours</div>
+      <div class="urgency-bar">⏳ Your story preview is saved for 7 days</div>
 
       <button class="btn-buy" id="buy-btn-top" onclick="handlePurchase()">
-        🌟 Get the Full Story — $35
+        📖 Read 3 Chapters — $4.99
       </button>
 
       <div>
-        <div class="includes-title">Everything included</div>
+        <div class="includes-title">Your preview includes</div>
         <ul class="includes-list">
           <li>
-            <div class="li-icon">📚</div>
+            <div class="li-icon">📖</div>
             <div>
-              <div class="li-title">Personalized Hardcover Book</div>
-              <div class="li-sub">Printed and shipped in 13–15 business days</div>
+              <div class="li-title">Chapters 1–3 by Email</div>
+              <div class="li-sub">Delivered instantly — read together tonight</div>
+            </div>
+          </li>
+          <li>
+            <div class="li-icon">🎨</div>
+            <div>
+              <div class="li-title">Custom Illustrations</div>
+              <div class="li-sub">Original artwork featuring your child's likeness</div>
             </div>
           </li>
           <li>
             <div class="li-icon">✨</div>
             <div>
-              <div class="li-title">100% Unique Story</div>
-              <div class="li-sub" id="unique-sub">Written only for your child, never repeated</div>
+              <div class="li-title">$4.99 Credited to Full Book</div>
+              <div class="li-sub" id="unique-sub">Loved it? Upgrade for just $30 more — get every chapter + printed hardcover</div>
             </div>
           </li>
           <li>
@@ -477,38 +484,24 @@
               <div class="li-sub" id="milestone-sub">Their specific milestone is the heart of the story</div>
             </div>
           </li>
-          <li>
-            <div class="li-icon">📦</div>
-            <div>
-              <div class="li-title">Free Standard Shipping</div>
-              <div class="li-sub">US, Canada, UK &amp; Australia</div>
-            </div>
-          </li>
         </ul>
       </div>
 
       <button class="btn-buy" id="buy-btn" onclick="handlePurchase()">
-        🌟 Get the Full Story — $35
+        📖 Read 3 Chapters — $4.99
       </button>
 
-      <div>
-        <div class="discount-row">
-          <input type="text" id="discount-code" placeholder="Discount code"
-            onkeydown="if(event.key==='Enter') applyDiscount()"/>
-          <button onclick="applyDiscount()">Apply</button>
-        </div>
-        <div id="discount-msg"></div>
-      </div>
+      <div id="discount-msg"></div>
 
       <a href="intake-form.html" class="btn-restart">↩ Start a different story</a>
 
       <div class="trust-strip">
         <div class="trust-item"><span>🔒</span> Secure checkout via Stripe</div>
-        <div class="trust-item"><span>📦</span> Free standard shipping</div>
+        <div class="trust-item"><span>✅</span> $4.99 credited to full book</div>
         <div class="trust-item"><span>💛</span> Every story is one of a kind</div>
       </div>
 
-      <p style="font-size:.75rem;color:#9ca3af;text-align:center;line-height:1.5;">Because every book is written personally for your child, we're unable to offer refunds once your order is placed.</p>
+      <p style="font-size:.75rem;color:#9ca3af;text-align:center;line-height:1.5;">Preview chapters are delivered by email within minutes. Your $4.99 is credited toward the $34.99 full hardcover book if you choose to upgrade.</p>
 
     </div>
   </div>
@@ -587,23 +580,21 @@
 
     // ── PURCHASE ──
     async function handlePurchase() {
-      if (typeof gtag !== 'undefined') gtag('event', 'begin_checkout', { currency: 'USD', value: 35 });
+      if (typeof gtag !== 'undefined') gtag('event', 'begin_checkout', { currency: 'USD', value: 4.99 });
       const btns = [document.getElementById('buy-btn'), document.getElementById('buy-btn-top')];
-      const discountCode = (document.getElementById('discount-code')?.value || '').trim();
       const errMsg = document.getElementById('discount-msg');
 
       btns.forEach(b => { if (b) { b.textContent = 'Preparing checkout…'; b.disabled = true; } });
 
       try {
-        const response = await fetch('/api/create-checkout', {
+        const response = await fetch('/api/create-preview-checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             storyId:       window._storyId,
             childName:     window._childName,
             customerEmail: window._customerEmail || '',
-            customDetails: window._customDetails || '',
-            discountCode:  discountCode || ''
+            customDetails: window._customDetails || ''
           })
         });
         const data = await response.json();
@@ -614,19 +605,11 @@
         }
       } catch (err) {
         console.error(err);
-        btns.forEach(b => { if (b) { b.textContent = '🌟 Get the Full Story — $35'; b.disabled = false; } });
+        btns.forEach(b => { if (b) { b.textContent = '📖 Read 3 Chapters — $4.99'; b.disabled = false; } });
         if (errMsg) { errMsg.style.color = '#dc2626'; errMsg.textContent = err.message || 'Something went wrong. Please try again.'; }
       }
     }
 
-    // ── DISCOUNT ──
-    async function applyDiscount() {
-      const code = (document.getElementById('discount-code').value || '').trim();
-      const msg = document.getElementById('discount-msg');
-      if (!code) { msg.style.color = '#dc2626'; msg.textContent = 'Please enter a discount code.'; return; }
-      msg.style.color = '#2d6a4f';
-      msg.textContent = '✓ Code will be applied at checkout!';
-    }
   </script>
 </body>
 </html>

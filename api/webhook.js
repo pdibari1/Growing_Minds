@@ -50,11 +50,21 @@ module.exports = async function handler(req, res) {
   }
 
   const session = event.data.object;
-  const { childName, storyId, customDetails } = session.metadata;
+  const { childName, storyId, customDetails, payment_type } = session.metadata;
   const customerEmail = session.customer_details?.email;
 
-  // Primary: storyToken stored in Redis by generate-preview.js (avoids Stripe's 500-char limit)
-  // Fallback: storyToken in Stripe metadata (written by old create-checkout.js during transition period)
+  // ── UPGRADE payment — customer already has chapters 1-3, now wants the full book ──
+  if (payment_type === 'upgrade') {
+    console.log(`Upgrade payment received for ${childName} (${storyId}) — sending to Inngest`);
+    await sendInngestEvent({
+      name: "upgrade/completed",
+      data: { storyId, childName, customerEmail, shippingAddress: session.shipping_details || null }
+    });
+    return res.status(200).json({ received: true });
+  }
+
+  // ── PREVIEW payment — generate chapters 1-3 and email them ──
+  // ── FULL payment (no payment_type) — generate complete book (legacy / direct purchase) ──
   let storyToken = await redisGet(`token:${storyId}`);
   if (!storyToken && session.metadata.storyToken) {
     storyToken = session.metadata.storyToken;
@@ -62,21 +72,24 @@ module.exports = async function handler(req, res) {
   }
 
   if (!storyToken) {
-    // Hard stop — sending a null token to Inngest causes an immediate crash and wastes a run.
-    // Return 200 so Stripe doesn't retry; alert via log so it's visible in Vercel/Inngest dashboards.
-    console.error(`FATAL: No storyToken found for storyId ${storyId} (childName: ${childName}). Order not queued. Manually re-trigger from Inngest dashboard after recovering the token.`);
+    console.error(`FATAL: No storyToken found for storyId ${storyId} (childName: ${childName}). Order not queued.`);
     return res.status(200).json({ received: true, error: "missing_token" });
   }
 
-  console.log(`Order received for ${childName} — sending to Inngest`);
+  if (payment_type === 'preview') {
+    console.log(`Preview payment received for ${childName} — sending to Inngest`);
+    await sendInngestEvent({
+      name: "preview/completed",
+      data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
+    });
+  } else {
+    console.log(`Full order received for ${childName} — sending to Inngest`);
+    await sendInngestEvent({
+      name: "order/completed",
+      data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
+    });
+  }
 
-  // Send event to Inngest
-  await sendInngestEvent({
-    name: "order/completed",
-    data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
-  });
-
-  console.log(`Inngest event sent for ${childName}`);
   return res.status(200).json({ received: true });
 };
 

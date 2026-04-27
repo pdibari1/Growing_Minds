@@ -497,8 +497,486 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
 );
 
 // ── SERVE ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder] });
+const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, generateRemainingChapters] });
 module.exports = handler;
+
+// ════════════════════════════════════════════
+// PREVIEW — generate chapters 1-3 + email
+// ════════════════════════════════════════════
+
+const generatePreviewChapters = inngest.createFunction(
+  { id: "generate-preview-chapters", retries: 2, timeout: "45m" },
+  { event: "preview/completed" },
+  async ({ event, step }) => {
+    const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
+    const childData = decodeStoryData(storyToken);
+    if (!childData) throw new Error("Could not decode story token");
+    if (customDetails) childData.customDetails = customDetails;
+
+    const tier = getStoryTier(childData.age);
+    const PREVIEW_CHAPS = 3;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
+
+    // Cache everything with 7-day TTLs — must survive until upgrade payment
+    await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,        "EX", 604800]);
+    await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,     "EX", 604800]);
+    await redisRequest("SET", [`childname:${storyId}`,     childName,         "EX", 604800]);
+    await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"", "EX", 604800]);
+    await redisRequest("SET", [`preview_paid:${storyId}`,  "true",            "EX", 604800]);
+
+    // Named characters list
+    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
+    const namedCharacters = [childName];
+    if (childData.friend && childData.friend !== "none") {
+      childData.friend.split(/,|\band\b/i).forEach(f => { const t = f.trim(); if (t && !namedCharacters.includes(t)) namedCharacters.push(t); });
+    }
+    if (childData.customDetails) {
+      const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
+      nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
+    }
+    childData.namedCharacters = namedCharacters;
+
+    // Step 0b: Milestone guidance
+    const milestoneGuidance = await step.run("preview-milestone-guidance", async () => {
+      const guidance = await generateMilestoneGuidance(childData.milestone, childData.age, childData.name);
+      await redisRequest("SET", [`guidance:${storyId}`, guidance, "EX", 604800]);
+      return guidance;
+    });
+
+    // Step 0c: Parse custom details
+    const parsedFacts = await step.run("preview-parse-custom-details", async () => {
+      if (!childData.customDetails) return null;
+      const facts = await parseCustomDetails(childData.customDetails);
+      if (facts) await redisRequest("SET", [`facts:${storyId}`, facts, "EX", 604800]);
+      return facts || null;
+    });
+    if (parsedFacts) childData.parsedFacts = parsedFacts;
+
+    // Step 1: Generate full outline (needed for narrative coherence even in preview)
+    const rawOutline = await step.run("preview-generate-outline", async () => {
+      const result = await generateOutline(childData, tier, null, milestoneGuidance);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 604800]);
+      return result;
+    });
+
+    const sanitizedOutline = await step.run("preview-sanitize-outline", async () => {
+      const friendNames = namedCharacters.filter(n => n !== childName);
+      if (friendNames.length === 0) return rawOutline;
+      const sanitized = await sanitizeOutline(rawOutline, friendNames);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(sanitized), "EX", 604800]);
+      return sanitized;
+    });
+
+    const outline = await step.run("preview-verify-outline", async () => {
+      if (!parsedFacts || !childData.customDetails) return sanitizedOutline;
+      const verified = await verifyOutlineAgainstFacts(sanitizedOutline, parsedFacts, childData.customDetails);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(verified), "EX", 604800]);
+      return verified;
+    });
+
+    // Step 2: Generate chapters 1-3
+    await step.run("preview-generate-chapters", async () => {
+      const priorChapters = await getChaptersFromRedis(storyId);
+      const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance;
+      const facts = await redisRequest("GET", [`facts:${storyId}`]);
+      if (facts) childData.parsedFacts = facts;
+
+      let chapters = await generateChapterBatch(childData, outline, 0, PREVIEW_CHAPS, priorChapters, tier, guidance);
+      chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
+      chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
+
+      const all = [...priorChapters, ...chapters];
+      await redisRequest("SET", [`story:${storyId}`, JSON.stringify(all), "EX", 604800]);
+    });
+
+    // Step 3: Illustrations — cover + scene images for chapters 1-3
+    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
+    const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
+    const styleGuide = getStyleGuide();
+    const hairLengthExpanded =
+      hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
+      : hairLength === 'regular cut'   ? 'short regular cut, trimmed neatly above the ears'
+      : hairLength === 'past the ears' ? 'medium length, hanging past the ears'
+      : hairLength === 'to the shoulders' ? 'long, reaching all the way to the shoulders'
+      : hairLength === 'long'          ? 'very long, flowing well past the shoulders'
+      : hairLength === 'short'         ? 'very short, close-cropped, above the ears'
+      : hairLength === 'medium'        ? 'medium-length, chin to shoulder'
+      : hairLength || '';
+    const hairDescExpanded = [hairLengthExpanded, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+    const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
+    const longHairBoyNote = (genderDesc === 'boy' && (hairLength === 'long' || hairLength === 'to the shoulders'))
+      ? ` IMPORTANT: ${name} is a BOY with long hair — render with clearly boyish/masculine facial features.`
+      : '';
+
+    // Design characters
+    const castDescriptions = await step.run("preview-design-characters", async () => {
+      const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
+      const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
+      const cast = await designCharacters(childData, freshOutline);
+      await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(cast), "EX", 604800]);
+      return cast;
+    });
+
+    // Cover image
+    await step.run("preview-cover", async () => {
+      const wavyNote = hairStyle && (hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly'))
+        ? ` MANDATORY HAIR TEXTURE: ${name}'s hair is ${hairStyle.toUpperCase()} — every strand must show visible ${hairStyle} texture.`
+        : '';
+      const coverAgeNum = parseInt(age);
+      const coverAgeAppearance =
+        coverAgeNum <= 2  ? `a toddler — tiny body, very chubby round face, barely walking height` :
+        coverAgeNum <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
+        coverAgeNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid` :
+        coverAgeNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, small body` :
+        coverAgeNum <= 11 ? `an older elementary child — taller but unmistakably still a child, NOT a teenager` :
+        coverAgeNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
+                            `a teenager or adult`;
+      const coverPrompt = `Fully rendered full-color digital illustration — style of a Pixar or Disney animated feature film. Rich saturated colors throughout. Every element fully colored and painted — NO line art, NO coloring book outlines. CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render as a teenager or adult. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Single continuous fully-colored scene. No insets, no borders, no design elements, no text.`;
+      const coverUrl = await callDallE(coverPrompt);
+      const coverBytes = await fetchImageBytes(coverUrl);
+      const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
+      await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
+      await redisRequest("SET", [`img:${storyId}:0-0`, blob.url, "EX", 604800]);
+    });
+
+    // Refine character sheet from cover
+    await step.run("preview-character-sheet", async () => {
+      try {
+        const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
+        const refined = await generateCharacterSheet(coverBlobUrl, childData);
+        const merged = { ...castDescriptions, [name]: lockedCharDesc };
+        await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(merged), "EX", 604800]);
+      } catch(e) {
+        console.error(`Preview character sheet refinement failed: ${e.message}`);
+        await redisRequest("SET", [`cast:${storyId}`, JSON.stringify({ ...castDescriptions, [name]: lockedCharDesc }), "EX", 604800]);
+      }
+    });
+
+    // Scene illustrations for chapters 1-3
+    const freshOutlineForImgs = JSON.parse(await redisRequest("GET", [`outline:${storyId}`]) || '[]');
+    const step2 = Math.floor(freshOutlineForImgs.length / tier.imageCount);
+    const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
+      `${Math.min(i * step2, freshOutlineForImgs.length - 1)}-0`
+    );
+    if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
+    // Only generate images whose chapter index falls within the preview (1-3)
+    const previewSceneKeys = allImageKeys.filter(k => {
+      const ci = parseInt(k.split('-')[0]);
+      return ci >= 1 && ci <= PREVIEW_CHAPS;
+    });
+
+    for (let b = 0; b < previewSceneKeys.length; b++) {
+      await step.run(`preview-illustration-${b + 1}`, async () => {
+        const key = previewSceneKeys[b];
+        const ci = parseInt(key.split('-')[0]);
+        const chap = freshOutlineForImgs[ci];
+        const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
+        if (!coverBlobUrl) throw new Error("Cover not found");
+
+        const allChapters = await getChaptersFromRedis(storyId);
+        const chapterText = allChapters[ci] || null;
+        const visualScene = chapterText
+          ? await extractScenePrompt(chapterText, name, age, city, region)
+          : (chap?.imagePrompt || `${name} having a great time outdoors in ${city}`);
+
+        const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
+        const cast = castRaw ? JSON.parse(castRaw) : {};
+        const customDetailsLower = (childData.customDetails || '').toLowerCase();
+        const ageNum = parseInt(age);
+        const mainAgeAppearance =
+          ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
+          ageNum <= 4  ? `a preschooler — small, round babyish face, very short` :
+          ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid` :
+          ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, small body` :
+          ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child` :
+          ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
+                         `a teenager or adult`;
+        const illustrationStyle = ageNum <= 7
+          ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition.`
+          : ageNum <= 10
+          ? `Expressive character faces with personality and humor.`
+          : `Atmospheric and cinematic. Character expression conveys internal emotion.`;
+        const secondaryDesc = Object.entries(cast).filter(([n]) => n !== name).map(([n, d]) => {
+          const nLower = n.toLowerCase();
+          const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
+          const masculineNote = isMale ? ` CRITICAL: ${n} is a BOY — MALE.` : '';
+          const ageMatch = d.match(/\b(\d+)-year-old\b/);
+          const charAge = ageMatch ? parseInt(ageMatch[1]) : null;
+          let ageNote = '';
+          if (charAge !== null) {
+            const ap = charAge <= 2 ? `a toddler` : charAge <= 4 ? `a preschooler` : charAge <= 6 ? `a kindergarten-age child` : charAge <= 8 ? `a 2nd–3rd grade child` : charAge <= 11 ? `an older elementary child` : charAge <= 14 ? `a middle-school-aged child` : `a teenager or adult`;
+            ageNote = ` CRITICAL: ${n} is ${charAge} years old — must look like ${ap}.`;
+          }
+          return `${n}: ${d}${masculineNote}${ageNote}`;
+        }).join(' ');
+        const mainCharHairNote = hairStyle
+          ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
+          : `${hairLengthExpanded} ${hair}-colored hair`;
+        const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text anywhere.`;
+
+        const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
+        const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
+        await redisRequest("SET", [`img:${storyId}:${key}`, blob.url, "EX", 604800]);
+      });
+    }
+
+    // Step 4: Send preview email with chapters + upgrade CTA
+    await step.run("preview-send-email", async () => {
+      const chapters = await getChaptersFromRedis(storyId);
+      const coverUrl = await redisRequest("GET", [`cover:${storyId}`]);
+      const upgradeUrl = `${baseUrl}/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}`;
+      await sendPreviewEmail(customerEmail, childName, chapters, coverUrl, storyId, childData, upgradeUrl);
+    });
+
+    console.log(`✅ Preview complete for ${childName} — ${PREVIEW_CHAPS} chapters emailed`);
+    return { success: true, childName, chapters: PREVIEW_CHAPS };
+  }
+);
+
+// ════════════════════════════════════════════
+// UPGRADE — generate remaining chapters + full book
+// ════════════════════════════════════════════
+
+const generateRemainingChapters = inngest.createFunction(
+  { id: "generate-remaining-chapters", retries: 2, timeout: "60m" },
+  { event: "upgrade/completed" },
+  async ({ event, step }) => {
+    const { storyId, childName, customerEmail, shippingAddress } = event.data;
+
+    // Load everything from Redis — preview function stored it all with 7-day TTLs
+    const storyToken = await redisRequest("GET", [`storytoken:${storyId}`]);
+    if (!storyToken) throw new Error(`No storyToken in Redis for ${storyId} — preview may have expired`);
+
+    const childData = decodeStoryData(storyToken);
+    if (!childData) throw new Error("Could not decode story token");
+
+    const customDetails = await redisRequest("GET", [`customdetails:${storyId}`]);
+    if (customDetails) childData.customDetails = customDetails;
+
+    const tier = getStoryTier(childData.age);
+    const PREVIEW_CHAPS = 3;
+
+    // Reload named characters
+    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
+    const namedCharacters = [childName];
+    if (childData.friend && childData.friend !== "none") {
+      childData.friend.split(/,|\band\b/i).forEach(f => { const t = f.trim(); if (t && !namedCharacters.includes(t)) namedCharacters.push(t); });
+    }
+    if (childData.customDetails) {
+      const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
+      nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
+    }
+    childData.namedCharacters = namedCharacters;
+
+    // Load stored outline and parsedFacts
+    const outlineRaw = await redisRequest("GET", [`outline:${storyId}`]);
+    const outline = outlineRaw ? JSON.parse(outlineRaw) : null;
+    if (!outline) throw new Error(`No outline in Redis for ${storyId}`);
+    const parsedFacts = await redisRequest("GET", [`facts:${storyId}`]);
+    if (parsedFacts) childData.parsedFacts = parsedFacts;
+
+    console.log(`Upgrade: generating chapters ${PREVIEW_CHAPS + 1}–${tier.chapCount} for ${childName}`);
+
+    // Step 1: Generate remaining chapters in batches of 4
+    const BATCH_SIZE = 4;
+    const startChap = PREVIEW_CHAPS; // 0-indexed: chapters already done are indices 0,1,2
+    const batches = Math.ceil((tier.chapCount - startChap) / BATCH_SIZE);
+
+    for (let b = 0; b < batches; b++) {
+      await step.run(`upgrade-batch-${b + 1}`, async () => {
+        const start = startChap + b * BATCH_SIZE;
+        const end = Math.min(start + BATCH_SIZE, tier.chapCount);
+        console.log(`Upgrade batch ${b + 1}/${batches}: chapters ${start + 1}–${end}`);
+
+        const priorChapters = await getChaptersFromRedis(storyId);
+        const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || "";
+        const facts = await redisRequest("GET", [`facts:${storyId}`]);
+        if (facts) childData.parsedFacts = facts;
+
+        let chapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, guidance);
+        chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
+        chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
+
+        // Extend Redis TTL and save (append to existing chapters 1-3)
+        const all = [...priorChapters, ...chapters];
+        await redisRequest("SET", [`story:${storyId}`, JSON.stringify(all), "EX", 604800]);
+        return { saved: chapters.length };
+      });
+    }
+
+    // Step 2: Generate remaining illustrations
+    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
+    const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
+    const hairLengthExpanded =
+      hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
+      : hairLength === 'regular cut'   ? 'short regular cut, trimmed neatly above the ears'
+      : hairLength === 'past the ears' ? 'medium length, hanging past the ears'
+      : hairLength === 'to the shoulders' ? 'long, reaching all the way to the shoulders'
+      : hairLength === 'long'          ? 'very long, flowing well past the shoulders'
+      : hairLength === 'short'         ? 'very short, close-cropped, above the ears'
+      : hairLength === 'medium'        ? 'medium-length, chin to shoulder'
+      : hairLength || '';
+
+    if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
+      const step2 = Math.floor(outline.length / tier.imageCount);
+      const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
+        `${Math.min(i * step2, outline.length - 1)}-0`
+      );
+      if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
+
+      // Only generate keys NOT already in Redis (preview already made 0-0 + first few scene keys)
+      const upgradeKeys = [];
+      for (const key of allImageKeys) {
+        const exists = await redisRequest("GET", [`img:${storyId}:${key}`]);
+        if (!exists) upgradeKeys.push(key);
+      }
+      console.log(`Upgrade: generating ${upgradeKeys.length} remaining illustrations`);
+
+      for (let b = 0; b < upgradeKeys.length; b++) {
+        await step.run(`upgrade-illustration-${b + 1}`, async () => {
+          const key = upgradeKeys[b];
+          const ci = parseInt(key.split('-')[0]);
+          const chap = outline[ci];
+          const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
+          if (!coverBlobUrl) throw new Error("Cover not found in Redis");
+
+          const allChapters = await getChaptersFromRedis(storyId);
+          const chapterText = allChapters[ci] || null;
+          const visualScene = chapterText
+            ? await extractScenePrompt(chapterText, name, age, city, region)
+            : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
+
+          const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
+          const cast = castRaw ? JSON.parse(castRaw) : {};
+          const customDetailsLower = (childData.customDetails || '').toLowerCase();
+          const ageNum = parseInt(age);
+          const mainAgeAppearance =
+            ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
+            ageNum <= 4  ? `a preschooler — small, round babyish face, very short` :
+            ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face` :
+            ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face` :
+            ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child` :
+            ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
+                           `a teenager or adult`;
+          const illustrationStyle = ageNum <= 7 ? `Large expressive facial emotions. Simple, uncluttered composition.` : ageNum <= 10 ? `Expressive character faces with personality and humor.` : `Atmospheric and cinematic.`;
+          const secondaryDesc = Object.entries(cast).filter(([n]) => n !== name).map(([n, d]) => {
+            const nLower = n.toLowerCase();
+            const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
+            const masculineNote = isMale ? ` CRITICAL: ${n} is a BOY — MALE.` : '';
+            const ageMatch = d.match(/\b(\d+)-year-old\b/);
+            const charAge = ageMatch ? parseInt(ageMatch[1]) : null;
+            let ageNote = '';
+            if (charAge !== null) {
+              const ap = charAge <= 2 ? `a toddler` : charAge <= 4 ? `a preschooler` : charAge <= 6 ? `a kindergarten-age child` : charAge <= 8 ? `a 2nd–3rd grade child` : charAge <= 11 ? `an older elementary child` : charAge <= 14 ? `a middle-school-aged child` : `a teenager or adult`;
+              ageNote = ` CRITICAL: ${n} is ${charAge} years old — must look like ${ap}.`;
+            }
+            return `${n}: ${d}${masculineNote}${ageNote}`;
+          }).join(' ');
+          const mainCharHairNote = hairStyle
+            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
+            : `${hairLengthExpanded} ${hair}-colored hair`;
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors. No text anywhere.`;
+
+          const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
+          const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
+          await redisRequest("SET", [`img:${storyId}:${key}`, blob.url, "EX", 604800]);
+        });
+      }
+    }
+
+    // Step 3: Build preview PDF (first 10 chapters) and full book PDF
+    const pdfBlobUrl = await step.run("upgrade-create-pdf", async () => {
+      const chapters = await getChaptersFromRedis(storyId);
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      const pdfBase64 = await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const blob = await put(`pdfs/${storyId}/story-part1.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
+      return blob.url;
+    });
+
+    const fullBookUrl = await step.run("upgrade-create-full-book", async () => {
+      const allChapters = await getChaptersFromRedis(storyId);
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      const illustrationsB64 = {};
+      for (const [key, url] of Object.entries(illustrationUrls)) {
+        try {
+          const bytes = await fetchImageBytes(url);
+          illustrationsB64[key] = `data:image/jpeg;base64,${bytes.toString('base64')}`;
+        } catch(e) { console.error(`Full book image ${key} failed: ${e.message}`); }
+      }
+      const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
+      return blob.url;
+    });
+
+    // Step 4: Save to Airtable
+    await step.run("upgrade-save-story", async () => {
+      const allChapters = await getChaptersFromRedis(storyId);
+      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, fullBookUrl);
+    });
+
+    // Step 5: Admin notification
+    await step.run("upgrade-notify-admin", async () => {
+      const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]) || null;
+      const chapters = await getChaptersFromRedis(storyId);
+      const previewChapter = chapters && chapters[0] ? chapters[0].text || chapters[0] : null;
+      const token = adminToken(storyId);
+      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl, previewChapter, token);
+    });
+
+    // Step 6: Wait for admin approval (same as full flow)
+    await step.waitForEvent("upgrade-wait-for-approval", {
+      event: "story/approved",
+      match: "data.storyId",
+      timeout: "15m"
+    });
+
+    // Step 7: Send delivery email
+    await step.run("upgrade-send-email", async () => {
+      const skip = await redisRequest("GET", [`skip-delivery:${storyId}`]);
+      if (skip) {
+        await redisRequest("DEL", [`skip-delivery:${storyId}`]);
+        return;
+      }
+      const pdfBytes = await fetchImageBytes(pdfBlobUrl);
+      const pdfBase64 = pdfBytes.toString('base64');
+      await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
+    });
+
+    // Step 8: Cleanup
+    await step.run("upgrade-cleanup", async () => {
+      await deleteChaptersFromRedis(storyId);
+      try {
+        const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
+        if (imgKeys && imgKeys.length > 0) {
+          const urlsToDelete = [];
+          for (const k of imgKeys) {
+            const url = await redisRequest("GET", [k]);
+            const isCover = k === `img:${storyId}:0-0`;
+            if (url && !isCover) urlsToDelete.push(url);
+            await redisRequest("DEL", [k]);
+          }
+          if (urlsToDelete.length > 0) await del(urlsToDelete);
+        }
+      } catch(e) { console.error("Upgrade illustration cleanup error:", e.message); }
+      await redisRequest("DEL", [`outline:${storyId}`]);
+      await redisRequest("DEL", [`cast:${storyId}`]);
+      await redisRequest("DEL", [`storytoken:${storyId}`]);
+      await redisRequest("DEL", [`customeremail:${storyId}`]);
+      await redisRequest("DEL", [`childname:${storyId}`]);
+      await redisRequest("DEL", [`customdetails:${storyId}`]);
+      await redisRequest("DEL", [`guidance:${storyId}`]);
+      await redisRequest("DEL", [`facts:${storyId}`]);
+      await redisRequest("DEL", [`preview_paid:${storyId}`]);
+      try { await del([pdfBlobUrl]); } catch(e) {}
+      console.log(`Upgrade cleanup complete for ${storyId}`);
+    });
+
+    console.log(`✅ Upgrade complete for ${childName}`);
+    return { success: true, childName };
+  }
+);
 
 // ════════════════════════════════════════════
 // STORY GENERATION
@@ -2309,6 +2787,85 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 // ════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════
+
+async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, childData, upgradeUrl) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { milestone, city, region } = childData;
+  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
+
+  // Render chapters 1-3 as HTML blocks
+  const previewChaps = (chapters || []).slice(0, 3);
+  const chaptersHtml = previewChaps.map((chap, i) => {
+    const text = typeof chap === 'object' ? (chap.text || '') : (chap || '');
+    // Split into paragraphs
+    const paras = text.split(/\n+/).filter(p => p.trim());
+    const parasHtml = paras.map(p => {
+      const trimmed = p.trim();
+      // Chapter heading line
+      if (/^chapter\s+\d+/i.test(trimmed)) {
+        return `<h3 style="font-family:Georgia,serif;color:#2d6a4f;font-size:1.15rem;margin:1.8rem 0 .5rem;border-bottom:1px solid #d1fae5;padding-bottom:.4rem;">${trimmed}</h3>`;
+      }
+      return `<p style="font-family:Georgia,serif;font-size:1rem;line-height:1.8;color:#1a1a2e;margin:.75rem 0;">${trimmed}</p>`;
+    }).join('');
+    return `<div style="margin-bottom:1.5rem;">${parasHtml}</div>`;
+  }).join('<hr style="border:none;border-top:2px dashed #d1fae5;margin:2rem 0;" />');
+
+  const coverBlock = coverUrl
+    ? `<div style="text-align:center;margin:2rem 0 1.5rem;">
+        <img src="${coverUrl}" alt="${childName}'s story cover" style="max-width:300px;width:100%;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.15);" />
+      </div>`
+    : '';
+
+  const cliffhanger = `<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;padding:1.25rem 1.5rem;margin:2rem 0;text-align:center;">
+    <p style="font-size:1rem;font-weight:700;color:#854d0e;margin:0 0 .4rem;">🌟 The story is just getting started…</p>
+    <p style="font-size:.9rem;color:#92400e;margin:0;">There are ${childData.age <= 5 ? '12' : childData.age <= 9 ? '17' : '27'} more chapters waiting for ${childName}. Get the complete personalized hardcover book, printed and shipped to your door.</p>
+  </div>`;
+
+  const ctaButton = `<div style="text-align:center;margin:1.5rem 0 2rem;">
+    <a href="${upgradeUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:1.05rem;letter-spacing:.01em;box-shadow:0 3px 10px rgba(45,106,79,.3);">
+      ✨ Get the Full Book — $30
+    </a>
+    <p style="font-size:.8rem;color:#6b7280;margin:.6rem 0 0;">Your $4.99 preview has already been credited toward the $35 total.</p>
+  </div>`;
+
+  try {
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: email,
+      bcc: "purchase@growingminds.io",
+      subject: `📖 Here's ${childName}'s story preview!`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a2e;">
+          <div style="background:#2d6a4f;padding:1.75rem 2rem;text-align:center;border-radius:12px 12px 0 0;">
+            <p style="color:#86efac;font-size:.75rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .3rem;">Growing Minds</p>
+            <h1 style="color:white;font-size:1.4rem;margin:0;font-family:Georgia,serif;">${storyTitle}</h1>
+          </div>
+          <div style="background:#fefae0;padding:1.5rem 2rem 2rem;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+            <p style="font-size:1rem;color:#374151;margin:.5rem 0 0;">Hi! Here are the first 3 chapters of ${childName}'s personalized story — created just for them. Read it together tonight!</p>
+
+            ${coverBlock}
+            ${chaptersHtml}
+            ${cliffhanger}
+            ${ctaButton}
+
+            <div style="border-top:1px solid #e5e7eb;margin-top:2rem;padding-top:1rem;">
+              <div style="background:white;border:1px solid #d1fae5;border-radius:8px;padding:.75rem 1rem;text-align:center;margin-bottom:1rem;">
+                <div style="font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.25rem;">Your Story ID</div>
+                <div style="font-family:monospace;font-size:.95rem;font-weight:700;color:#14532d;">${storyId}</div>
+                <p style="font-size:.75rem;color:#4b7c5a;margin:.3rem 0 0;">Keep this — use it if you order a sequel or a story for a sibling.</p>
+              </div>
+              <p style="color:#6b7280;font-size:.8rem;text-align:center;margin:0;">Questions? <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+            </div>
+          </div>
+        </div>
+      `
+    });
+    console.log(`Preview email sent to ${email} for ${childName} (${storyId})`);
+  } catch(e) {
+    console.error(`Preview email failed: ${e.message}`);
+    throw e;
+  }
+}
 
 async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, storyId) {
   const resend = new Resend(process.env.RESEND_API_KEY);
