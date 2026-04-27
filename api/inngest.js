@@ -31,7 +31,7 @@ function getStoryTier(age) {
 
 // ── ILLUSTRATION STYLE — one universal style for all stories ──
 // Single DALL-E 3 style used for both cover and all chapter illustrations.
-const STYLE_GUIDE = "Bold outlined digital illustration with rich painted colors and detailed shading — like a high-quality animated feature film. Strong clean ink lines, vivid saturated palette, expressive characters with detailed faces and lush detailed backgrounds. Bright well-lit scene. CRITICAL: The image must contain ONLY the scene described — nothing else. No color swatches, no color strips, no paint palettes, no color charts, no reference bars. No art supplies, pencils, brushes, pens, or drawing tools anywhere. No hands holding any tools. No artist, no designer, no person creating the image. No borders, frames, panels, or insets. No text, words, signs, or labels. No design elements, UI elements, or reference sheets of any kind. The entire image is a single scene from the story — nothing more.";
+const STYLE_GUIDE = "Fully painted children's picture book illustration. Warm soft lighting, rich saturated colors, expressive characters, lush detailed backgrounds. Painterly digital art style — smooth color fills, gentle shading, NO heavy black outlines, NO comic book inking, NO coloring-book line art. The style should feel like a modern illustrated children's storybook: warm, inviting, fully rendered. Bright cheerful scene. CRITICAL: The image must contain ONLY the scene described — nothing else. No color swatches, no color strips, no paint palettes, no color charts, no reference bars. No art supplies, pencils, brushes, pens, or drawing tools anywhere. No hands holding any tools. No artist, no designer, no person creating the image. No borders, frames, panels, or insets. No text, words, signs, or labels. No design elements, UI elements, or reference sheets of any kind. The entire image is a single scene from the story — nothing more.";
 
 function getStyleGuide() {
   return STYLE_GUIDE;
@@ -708,7 +708,7 @@ const generatePreviewChapters = inngest.createFunction(
         const mainCharHairNote = hairStyle
           ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
           : `${hairLengthExpanded} ${hair}-colored hair`;
-        const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text anywhere.`;
+        const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. No text anywhere.`;
 
         const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
         const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -871,7 +871,7 @@ const generateRemainingChapters = inngest.createFunction(
           const mainCharHairNote = hairStyle
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors. No text anywhere.`;
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
