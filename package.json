@@ -5,7 +5,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.0",
     "@vercel/blob": "^0.27.0",
-    "inngest": "^3.52.6",
+    "inngest": "^3.54.0",
     "pdf-lib": "^1.17.1",
     "resend": "^4.0.0",
     "stripe": "^17.0.0"
