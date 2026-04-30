@@ -708,7 +708,7 @@ const generatePreviewChapters = inngest.createFunction(
         const mainCharHairNote = hairStyle
           ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
           : `${hairLengthExpanded} ${hair}-colored hair`;
-        const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. No text anywhere.`;
+        const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
         const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
         const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -871,7 +871,7 @@ const generateRemainingChapters = inngest.createFunction(
           const mainCharHairNote = hairStyle
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters: ${secondaryDesc}` : ''} ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. No text anywhere.`;
+          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -1460,11 +1460,20 @@ THE CLIMAX IS STILL A CLIMAX — but for this age, the darkest moment is a gentl
   ? `${name} is ${age} years old. Emotions can be real — disappointment, worry, frustration — but they must be clearly passing. Any setback must be followed by visible progress or comfort within the same chapter. Sustained sadness must not carry across more than one chapter. Chapter titles should be evocative, not bleak. The overall emotional current of the book is warm and hopeful.`
   : `${name} is ${age} years old. Genuine emotional complexity is appropriate — the story can sit with difficulty and let characters feel real, layered emotions across the arc.`}
 
-This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Structure the arc across all ${tier.chapCount} chapters:
-- Opening (first 20%): Introduce ${name} and their world, establish the milestone challenge
-- Rising action (middle 50%): Complications, obstacles, self-doubt, setbacks — driven by the challenge itself, not by friends being unkind
-- Climax (next 20%): ${parseInt(age) <= 7 ? "A gentle setback or moment of 'I'm not sure I can' — quickly and warmly resolved" : "Highest stakes, darkest moment of doubt, breakthrough"}
-- Resolution (final 10%): Triumph over the milestone, heartwarming ending
+This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Use this narrative structure — these are not suggestions, they are the blueprint:
+
+NARRATIVE BLUEPRINT:
+1. HOOK IMMEDIATELY: Chapter 1 opens mid-action or mid-problem. No warming up. Something is already happening. Within the first chapter, establish clearly what ${name} WANTS — something specific and small (not just "to be brave" — but "to make one friend to eat lunch with" or "to get through the first day without crying"). This specific desire drives the whole story.
+2. ESCALATING ATTEMPTS: In the rising action, ${name} tries to get what they want. Each attempt either fails outright or partially works but creates a new complication. Things get harder, not easier. The middle of the story is where the stakes rise — not where they plateau.
+3. TURNING POINT: One chapter is the moment of choice. ${name} must decide: try again or give up. Be brave or stay safe. This is the heart of the story — the moment the reader leans forward. ${parseInt(age) <= 7 ? "For this age, keep it gentle: a moment of 'I don't think I can' that becomes 'I'll try one more time.'" : "Make the choice feel genuinely hard — the wrong option should be tempting."}
+4. CHARACTER-DRIVEN RESOLUTION: ${name} solves the problem through their OWN action and choice — not luck, not an adult fixing it, not a magical coincidence. The breakthrough comes because ${name} did something. The reader should feel ${name} earned it.
+5. CLOSING ECHO: The final chapter circles back to something from the opening — a image, a feeling, a setting, a specific detail — but now it feels different because ${name} has changed. The reader feels the distance travelled.
+
+Arc structure across ${tier.chapCount} chapters:
+- Opening (first 20%): Hook → introduce ${name}'s world → establish the specific WANT and the obstacle
+- Rising action (middle 50%): Attempts fail or complicate → stakes rise → ${name} doubts themselves
+- Turning point (next 20%): ${parseInt(age) <= 7 ? "Gentle setback → moment of 'I'm not sure I can' → decision to try one more time" : "Highest stakes → hardest choice → breakthrough moment"}
+- Resolution (final 10%): ${name}'s own action resolves the problem → closing image echoes the opening, but changed
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
@@ -1655,6 +1664,10 @@ ${milestoneGuidance}
 - CHAPTER STRUCTURE: Every chapter has a beginning, middle, and end — even if subtle. Start: something is happening or about to happen. Middle: a complication or development that raises the stakes or deepens the situation. End: a change, a reveal, or a new tension. The reader must feel the chapter move.
 - OPENINGS: Drop the reader directly into action, dialogue, or a vivid moment. Never open a chapter with backstory, weather description, or a character waking up and thinking about the day. The first sentence must create immediate forward motion — something is already in motion when we arrive.
 - CHANGE IS MANDATORY: If nothing changes by the end of a chapter, rewrite it. Change can be external (a plot event, a new obstacle, something gained or lost) or internal (a feeling shifts, a realization lands, a decision is made). Both count. Neither can be skipped.
+- ESCALATION: When ${name} tries something and it doesn't work, the next attempt must be harder, not easier. Things should get more complicated before they get better. A story where the first try works, then the second try works, then the third try works is not a story — it's a list. Make the middle hard.
+- CHARACTER EARNS THE WIN: The resolution of the problem must come from ${name}'s own decision or action. An adult stepping in and fixing it, a lucky accident, or a coincidence that saves the day is a cheat. The reader must feel that ${name} caused the breakthrough — because they chose to try again, because they were kind when it was hard, because they did the thing they were afraid to do.
+- WANT IS THE ENGINE: Keep ${name}'s specific want visible throughout. The reader should always know what ${name} is trying to get or do. When that want is finally met (or meaningfully transformed), the story is over. If the want disappears from the middle chapters, the story loses its engine.
+- EMOTIONAL TRUTH OVER LESSON: Never state the theme, the moral, or what ${name} learned. Show it through what ${name} does at the turning point. A child reading should feel the meaning — not be told it.
 - CHAPTER TITLES: Titles should be evocative and slightly mysterious — they should hint at the chapter's emotional core without giving it away. Avoid flat descriptive titles like "The Competition" or "A Hard Day." Prefer titles with personality: a fragment of dialogue, a surprising image, an unexpected phrase that makes the reader curious.
 - ENDINGS — FORWARD PULL: Every chapter ending must pull the reader forward. The hook doesn't need to be dramatic — it can be a question, a surprise, a worry, or a quiet promise of what's coming. What it cannot be is a full stop. The last sentence leans forward. Never wrap the scene up neatly; leave one thread loose.
 - MOMENTUM: Chapters are pacing tools. Some chapters build "just one more…" energy — fast, propulsive, ending on a cliffhanger. Others give the reader a breath — slower, emotional, landing on feeling rather than action. Vary the rhythm deliberately. A string of identical chapter shapes kills momentum.
