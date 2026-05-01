@@ -29,12 +29,31 @@ function getStoryTier(age) {
   return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
 }
 
-// ── ILLUSTRATION STYLE — one universal style for all stories ──
-// Single DALL-E 3 style used for both cover and all chapter illustrations.
-const STYLE_GUIDE = "Fully painted children's picture book illustration. Warm soft lighting, rich saturated colors, expressive characters, lush detailed backgrounds. Painterly digital art style — smooth color fills, gentle shading, NO heavy black outlines, NO comic book inking, NO coloring-book line art. The style should feel like a modern illustrated children's storybook: warm, inviting, fully rendered. Bright cheerful scene. CRITICAL: The image must contain ONLY the scene described — nothing else. No color swatches, no color strips, no paint palettes, no color charts, no reference bars. No art supplies, pencils, brushes, pens, or drawing tools anywhere. No hands holding any tools. No artist, no designer, no person creating the image. No borders, frames, panels, or insets. No text, words, signs, or labels. No design elements, UI elements, or reference sheets of any kind. The entire image is a single scene from the story — nothing more.";
+// ── ILLUSTRATION STYLE — three age-tiered styles ──
+function getStyleGuideForAge(age) {
+  const ageNum = parseInt(age) || 7;
+  if (ageNum <= 7) {
+    return "Fully painted children's picture book illustration. Warm soft lighting, rich vibrant colors, large expressive cartoon faces, simple inviting compositions. Smooth color fills with soft outlines — bright, cheerful, and playful. Like a modern animated picture book. NO heavy black ink lines. NO coloring-book line art. Fully colored throughout.";
+  } else if (ageNum <= 11) {
+    return "Detailed middle-grade chapter book illustration. Rich complex backgrounds, more realistic character proportions — like cover art for a middle-grade adventure novel. Warm but sophisticated color palette with depth and texture. Painterly digital art with expressive characters and dynamic compositions. NO flat baby cartoon style. Fully rendered with atmospheric lighting.";
+  } else {
+    return "Sophisticated graphic novel illustration. Realistic proportions, nuanced color palette, strong contrast and mood. Characters carry emotional depth. Cinematic painterly style — like a YA graphic novel or illustrated teen fiction. NO childlike cartoon style. Fully rendered with depth and atmosphere.";
+  }
+}
 
-function getStyleGuide() {
-  return STYLE_GUIDE;
+function getCoverStyleForAge(age) {
+  const ageNum = parseInt(age) || 7;
+  if (ageNum <= 7) {
+    return "Bright cheerful children's picture book illustration. Smooth vibrant cartoon style with warm soft lighting — like a modern animated picture book. Rich saturated colors, large expressive face, simple inviting background. NO heavy black outlines. NO coloring-book style. Fully painted throughout.";
+  } else if (ageNum <= 11) {
+    return "Dynamic chapter book cover illustration. Rich detailed background, more realistic proportions — like a middle-grade adventure novel cover. Warm sophisticated color palette with depth and texture. Painterly digital art style. Expressive face full of personality. Fully rendered.";
+  } else {
+    return "Sophisticated graphic novel cover illustration. Realistic proportions, nuanced color palette with strong contrast and mood. Cinematic composition — like a YA graphic novel or illustrated teen fiction cover. Character carries emotional depth. Fully rendered with atmosphere and detail.";
+  }
+}
+
+function getStyleGuide(age) {
+  return getStyleGuideForAge(age);
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -241,11 +260,12 @@ const generateStoryOrder = inngest.createFunction(
           coverAgeNum <= 14 ? `a middle-school-aged child — approaching adolescence but clearly still a kid, NOT an adult` :
                               `a teenager or adult`;
 
-        const coverPrompt = `Bright cheerful children's book cartoon illustration. Bold clean cartoon outlines, vibrant flat colors, soft even lighting — like a modern animated children's TV series. Warm sunny atmosphere. NO dramatic shadows. NO photorealistic rendering. NO dark or moody lighting. Fully colored throughout — NO line art only, NO coloring book outlines.
+        const coverStyle = getCoverStyleForAge(age);
+        const coverPrompt = `${coverStyle}
 
-CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} as a teenager or adult. Small child body, young child face shape and proportions of a real ${age}-year-old. NOT a teenager. NOT an adult. Age ${age}.
+CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling happily in a wide open ${region} outdoor scene with mountains and sky. Single continuous scene. No insets, no borders, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no painting tools of any kind. No text or words anywhere.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Single continuous scene filling the entire image edge to edge — no insets, no borders, no color swatches, no paint palettes, no art supplies. No text or words anywhere.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -627,7 +647,12 @@ const generatePreviewChapters = inngest.createFunction(
         coverAgeNum <= 11 ? `an older elementary child — taller but unmistakably still a child, NOT a teenager` :
         coverAgeNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
                             `a teenager or adult`;
-      const coverPrompt = `Bright cheerful children's book cartoon illustration. Bold clean cartoon outlines, vibrant flat colors, soft even lighting — like a modern animated children's TV series. Warm sunny atmosphere. NO dramatic shadows. NO photorealistic rendering. NO dark or moody lighting. Fully colored throughout — NO line art only, NO coloring book outlines. CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render as a teenager or adult. Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling happily in a wide open ${region} outdoor scene. Single continuous scene. No insets, no borders, no color swatches, no paint palettes, no art supplies, no pencils, no brushes, no painting tools of any kind. No text or words anywhere.`;
+      const coverStyle = getCoverStyleForAge(age);
+      const coverPrompt = `${coverStyle}
+
+CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
+
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Single continuous scene filling the entire image edge to edge — no insets, no borders, no color swatches, no paint palettes, no art supplies. No text or words anywhere.`;
       const coverUrl = await callDallE(coverPrompt);
       const coverBytes = await fetchImageBytes(coverUrl);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -708,7 +733,8 @@ const generatePreviewChapters = inngest.createFunction(
         const mainCharHairNote = hairStyle
           ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
           : `${hairLengthExpanded} ${hair}-colored hair`;
-        const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+        const sceneStyleGuide = getStyleGuideForAge(age);
+        const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
         const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
         const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -871,7 +897,8 @@ const generateRemainingChapters = inngest.createFunction(
           const mainCharHairNote = hairStyle
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} Cheerful, bright daytime scene. Fully painted children's picture book style — warm colors, smooth shading, NO heavy outlines, NO coloring-book style. IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+          const sceneStyleGuide = getStyleGuideForAge(age);
+        const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -1730,7 +1757,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
-  const styleGuide = getStyleGuide();
+  const styleGuide = getStyleGuideForAge(age);
 
   const illustrations = {}; // keyed by "chapterIndex-imageIndex"
 
