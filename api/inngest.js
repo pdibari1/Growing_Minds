@@ -44,11 +44,11 @@ function getStyleGuideForAge(age) {
 function getCoverStyleForAge(age) {
   const ageNum = parseInt(age) || 7;
   if (ageNum <= 7) {
-    return "Bright cheerful children's picture book illustration. Smooth vibrant cartoon style with warm soft lighting — like a modern animated picture book. Rich saturated colors, large expressive face, simple inviting background. NO heavy black outlines. NO coloring-book style. Fully painted throughout.";
+    return "A full-bleed page from a published children's picture book. The scene fills the entire image from corner to corner, edge to edge — exactly as it would appear printed in a finished hardcover book. Smooth vibrant cartoon style with warm soft lighting, rich saturated colors, large expressive face, simple inviting background. Fully painted throughout.";
   } else if (ageNum <= 11) {
-    return "Dynamic chapter book cover illustration. Rich detailed background, more realistic proportions — like a middle-grade adventure novel cover. Warm sophisticated color palette with depth and texture. Painterly digital art style. Expressive face full of personality. Fully rendered.";
+    return "A full-bleed page from a published middle-grade adventure novel. The scene fills the entire image from corner to corner, edge to edge — exactly as it would appear printed in a finished hardcover book. Rich detailed background, more realistic proportions, warm sophisticated color palette with depth and texture. Painterly digital art style. Fully rendered.";
   } else {
-    return "Sophisticated graphic novel cover illustration. Realistic proportions, nuanced color palette with strong contrast and mood. Cinematic composition — like a YA graphic novel or illustrated teen fiction cover. Character carries emotional depth. Fully rendered with atmosphere and detail.";
+    return "A full-bleed page from a published YA graphic novel. The scene fills the entire image from corner to corner, edge to edge — exactly as it would appear printed in a finished hardcover book. Realistic proportions, nuanced color palette with strong contrast and mood. Cinematic composition. Character carries emotional depth. Fully rendered with atmosphere.";
   }
 }
 
@@ -254,7 +254,7 @@ const generateStoryOrder = inngest.createFunction(
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Single continuous scene filling the entire image edge to edge — no insets, no borders, no color swatches, no paint palettes, no art supplies. No text or words anywhere.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
         const coverUrl = await callDallE(coverPrompt);
         const coverBytes = await fetchImageBytes(coverUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -569,7 +569,7 @@ const generatePreviewChapters = inngest.createFunction(
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Single continuous scene filling the entire image edge to edge — no insets, no borders, no color swatches, no paint palettes, no art supplies. No text or words anywhere.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
       const coverUrl = await callDallE(coverPrompt);
       const coverBytes = await fetchImageBytes(coverUrl);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
