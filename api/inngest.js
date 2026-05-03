@@ -229,19 +229,8 @@ const generateStoryOrder = inngest.createFunction(
         ? ` IMPORTANT: ${name} is a BOY with long hair — render with clearly boyish/masculine facial features (strong brow, boyish jaw, masculine face). Do NOT make this character look like a girl.`
         : '';
 
-      // Step A: Use Claude to design ALL recurring characters with consistent descriptions
-      const castDescriptions = await step.run("design-characters", async () => {
-        const cast = await designCharacters(childData, freshOutline);
-        await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(cast), "EX", 7200]);
-        console.log(`Designed ${Object.keys(cast).length} characters: ${Object.keys(cast).join(', ')}`);
-        return cast;
-      });
-
-      // Build cast reference string for prompts
-      const buildCastRef = (cast) => Object.entries(cast).map(([n, d]) => `${n}: ${d}`).join('. ');
-
-      // Step B: Generate cover image, then refine main character description via GPT-4o
-      const finalCast = await step.run("generate-cover-and-character-sheet-v4", async () => {
+      // Step B: Generate cover image
+      await step.run("generate-cover-and-character-sheet-v4", async () => {
         // Pick a dramatic hero moment from ~65% through the story (climax area)
         const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
         const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
@@ -274,23 +263,6 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
         // before notify-admin runs on long stories. This key is never deleted by cleanup.
         await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
         console.log(`Cover image generated: ${blob.url.slice(0, 60)}`);
-
-        // Use GPT-4o to refine secondary character descriptions from the cover
-        // BUT always keep the user's specified physical attributes for the main character
-        try {
-          const refined = await generateCharacterSheet(blob.url, childData);
-          // Lock main character to user-specified attrs — GPT-4o can only help with secondary chars
-          const merged = { ...castDescriptions, [name]: lockedCharDesc };
-          // Store cast so image generation steps can describe secondary characters accurately
-          await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(merged), "EX", 7200]);
-          console.log(`Character sheet done — ${name} locked to user attrs: ${lockedCharDesc}`);
-          return merged;
-        } catch(e) {
-          console.error(`Character sheet refinement failed, using locked attrs: ${e.message}`);
-          const fallback = { ...castDescriptions, [name]: lockedCharDesc };
-          await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(fallback), "EX", 7200]);
-          return fallback;
-        }
       });
 
       // Step C: Generate remaining illustrations using fal.ai instant-character
@@ -331,59 +303,13 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
             ? `Expressive character faces with personality and humor. Spot-illustration feel — tight on the characters, with enough background to set the scene. Include one small visual detail that adds humor or reveals character beyond what the text says.`
             : `Atmospheric and cinematic. Detailed environment that captures the mood of the scene. Character expression conveys internal emotion — not just what they're doing but how they feel about it.`;
 
-          // Load cast descriptions so secondary characters are rendered accurately
-          const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
-          const cast = castRaw ? JSON.parse(castRaw) : {};
-
-          // Parse custom details once to detect gender of secondary characters
-          const customDetailsLower = (childData.customDetails || '').toLowerCase();
-
-          // Build a secondary character description string — everyone except the main character
-          // Enforce gender, age, and clothing distinctness for every secondary character
-          const secondaryDesc = Object.entries(cast)
-            .filter(([n]) => n !== name)
-            .map(([n, d]) => {
-              const nLower = n.toLowerCase();
-
-              // ── Gender enforcement ──
-              const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
-              const masculineNote = isMale
-                ? ` CRITICAL: ${n} is a BOY — MALE. Render with a clearly boyish/masculine face: strong brow, boyish jaw, masculine features. Do NOT make ${n} look like a girl under any circumstances, regardless of hair length or style.`
-                : '';
-
-              // ── Age enforcement ──
-              // Extract age from the character description (e.g. "a 7-year-old boy")
-              const ageMatch = d.match(/\b(\d+)-year-old\b/);
-              const charAge = ageMatch ? parseInt(ageMatch[1]) : null;
-              let ageNote = '';
-              if (charAge !== null) {
-                const ageAppearance =
-                  charAge <= 2  ? `a toddler — very small, chubby round face, barely walking height, clearly a baby or toddler` :
-                  charAge <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
-                  charAge <= 6  ? `a kindergarten-age child — small, round face, clearly a little kid, noticeably shorter than a 7-year-old` :
-                  charAge <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, clearly a child, taller than a 5-year-old but still small` :
-                  charAge <= 11 ? `an older elementary child — taller, leaner face, but unmistakably still a child, NOT a teenager` :
-                  charAge <= 14 ? `a middle-school-aged child — approaching adolescence but clearly still a kid, NOT an adult` :
-                                  `a teenager or adult`;
-                ageNote = ` CRITICAL: ${n} is ${charAge} years old — they must look like ${ageAppearance}. Do NOT render ${n} younger or older than ${charAge}. Body size, face shape, and proportions must match an actual ${charAge}-year-old.`;
-              }
-
-              // ── Clothing distinctness ──
-              const clothingNote = ` ${n} must wear clothing that is completely different in color and style from ${name}'s outfit — do NOT dress ${n} in the same outfit as ${name}.`;
-
-              return `${n}: ${d}${masculineNote}${ageNote}${clothingNote}`;
-            })
-            .join(' ');
-
-          // Main character hair texture note for scene prompt (critical when hair is wavy/curly,
-          // since the cover image reference may not accurately capture the texture)
+          // Main character hair texture note
           const mainCharHairNote = hairStyle
-            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: the hair is ${hairStyle}, NOT straight; visible waves/curls required` : ''}`
+            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
 
-          // Scene prompt: main character appearance comes from the reference image
-          // Secondary characters are described in text so they render consistently
-          const scenePrompt = `${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — they must look like ${mainAgeAppearance}. Do NOT render the main character as a teenager or adult. The main character has ${mainCharHairNote}.${secondaryDesc ? ` Other characters in this story: ${secondaryDesc}. Render each exactly as described.` : ''} Every character in the scene wears a distinctly different outfit — no matching clothes between any two characters. ${illustrationStyle} Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors — like a high-quality animated feature film. No text, signs, or words anywhere in the image.`;
+          const sceneStyleGuide = getStyleGuideForAge(age);
+          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -501,7 +427,7 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
-      await redisRequest("DEL", [`cast:${storyId}`]);
+
       await redisRequest("DEL", [`storytoken:${storyId}`]);
       await redisRequest("DEL", [`customeremail:${storyId}`]);
       await redisRequest("DEL", [`childname:${storyId}`]);
@@ -624,15 +550,6 @@ const generatePreviewChapters = inngest.createFunction(
       ? ` IMPORTANT: ${name} is a BOY with long hair — render with clearly boyish/masculine facial features.`
       : '';
 
-    // Design characters
-    const castDescriptions = await step.run("preview-design-characters", async () => {
-      const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
-      const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
-      const cast = await designCharacters(childData, freshOutline);
-      await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(cast), "EX", 604800]);
-      return cast;
-    });
-
     // Cover image
     await step.run("preview-cover", async () => {
       const wavyNote = hairStyle && (hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly'))
@@ -658,19 +575,6 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
       await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
       await redisRequest("SET", [`img:${storyId}:0-0`, blob.url, "EX", 604800]);
-    });
-
-    // Refine character sheet from cover
-    await step.run("preview-character-sheet", async () => {
-      try {
-        const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
-        const refined = await generateCharacterSheet(coverBlobUrl, childData);
-        const merged = { ...castDescriptions, [name]: lockedCharDesc };
-        await redisRequest("SET", [`cast:${storyId}`, JSON.stringify(merged), "EX", 604800]);
-      } catch(e) {
-        console.error(`Preview character sheet refinement failed: ${e.message}`);
-        await redisRequest("SET", [`cast:${storyId}`, JSON.stringify({ ...castDescriptions, [name]: lockedCharDesc }), "EX", 604800]);
-      }
     });
 
     // Scene illustrations for chapters 1-3
@@ -700,9 +604,6 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
           ? await extractScenePrompt(chapterText, name, age, city, region)
           : (chap?.imagePrompt || `${name} having a great time outdoors in ${city}`);
 
-        const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
-        const cast = castRaw ? JSON.parse(castRaw) : {};
-        const customDetailsLower = (childData.customDetails || '').toLowerCase();
         const ageNum = parseInt(age);
         const mainAgeAppearance =
           ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
@@ -717,19 +618,6 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
           : ageNum <= 10
           ? `Expressive character faces with personality and humor.`
           : `Atmospheric and cinematic. Character expression conveys internal emotion.`;
-        const secondaryDesc = Object.entries(cast).filter(([n]) => n !== name).map(([n, d]) => {
-          const nLower = n.toLowerCase();
-          const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
-          const masculineNote = isMale ? ` CRITICAL: ${n} is a BOY — MALE.` : '';
-          const ageMatch = d.match(/\b(\d+)-year-old\b/);
-          const charAge = ageMatch ? parseInt(ageMatch[1]) : null;
-          let ageNote = '';
-          if (charAge !== null) {
-            const ap = charAge <= 2 ? `a toddler` : charAge <= 4 ? `a preschooler` : charAge <= 6 ? `a kindergarten-age child` : charAge <= 8 ? `a 2nd–3rd grade child` : charAge <= 11 ? `an older elementary child` : charAge <= 14 ? `a middle-school-aged child` : `a teenager or adult`;
-            ageNote = ` CRITICAL: ${n} is ${charAge} years old — must look like ${ap}.`;
-          }
-          return `${n}: ${d}${masculineNote}${ageNote}`;
-        }).join(' ');
         const mainCharHairNote = hairStyle
           ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
           : `${hairLengthExpanded} ${hair}-colored hair`;
@@ -868,9 +756,6 @@ const generateRemainingChapters = inngest.createFunction(
             ? await extractScenePrompt(chapterText, name, age, city, region)
             : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
 
-          const castRaw = await redisRequest("GET", [`cast:${storyId}`]);
-          const cast = castRaw ? JSON.parse(castRaw) : {};
-          const customDetailsLower = (childData.customDetails || '').toLowerCase();
           const ageNum = parseInt(age);
           const mainAgeAppearance =
             ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
@@ -881,24 +766,11 @@ const generateRemainingChapters = inngest.createFunction(
             ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
                            `a teenager or adult`;
           const illustrationStyle = ageNum <= 7 ? `Large expressive facial emotions. Simple, uncluttered composition.` : ageNum <= 10 ? `Expressive character faces with personality and humor.` : `Atmospheric and cinematic.`;
-          const secondaryDesc = Object.entries(cast).filter(([n]) => n !== name).map(([n, d]) => {
-            const nLower = n.toLowerCase();
-            const isMale = new RegExp(`\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b[^.]{0,60}\\b${nLower}\\b|\\b${nLower}\\b[^.]{0,60}\\b(his|him|boy|brother|son|father|dad|uncle|grandfather|grandpa)\\b`, 'i').test(customDetailsLower);
-            const masculineNote = isMale ? ` CRITICAL: ${n} is a BOY — MALE.` : '';
-            const ageMatch = d.match(/\b(\d+)-year-old\b/);
-            const charAge = ageMatch ? parseInt(ageMatch[1]) : null;
-            let ageNote = '';
-            if (charAge !== null) {
-              const ap = charAge <= 2 ? `a toddler` : charAge <= 4 ? `a preschooler` : charAge <= 6 ? `a kindergarten-age child` : charAge <= 8 ? `a 2nd–3rd grade child` : charAge <= 11 ? `an older elementary child` : charAge <= 14 ? `a middle-school-aged child` : `a teenager or adult`;
-              ageNote = ` CRITICAL: ${n} is ${charAge} years old — must look like ${ap}.`;
-            }
-            return `${n}: ${d}${masculineNote}${ageNote}`;
-          }).join(' ');
           const mainCharHairNote = hairStyle
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
           const sceneStyleGuide = getStyleGuideForAge(age);
-        const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -984,7 +856,7 @@ const generateRemainingChapters = inngest.createFunction(
         }
       } catch(e) { console.error("Upgrade illustration cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
-      await redisRequest("DEL", [`cast:${storyId}`]);
+
       await redisRequest("DEL", [`storytoken:${storyId}`]);
       await redisRequest("DEL", [`customeremail:${storyId}`]);
       await redisRequest("DEL", [`childname:${storyId}`]);
