@@ -2697,37 +2697,148 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 // EMAIL
 // ════════════════════════════════════════════
 
+async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
+  const { milestone, city, region, age } = childData;
+  const pdfDoc = await PDFDocument.create();
+  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+  const timesBold  = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+  const helvetica  = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const pageWidth = 432, pageHeight = 648, margin = 54;
+  const contentW = pageWidth - margin * 2;
+  const green = rgb(0.176, 0.416, 0.310);
+  const gold  = rgb(0.976, 0.780, 0.310);
+  const dark  = rgb(0.1, 0.1, 0.15);
+  const grey  = rgb(0.6, 0.6, 0.6);
+  const cream = rgb(0.998, 0.980, 0.878);
+
+  // ── COVER PAGE ──
+  const cover = pdfDoc.addPage([pageWidth, pageHeight]);
+  if (coverUrl) {
+    try {
+      const coverBytes = await fetchImageBytes(coverUrl);
+      const img = await pdfDoc.embedJpg(coverBytes).catch(() => pdfDoc.embedPng(coverBytes));
+      cover.drawImage(img, { x: 0, y: pageHeight * 0.35, width: pageWidth, height: pageHeight * 0.65 });
+      cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight * 0.40, color: green });
+    } catch(e) {
+      cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
+    }
+  } else {
+    cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
+  }
+  cover.drawText(`${childName} and the`, { x: margin, y: pageHeight * 0.35, font: timesBold, size: 24, color: rgb(1,1,1) });
+  cover.drawText(getMilestoneTitle(milestone), { x: margin, y: pageHeight * 0.35 - 32, font: timesBold, size: 24, color: gold });
+  cover.drawText("A Growing Minds Original Story", { x: margin, y: pageHeight * 0.35 - 64, font: helvetica, size: 10, color: rgb(0.8,0.9,0.85) });
+  cover.drawText(`Chapters 1–3 Preview`, { x: margin, y: pageHeight * 0.20, font: helBold, size: 11, color: gold });
+  cover.drawText(`Written for ${childName}, age ${age}`, { x: margin, y: pageHeight * 0.20 - 18, font: timesRoman, size: 10, color: rgb(1,1,1) });
+  if (city && region) cover.drawText(`${city}, ${region}`, { x: margin, y: pageHeight * 0.20 - 36, font: timesRoman, size: 9, color: rgb(0.8,0.9,0.85) });
+  cover.drawText("growingminds.io", { x: margin, y: margin, font: helvetica, size: 9, color: rgb(0.6,0.8,0.7) });
+
+  // ── STORY PAGES ──
+  let page = null, cursorY = 0, pageNum = 1;
+  const fontSize = 13, topY = pageHeight - margin, bottomY = margin + 30;
+  const charsPerBodyLine = 62, charsPerTitleLine = 52;
+
+  function wrapText(text, charsPerLine) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (test.length > charsPerLine && line) { lines.push(line); line = w; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function newPage() {
+    page = pdfDoc.addPage([pageWidth, pageHeight]);
+    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: cream });
+    cursorY = topY;
+  }
+
+  function addPageNum() {
+    page.drawText(`${pageNum++}`, { x: pageWidth / 2 - 5, y: margin - 15, font: timesRoman, size: 10, color: grey });
+  }
+
+  function drawWrappedText(text, font, size, color, charsPerLine) {
+    const lh = size * 1.6;
+    const lines = wrapText(text, charsPerLine || charsPerBodyLine);
+    for (const l of lines) {
+      if (cursorY < bottomY) { addPageNum(); newPage(); }
+      page.drawText(l, { x: margin, y: cursorY, font, size, color });
+      cursorY -= lh;
+    }
+  }
+
+  newPage();
+  const previewChaps = (chapters || []).slice(0, 3);
+
+  for (let ci = 0; ci < previewChaps.length; ci++) {
+    const chapRaw = previewChaps[ci];
+    const chapText = typeof chapRaw === 'object' ? (chapRaw.text || '') : (chapRaw || '');
+    const chapLines = chapText.split(/\n+/).filter(l => l.trim());
+
+    // Chapter heading
+    if (chapLines.length > 0) {
+      cursorY -= 20;
+      if (cursorY < bottomY + 80) { addPageNum(); newPage(); }
+      page.drawRectangle({ x: margin, y: cursorY + 6, width: contentW, height: 2, color: green });
+      cursorY -= 14;
+      drawWrappedText(chapLines[0], timesBold, 15, green, charsPerTitleLine);
+      cursorY -= 8;
+    }
+
+    // Body paragraphs
+    for (const line of chapLines.slice(1)) {
+      cursorY -= 4;
+      drawWrappedText(line, timesRoman, fontSize, dark, charsPerBodyLine);
+    }
+    cursorY -= 16;
+  }
+
+  // "To be continued" page
+  addPageNum();
+  const tbc = pdfDoc.addPage([pageWidth, pageHeight]);
+  tbc.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
+  const moreChaps = parseInt(age) <= 5 ? 12 : parseInt(age) <= 9 ? 17 : 27;
+  tbc.drawText("The story continues…", { x: margin, y: pageHeight * 0.60, font: timesBold, size: 20, color: rgb(1,1,1) });
+  tbc.drawText(`${childName} has ${moreChaps} more chapters waiting.`, { x: margin, y: pageHeight * 0.60 - 36, font: timesRoman, size: 12, color: rgb(0.8,0.9,0.85) });
+  tbc.drawText("Get the full personalized hardcover book at:", { x: margin, y: pageHeight * 0.60 - 60, font: helvetica, size: 11, color: rgb(0.8,0.9,0.85) });
+  tbc.drawText("growingminds.io", { x: margin, y: pageHeight * 0.60 - 84, font: helBold, size: 16, color: gold });
+
+  const pdfBytes = await pdfDoc.save();
+  return Buffer.from(pdfBytes).toString('base64');
+}
+
 async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, childData, upgradeUrl) {
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const { milestone, city, region } = childData;
+  const { milestone } = childData;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
 
-  // Render chapters 1-3 as HTML blocks
-  const previewChaps = (chapters || []).slice(0, 3);
-  const chaptersHtml = previewChaps.map((chap, i) => {
-    const text = typeof chap === 'object' ? (chap.text || '') : (chap || '');
-    // Split into paragraphs
-    const paras = text.split(/\n+/).filter(p => p.trim());
-    const parasHtml = paras.map(p => {
-      const trimmed = p.trim();
-      // Chapter heading line
-      if (/^chapter\s+\d+/i.test(trimmed)) {
-        return `<h3 style="font-family:Georgia,serif;color:#2d6a4f;font-size:1.15rem;margin:1.8rem 0 .5rem;border-bottom:1px solid #d1fae5;padding-bottom:.4rem;">${trimmed}</h3>`;
-      }
-      return `<p style="font-family:Georgia,serif;font-size:1rem;line-height:1.8;color:#1a1a2e;margin:.75rem 0;">${trimmed}</p>`;
-    }).join('');
-    return `<div style="margin-bottom:1.5rem;">${parasHtml}</div>`;
-  }).join('<hr style="border:none;border-top:2px dashed #d1fae5;margin:2rem 0;" />');
+  // Build PDF attachment
+  let pdfAttachment = null;
+  try {
+    const pdfBase64 = await generatePreviewPdf(childName, chapters, childData, coverUrl);
+    pdfAttachment = { filename: `${childName}-story-preview.pdf`, content: pdfBase64 };
+  } catch(e) {
+    console.error(`Preview PDF generation failed: ${e.message}`);
+    // Fall through — email will still send without attachment
+  }
 
   const coverBlock = coverUrl
     ? `<div style="text-align:center;margin:2rem 0 1.5rem;">
-        <img src="${coverUrl}" alt="${childName}'s story cover" style="max-width:300px;width:100%;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.15);" />
+        <img src="${coverUrl}" alt="${childName}'s story cover" style="max-width:280px;width:100%;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.15);" />
       </div>`
     : '';
 
+  const moreChaps = parseInt(childData.age) <= 5 ? 12 : parseInt(childData.age) <= 9 ? 17 : 27;
+
   const cliffhanger = `<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;padding:1.25rem 1.5rem;margin:2rem 0;text-align:center;">
     <p style="font-size:1rem;font-weight:700;color:#854d0e;margin:0 0 .4rem;">🌟 The story is just getting started…</p>
-    <p style="font-size:.9rem;color:#92400e;margin:0;">There are ${childData.age <= 5 ? '12' : childData.age <= 9 ? '17' : '27'} more chapters waiting for ${childName}. Get the complete personalized hardcover book, printed and shipped to your door.</p>
+    <p style="font-size:.9rem;color:#92400e;margin:0;">There are ${moreChaps} more chapters waiting for ${childName}. Get the complete personalized hardcover book, printed and shipped to your door.</p>
   </div>`;
 
   const ctaButton = `<div style="text-align:center;margin:1.5rem 0 2rem;">
@@ -2737,39 +2848,42 @@ async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, c
     <p style="font-size:.8rem;color:#6b7280;margin:.6rem 0 0;">Your $2.99 preview has already been credited toward the $35 total.</p>
   </div>`;
 
-  try {
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-      to: email,
-      bcc: "purchase@growingminds.io",
-      subject: `📖 Here's ${childName}'s story preview!`,
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a2e;">
-          <div style="background:#2d6a4f;padding:1.75rem 2rem;text-align:center;border-radius:12px 12px 0 0;">
-            <p style="color:#86efac;font-size:.75rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .3rem;">Growing Minds</p>
-            <h1 style="color:white;font-size:1.4rem;margin:0;font-family:Georgia,serif;">${storyTitle}</h1>
-          </div>
-          <div style="background:#fefae0;padding:1.5rem 2rem 2rem;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-            <p style="font-size:1rem;color:#374151;margin:.5rem 0 0;">Hi! Here are the first 3 chapters of ${childName}'s personalized story — created just for them. Read it together tonight!</p>
+  const emailPayload = {
+    from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+    to: email,
+    bcc: "purchase@growingminds.io",
+    subject: `📖 ${childName}'s story preview is attached!`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a2e;">
+        <div style="background:#2d6a4f;padding:1.75rem 2rem;text-align:center;border-radius:12px 12px 0 0;">
+          <p style="color:#86efac;font-size:.75rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .3rem;">Growing Minds</p>
+          <h1 style="color:white;font-size:1.4rem;margin:0;font-family:Georgia,serif;">${storyTitle}</h1>
+        </div>
+        <div style="background:#fefae0;padding:1.5rem 2rem 2rem;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+          <p style="font-size:1rem;color:#374151;margin:.5rem 0 1rem;">Hi! The first 3 chapters of ${childName}'s personalized story are attached as a PDF — open it up and read together tonight! 📖</p>
 
-            ${coverBlock}
-            ${chaptersHtml}
-            ${cliffhanger}
-            ${ctaButton}
+          ${coverBlock}
+          ${cliffhanger}
+          ${ctaButton}
 
-            <div style="border-top:1px solid #e5e7eb;margin-top:2rem;padding-top:1rem;">
-              <div style="background:white;border:1px solid #d1fae5;border-radius:8px;padding:.75rem 1rem;text-align:center;margin-bottom:1rem;">
-                <div style="font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.25rem;">Your Story ID</div>
-                <div style="font-family:monospace;font-size:.95rem;font-weight:700;color:#14532d;">${storyId}</div>
-                <p style="font-size:.75rem;color:#4b7c5a;margin:.3rem 0 0;">Keep this — use it if you order a sequel or a story for a sibling.</p>
-              </div>
-              <p style="color:#6b7280;font-size:.8rem;text-align:center;margin:0;">Questions? <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+          <div style="border-top:1px solid #e5e7eb;margin-top:2rem;padding-top:1rem;">
+            <div style="background:white;border:1px solid #d1fae5;border-radius:8px;padding:.75rem 1rem;text-align:center;margin-bottom:1rem;">
+              <div style="font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.25rem;">Your Story ID</div>
+              <div style="font-family:monospace;font-size:.95rem;font-weight:700;color:#14532d;">${storyId}</div>
+              <p style="font-size:.75rem;color:#4b7c5a;margin:.3rem 0 0;">Keep this — use it if you order a sequel or a story for a sibling.</p>
             </div>
+            <p style="color:#6b7280;font-size:.8rem;text-align:center;margin:0;">Questions? <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
           </div>
         </div>
-      `
-    });
-    console.log(`Preview email sent to ${email} for ${childName} (${storyId})`);
+      </div>
+    `
+  };
+
+  if (pdfAttachment) emailPayload.attachments = [pdfAttachment];
+
+  try {
+    await resend.emails.send(emailPayload);
+    console.log(`Preview email sent to ${email} for ${childName} (${storyId})${pdfAttachment ? ' with PDF' : ' (no PDF)'}`);
   } catch(e) {
     console.error(`Preview email failed: ${e.message}`);
     throw e;
