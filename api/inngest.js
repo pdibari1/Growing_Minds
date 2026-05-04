@@ -255,8 +255,7 @@ const generateStoryOrder = inngest.createFunction(
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
 Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
-        const coverUrl = await callDallE(coverPrompt);
-        const coverBytes = await fetchImageBytes(coverUrl);
+        const coverBytes = await callGptImage(coverPrompt);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
         // Store cover URL separately with a 7-day TTL — the illustration key (2h) may expire
@@ -570,8 +569,7 @@ const generatePreviewChapters = inngest.createFunction(
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
 Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
-      const coverUrl = await callDallE(coverPrompt);
-      const coverBytes = await fetchImageBytes(coverUrl);
+      const coverBytes = await callGptImage(coverPrompt);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
       await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
       await redisRequest("SET", [`img:${storyId}:0-0`, blob.url, "EX", 604800]);
@@ -1649,8 +1647,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
 
       try {
         console.log(`Generating image ${key}`);
-        const imageUrl = await callDallE(prompt);
-        const imageBytes = await fetchImageBytes(imageUrl);
+        const imageBytes = await callGptImage(prompt);
         illustrations[key] = imageBytes.toString('base64');
         console.log(`Image ${key} done`);
       } catch(err) {
@@ -1790,13 +1787,14 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
   }
 }
 
-function callDallE(prompt, size = "1024x1024") {
+// gpt-image-1 at medium quality — returns raw image Buffer directly
+function callGptImage(prompt, size = "1024x1024") {
   const payload = JSON.stringify({
-    model: "dall-e-3",
+    model: "gpt-image-1",
     prompt,
     n: 1,
     size,
-    quality: "standard"
+    quality: "medium"
   });
 
   return new Promise((resolve, reject) => {
@@ -1820,14 +1818,17 @@ function callDallE(prompt, size = "1024x1024") {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          resolve(data.data[0].url);
+          // gpt-image-1 returns base64 — decode directly to Buffer
+          const b64 = data.data[0].b64_json;
+          if (!b64) return reject(new Error("gpt-image-1: no b64_json in response"));
+          resolve(Buffer.from(b64, "base64"));
         } catch(e) {
-          reject(new Error("DALL-E parse error: " + body.slice(0, 200)));
+          reject(new Error("gpt-image-1 parse error: " + body.slice(0, 200)));
         }
       });
     });
     req.on("error", reject);
-    req.on("timeout", () => reject(new Error("DALL-E timeout")));
+    req.on("timeout", () => reject(new Error("gpt-image-1 timeout")));
     req.write(payload);
     req.end();
   });
