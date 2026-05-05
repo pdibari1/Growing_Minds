@@ -44,11 +44,11 @@ function getStyleGuideForAge(age) {
 function getCoverStyleForAge(age) {
   const ageNum = parseInt(age) || 7;
   if (ageNum <= 7) {
-    return "A full-bleed page from a published children's picture book. The scene fills the entire image from corner to corner, edge to edge — exactly as it would appear printed in a finished hardcover book. Smooth vibrant cartoon style with warm soft lighting, rich saturated colors, large expressive face, simple inviting background. Fully painted throughout.";
+    return "A full-bleed children's book cover illustration in a highly polished 3D cartoon style — like a modern Pixar or DreamWorks animated film rendered as a still image. Vibrant saturated colors, smooth glossy surfaces, warm bright lighting with a soft golden glow. Large expressive eyes, big warm smile, rounded cartoon features. Rich colorful background that fills the frame edge to edge. The character pops off the page with energy and warmth. Exciting, joyful, and immediately eye-catching.";
   } else if (ageNum <= 11) {
-    return "A full-bleed page from a published middle-grade adventure novel. The scene fills the entire image from corner to corner, edge to edge — exactly as it would appear printed in a finished hardcover book. Rich detailed background, more realistic proportions, warm sophisticated color palette with depth and texture. Painterly digital art style. Fully rendered.";
+    return "A full-bleed middle-grade adventure book cover illustration. Polished digital art style — dynamic, confident, full of personality. Rich detailed background, more realistic proportions with expressive cartoon exaggeration. Bold saturated color palette with strong lighting and depth. The character feels heroic and ready for adventure. Edge-to-edge composition with cinematic energy.";
   } else {
-    return "A full-bleed page from a published YA graphic novel. The scene fills the entire image from corner to corner, edge to edge — exactly as it would appear printed in a finished hardcover book. Realistic proportions, nuanced color palette with strong contrast and mood. Cinematic composition. Character carries emotional depth. Fully rendered with atmosphere.";
+    return "A full-bleed YA fiction book cover illustration. Sophisticated digital art with strong graphic style — cinematic lighting, bold contrast, nuanced color palette. Realistic proportions, emotionally complex expression, atmospheric background. Feels like a premium published YA novel cover. Edge-to-edge composition with depth and mood.";
   }
 }
 
