@@ -1910,14 +1910,15 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
   }
 }
 
-// gpt-image-1 at medium quality — returns raw image Buffer directly
+// DALL-E 3 — returns raw image Buffer directly
 function callGptImage(prompt, size = "1024x1024") {
   const payload = JSON.stringify({
-    model: "gpt-image-1",
+    model: "dall-e-3",
     prompt,
     n: 1,
     size,
-    quality: "medium"
+    quality: "standard",
+    response_format: "b64_json"
   });
 
   return new Promise((resolve, reject) => {
@@ -1941,17 +1942,16 @@ function callGptImage(prompt, size = "1024x1024") {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          // gpt-image-1 returns base64 — decode directly to Buffer
           const b64 = data.data[0].b64_json;
-          if (!b64) return reject(new Error("gpt-image-1: no b64_json in response"));
+          if (!b64) return reject(new Error("DALL-E: no b64_json in response"));
           resolve(Buffer.from(b64, "base64"));
         } catch(e) {
-          reject(new Error("gpt-image-1 parse error: " + body.slice(0, 200)));
+          reject(new Error("DALL-E parse error: " + body.slice(0, 200)));
         }
       });
     });
     req.on("error", reject);
-    req.on("timeout", () => reject(new Error("gpt-image-1 timeout")));
+    req.on("timeout", () => reject(new Error("DALL-E timeout")));
     req.write(payload);
     req.end();
   });
