@@ -149,6 +149,16 @@ const generateStoryOrder = inngest.createFunction(
       return verified;
     });
 
+    // Step 1d: Pre-write locked passages for any VERBATIM REQUIRED facts
+    const mandatoryMoments = await step.run("generate-mandatory-moments", async () => {
+      const verbatimFacts = extractVerbatimFacts(parsedFacts);
+      if (verbatimFacts.length === 0) return [];
+      console.log(`Generating ${verbatimFacts.length} mandatory moment(s)`);
+      const moments = await generateMandatoryMoments(verbatimFacts, childData, outline);
+      await redisRequest("SET", [`moments:${storyId}`, JSON.stringify(moments), "EX", 7200]);
+      return moments;
+    });
+
     // Step 2: Generate chapters in batches — save each batch to Airtable immediately
     // This means chapter text never lives in Inngest state
     const BATCH_SIZE = 4;
@@ -168,8 +178,12 @@ const generateStoryOrder = inngest.createFunction(
         const batchFacts = await redisRequest("GET", [`facts:${storyId}`]) || parsedFacts || null;
         if (batchFacts) childData.parsedFacts = batchFacts;
 
+        // Load mandatory moments from Redis (generated before batches)
+        const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
+        const batchMandatoryMoments = momentsRaw ? JSON.parse(momentsRaw) : mandatoryMoments;
+
         // Generate this batch
-        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance);
+        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance, batchMandatoryMoments);
 
         // Deterministic regex enforcement: replace any unapproved diminutive with the full name
         batchChapters = batchChapters.map(ch =>
@@ -515,14 +529,26 @@ const generatePreviewChapters = inngest.createFunction(
       return verified;
     });
 
+    // Step 1d: Pre-write locked passages for any VERBATIM REQUIRED facts
+    const mandatoryMoments = await step.run("preview-generate-mandatory-moments", async () => {
+      const verbatimFacts = extractVerbatimFacts(parsedFacts);
+      if (verbatimFacts.length === 0) return [];
+      console.log(`Preview: generating ${verbatimFacts.length} mandatory moment(s)`);
+      const moments = await generateMandatoryMoments(verbatimFacts, childData, outline);
+      await redisRequest("SET", [`moments:${storyId}`, JSON.stringify(moments), "EX", 604800]);
+      return moments;
+    });
+
     // Step 2: Generate chapters 1-3
     await step.run("preview-generate-chapters", async () => {
       const priorChapters = await getChaptersFromRedis(storyId);
       const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance;
       const facts = await redisRequest("GET", [`facts:${storyId}`]);
       if (facts) childData.parsedFacts = facts;
+      const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
+      const moments = momentsRaw ? JSON.parse(momentsRaw) : mandatoryMoments;
 
-      let chapters = await generateChapterBatch(childData, outline, 0, PREVIEW_CHAPS, priorChapters, tier, guidance);
+      let chapters = await generateChapterBatch(childData, outline, 0, PREVIEW_CHAPS, priorChapters, tier, guidance, moments);
       chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
       chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
 
@@ -700,8 +726,10 @@ const generateRemainingChapters = inngest.createFunction(
         const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || "";
         const facts = await redisRequest("GET", [`facts:${storyId}`]);
         if (facts) childData.parsedFacts = facts;
+        const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
+        const upgradeMoments = momentsRaw ? JSON.parse(momentsRaw) : [];
 
-        let chapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, guidance);
+        let chapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, guidance, upgradeMoments);
         chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
         chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
 
@@ -1251,6 +1279,88 @@ Return ONLY a valid JSON array with the same structure as the input — same num
   }
 }
 
+// ── MANDATORY MOMENTS ──────────────────────────────────────────────────────
+// For any fact flagged VERBATIM REQUIRED, pre-write a locked passage before
+// chapter generation begins. The chapter writer receives this passage and must
+// incorporate it — they cannot invent a replacement.
+
+function extractVerbatimFacts(parsedFacts) {
+  if (!parsedFacts) return [];
+  return parsedFacts
+    .split('\n')
+    .filter(line => /VERBATIM REQUIRED:/i.test(line))
+    .map(line => line.replace(/^\d+\.\s*/, '').replace(/VERBATIM REQUIRED:\s*/i, '').trim())
+    .filter(Boolean);
+}
+
+async function generateMandatoryMoments(verbatimFacts, childData, outline) {
+  if (!verbatimFacts || verbatimFacts.length === 0) return [];
+  const { name, age, city, region } = childData;
+  const moments = [];
+
+  const outlineSummary = outline.map((c, i) =>
+    `Chapter ${i + 1}: "${c.title}" — ${c.summary}`
+  ).join('\n');
+
+  for (const fact of verbatimFacts) {
+    try {
+      // 1. Assign to the most relevant chapter
+      const assignPrompt = `A children's story has the following chapter outline:\n\n${outlineSummary}\n\nThis specific fact must appear in exactly one chapter: "${fact}"\n\nWhich chapter number (1–${outline.length}) is the most natural home for this fact? Return ONLY the number — nothing else.`;
+      const chapterNumRaw = await callClaudeHaiku(assignPrompt, 10);
+      const chapterNum = parseInt(chapterNumRaw.trim());
+      const chapterIdx = isNaN(chapterNum) ? 0 : Math.max(0, Math.min(chapterNum - 1, outline.length - 1));
+
+      // 2. Pre-write the locked passage — exact prose that captures the fact
+      const passagePrompt = `You are writing 2–4 sentences of children's story prose that captures the following specific fact EXACTLY as described. Do not paraphrase, simplify, or change any detail. Do not add facts not stated. The passage must be emotionally warm and age-appropriate for a ${age}-year-old.
+
+FACT TO RENDER VERBATIM: ${fact}
+
+CHILD'S NAME: ${name}
+SETTING: ${city}, ${region}
+CHAPTER CONTEXT: ${outline[chapterIdx]?.summary || ''}
+
+Write ONLY the 2–4 sentence passage. No explanation, no title, no quotation marks around the whole passage.`;
+
+      const passage = await callClaude(passagePrompt, 300);
+      moments.push({ chapterIdx, fact, passage: passage.trim() });
+      console.log(`Mandatory moment generated for chapter ${chapterIdx + 1}: "${fact.slice(0, 60)}..."`);
+    } catch(e) {
+      console.error(`generateMandatoryMoments failed for fact "${fact.slice(0, 60)}": ${e.message}`);
+    }
+  }
+
+  return moments;
+}
+
+async function verifyMandatoryMoments(chapters, mandatoryMoments, startIdx) {
+  // For each chapter that has a mandatory moment, check key elements are present
+  // Returns list of { chapterIdx, fact, passage, missing: bool }
+  if (!mandatoryMoments || mandatoryMoments.length === 0) return [];
+  const results = [];
+
+  for (const moment of mandatoryMoments) {
+    const localIdx = moment.chapterIdx - startIdx;
+    if (localIdx < 0 || localIdx >= chapters.length) continue;
+    const chapter = chapters[localIdx];
+
+    try {
+      const checkPrompt = `Does the following story chapter contain all the specific details from the fact below? Answer only YES or NO.
+
+FACT: ${moment.fact}
+
+CHAPTER TEXT:
+${chapter.slice(0, 2000)}`;
+      const answer = await callClaudeHaiku(checkPrompt, 5);
+      const missing = !answer.trim().toUpperCase().startsWith('YES');
+      results.push({ ...moment, missing });
+      if (missing) console.warn(`Mandatory moment MISSING in chapter ${moment.chapterIdx + 1}: "${moment.fact.slice(0, 60)}"`);
+    } catch(e) {
+      console.error(`verifyMandatoryMoments check failed: ${e.message}`);
+    }
+  }
+  return results;
+}
+
 async function generateMilestoneGuidance(milestone, age, name) {
   const ageNum = parseInt(age);
   const ageStage = ageNum <= 6 ? "a 4–6 year old child (pre-K to Grade 1)"
@@ -1470,7 +1580,7 @@ FORMAT:
 // BATCH CHAPTER GENERATION
 // ════════════════════════════════════════════
 
-async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "") {
+async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "", mandatoryMoments = []) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails, parsedFacts } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
@@ -1512,6 +1622,19 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
 
   const isLastBatch = endIdx >= outline.length;
 
+  // Locked passages — pre-written prose for any VERBATIM REQUIRED facts in this batch
+  const batchMoments = (mandatoryMoments || []).filter(m =>
+    m.chapterIdx >= startIdx && m.chapterIdx < endIdx
+  );
+  const lockedBlock = batchMoments.length > 0 ? `
+████████████████████████████████████████
+LOCKED PASSAGES — MANDATORY VERBATIM INCLUSION
+The following passages were pre-written from facts the parent provided. They must appear in the chapter indicated — incorporated naturally into the story flow, but the specific facts and details must not be changed, paraphrased, or replaced. You may add sentences before or after to connect them to the story, but the core content of each passage is fixed.
+████████████████████████████████████████
+${batchMoments.map(m => `CHAPTER ${m.chapterIdx + 1} — include this passage:\n"${m.passage}"`).join('\n\n')}
+████████████████████████████████████████
+` : "";
+
   const customBlock = customDetails ? `
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 CRITICAL CUSTOM REQUIREMENTS — READ FIRST
@@ -1539,7 +1662,7 @@ Setting: ${city}, ${region} — use the city name and regional geography (mounta
 ${arcContext}
 ${priorText}
 
-NOW WRITE these ${endIdx - startIdx} chapters in order:
+${lockedBlock}NOW WRITE these ${endIdx - startIdx} chapters in order:
 ${batchOutline}
 
 ${milestoneGuidance ? `MILESTONE APPROACH — these are the real strategies that help children navigate this milestone. Weave them into the story naturally through what ${name} experiences, tries, feels, and discovers. Never state them as advice or lessons — show them happening:
