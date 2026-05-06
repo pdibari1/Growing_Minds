@@ -2825,6 +2825,19 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 // EMAIL
 // ════════════════════════════════════════════
 
+function sanitizeForPdf(text) {
+  if (!text) return '';
+  return text
+    .replace(/—/g, '--')       // em dash
+    .replace(/–/g, '-')        // en dash
+    .replace(/‘|’/g, "'") // curly single quotes
+    .replace(/“|”/g, '"') // curly double quotes
+    .replace(/…/g, '...')      // ellipsis
+    .replace(/ /g, ' ')        // non-breaking space
+    .replace(/•/g, '*')        // bullet
+    .replace(/[^\x00-\xFF]/g, '?'); // anything else outside Latin-1
+}
+
 async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
   const { milestone, city, region, age } = childData;
   const pdfDoc = await PDFDocument.create();
@@ -2855,12 +2868,12 @@ async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
   } else {
     cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
   }
-  cover.drawText(`${childName} and the`, { x: margin, y: pageHeight * 0.35, font: timesBold, size: 24, color: rgb(1,1,1) });
-  cover.drawText(getMilestoneTitle(milestone), { x: margin, y: pageHeight * 0.35 - 32, font: timesBold, size: 24, color: gold });
+  cover.drawText(sanitizeForPdf(`${childName} and the`), { x: margin, y: pageHeight * 0.35, font: timesBold, size: 24, color: rgb(1,1,1) });
+  cover.drawText(sanitizeForPdf(getMilestoneTitle(milestone)), { x: margin, y: pageHeight * 0.35 - 32, font: timesBold, size: 24, color: gold });
   cover.drawText("A Growing Minds Original Story", { x: margin, y: pageHeight * 0.35 - 64, font: helvetica, size: 10, color: rgb(0.8,0.9,0.85) });
-  cover.drawText(`Chapters 1–3 Preview`, { x: margin, y: pageHeight * 0.20, font: helBold, size: 11, color: gold });
-  cover.drawText(`Written for ${childName}, age ${age}`, { x: margin, y: pageHeight * 0.20 - 18, font: timesRoman, size: 10, color: rgb(1,1,1) });
-  if (city && region) cover.drawText(`${city}, ${region}`, { x: margin, y: pageHeight * 0.20 - 36, font: timesRoman, size: 9, color: rgb(0.8,0.9,0.85) });
+  cover.drawText("Chapters 1-3 Preview", { x: margin, y: pageHeight * 0.20, font: helBold, size: 11, color: gold });
+  cover.drawText(sanitizeForPdf(`Written for ${childName}, age ${age}`), { x: margin, y: pageHeight * 0.20 - 18, font: timesRoman, size: 10, color: rgb(1,1,1) });
+  if (city && region) cover.drawText(sanitizeForPdf(`${city}, ${region}`), { x: margin, y: pageHeight * 0.20 - 36, font: timesRoman, size: 9, color: rgb(0.8,0.9,0.85) });
   cover.drawText("growingminds.io", { x: margin, y: margin, font: helvetica, size: 9, color: rgb(0.6,0.8,0.7) });
 
   // ── STORY PAGES ──
@@ -2893,7 +2906,7 @@ async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
 
   function drawWrappedText(text, font, size, color, charsPerLine) {
     const lh = size * 1.6;
-    const lines = wrapText(text, charsPerLine || charsPerBodyLine);
+    const lines = wrapText(sanitizeForPdf(text), charsPerLine || charsPerBodyLine);
     for (const l of lines) {
       if (cursorY < bottomY) { addPageNum(); newPage(); }
       page.drawText(l, { x: margin, y: cursorY, font, size, color });
@@ -2932,8 +2945,8 @@ async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
   const tbc = pdfDoc.addPage([pageWidth, pageHeight]);
   tbc.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
   const moreChaps = parseInt(age) <= 5 ? 12 : parseInt(age) <= 9 ? 17 : 27;
-  tbc.drawText("The story continues…", { x: margin, y: pageHeight * 0.60, font: timesBold, size: 20, color: rgb(1,1,1) });
-  tbc.drawText(`${childName} has ${moreChaps} more chapters waiting.`, { x: margin, y: pageHeight * 0.60 - 36, font: timesRoman, size: 12, color: rgb(0.8,0.9,0.85) });
+  tbc.drawText("The story continues...", { x: margin, y: pageHeight * 0.60, font: timesBold, size: 20, color: rgb(1,1,1) });
+  tbc.drawText(sanitizeForPdf(`${childName} has ${moreChaps} more chapters waiting.`), { x: margin, y: pageHeight * 0.60 - 36, font: timesRoman, size: 12, color: rgb(0.8,0.9,0.85) });
   tbc.drawText("Get the full personalized hardcover book at:", { x: margin, y: pageHeight * 0.60 - 60, font: helvetica, size: 11, color: rgb(0.8,0.9,0.85) });
   tbc.drawText("growingminds.io", { x: margin, y: pageHeight * 0.60 - 84, font: helBold, size: 16, color: gold });
 
@@ -2946,15 +2959,9 @@ async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, c
   const { milestone } = childData;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
 
-  // Build PDF attachment
-  let pdfAttachment = null;
-  try {
-    const pdfBase64 = await generatePreviewPdf(childName, chapters, childData, coverUrl);
-    pdfAttachment = { filename: `${childName}-story-preview.pdf`, content: pdfBase64 };
-  } catch(e) {
-    console.error(`Preview PDF generation failed: ${e.message}`);
-    // Fall through — email will still send without attachment
-  }
+  // Build PDF attachment — throw on failure so it surfaces in Inngest as a step error
+  const pdfBase64 = await generatePreviewPdf(childName, chapters, childData, coverUrl);
+  const pdfAttachment = { filename: `${childName}-story-preview.pdf`, content: pdfBase64 };
 
   const coverBlock = coverUrl
     ? `<div style="text-align:center;margin:2rem 0 1.5rem;">
