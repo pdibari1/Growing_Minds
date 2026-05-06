@@ -70,11 +70,14 @@ const generateStoryOrder = inngest.createFunction(
     const tier = getStoryTier(childData.age);
     console.log(`Starting ${tier.label} for ${childName} (${tier.chapCount} chapters)`);
 
-    // Cache order metadata so /api/regenerate can re-fire without needing the original webhook
-    await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,       "EX", 604800]); // 7 days
-    await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,    "EX", 604800]);
-    await redisRequest("SET", [`childname:${storyId}`,     childName,        "EX", 604800]);
-    await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"","EX", 604800]);
+    // Step 0a: Cache order metadata inside a step so it only runs ONCE (not on every Inngest replay).
+    // Outside-step I/O re-executes on every replay; during finalization any Redis hiccup crashes the run.
+    await step.run("cache-order-data", async () => {
+      await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,       "EX", 604800]); // 7 days
+      await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,    "EX", 604800]);
+      await redisRequest("SET", [`childname:${storyId}`,     childName,        "EX", 604800]);
+      await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"","EX", 604800]);
+    });
 
     // (no pre-parse step — nicknames are read directly from customDetails at generation time)
 
@@ -208,9 +211,17 @@ const generateStoryOrder = inngest.createFunction(
     console.log(`ILLUSTRATIONS CHECK: OPENAI_API_KEY=${!!process.env.OPENAI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}`);
     if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
       const IMG_BATCH = 4; // Keep batches short — Vercel Pro caps function execution at 300s
-      // Retrieve outline fresh from Redis — Inngest state may be empty on replay
-      const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
-      const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
+      // Use memoized outline step result; fall back to Redis only if empty.
+      // Avoid unconditional outside-step Redis calls — they re-run on every replay.
+      let freshOutline = Array.isArray(outline) ? outline : [];
+      if (freshOutline.length === 0) {
+        try {
+          const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
+          freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : [];
+        } catch(e) {
+          console.error(`[order] outline Redis fallback failed: ${e.message}`);
+        }
+      }
       console.log(`Fresh outline length: ${freshOutline.length}`);
       const step2 = Math.floor(freshOutline.length / tier.imageCount);
       const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
@@ -472,12 +483,16 @@ const generatePreviewChapters = inngest.createFunction(
     const PREVIEW_CHAPS = 3;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
 
-    // Cache everything with 7-day TTLs — must survive until upgrade payment
-    await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,        "EX", 604800]);
-    await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,     "EX", 604800]);
-    await redisRequest("SET", [`childname:${storyId}`,     childName,         "EX", 604800]);
-    await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"", "EX", 604800]);
-    await redisRequest("SET", [`preview_paid:${storyId}`,  "true",            "EX", 604800]);
+    // Step 0a: Cache order data — inside a step so it only runs ONCE.
+    // If outside a step, these Redis writes re-execute on every Inngest replay (10-15x),
+    // which wastes quota and risks a Redis timeout crashing finalization.
+    await step.run("preview-cache-order-data", async () => {
+      await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,        "EX", 604800]);
+      await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,     "EX", 604800]);
+      await redisRequest("SET", [`childname:${storyId}`,     childName,         "EX", 604800]);
+      await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"", "EX", 604800]);
+      await redisRequest("SET", [`preview_paid:${storyId}`,  "true",            "EX", 604800]);
+    });
 
     // Named characters list
     const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
@@ -602,7 +617,17 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
     });
 
     // Scene illustrations for chapters 1-3
-    const freshOutlineForImgs = JSON.parse(await redisRequest("GET", [`outline:${storyId}`]) || '[]');
+    // Use the memoized outline step result directly — avoids a Redis call outside steps
+    // (outside-step I/O re-runs on every Inngest replay and can cause finalization to crash).
+    let freshOutlineForImgs = Array.isArray(outline) ? outline : [];
+    if (freshOutlineForImgs.length === 0) {
+      try {
+        const raw = await redisRequest("GET", [`outline:${storyId}`]);
+        freshOutlineForImgs = raw ? JSON.parse(raw) : [];
+      } catch(e) {
+        console.error(`[preview] outline Redis fallback failed: ${e.message}`);
+      }
+    }
     const step2 = Math.floor(freshOutlineForImgs.length / tier.imageCount);
     const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
       `${Math.min(i * step2, freshOutlineForImgs.length - 1)}-0`
