@@ -44,11 +44,11 @@ function getStyleGuideForAge(age) {
 function getCoverStyleForAge(age) {
   const ageNum = parseInt(age) || 7;
   if (ageNum <= 7) {
-    return "A full-bleed children's book cover illustration in a highly polished 3D cartoon style — like a modern Pixar or DreamWorks animated film rendered as a still image. Vibrant saturated colors, smooth glossy surfaces, warm bright lighting with a soft golden glow. Large expressive eyes, big warm smile, rounded cartoon features. Rich colorful background that fills the frame edge to edge. The character pops off the page with energy and warmth. Exciting, joyful, and immediately eye-catching.";
+    return "A highly polished 3D cartoon scene rendered in the style of a modern Pixar or DreamWorks animated film — a single breathtaking still frame. Vibrant saturated colors, smooth glossy surfaces, warm bright lighting with a soft golden glow. Large expressive eyes, big warm smile, rounded cartoon features. Rich colorful background filling the entire image edge to edge. The character radiates energy and warmth. Pure rendered illustration — no design elements of any kind.";
   } else if (ageNum <= 11) {
-    return "A full-bleed middle-grade adventure book cover illustration. Polished digital art style — dynamic, confident, full of personality. Rich detailed background, more realistic proportions with expressive cartoon exaggeration. Bold saturated color palette with strong lighting and depth. The character feels heroic and ready for adventure. Edge-to-edge composition with cinematic energy.";
+    return "A polished digital illustration rendered in a dynamic middle-grade adventure style — a single vivid still scene. Confident, expressive character with more realistic proportions and cartoon personality. Rich detailed background with bold saturated colors, strong lighting and depth. Cinematic energy filling the frame edge to edge. Pure rendered illustration — no design elements of any kind.";
   } else {
-    return "A full-bleed YA fiction book cover illustration. Sophisticated digital art with strong graphic style — cinematic lighting, bold contrast, nuanced color palette. Realistic proportions, emotionally complex expression, atmospheric background. Feels like a premium published YA novel cover. Edge-to-edge composition with depth and mood.";
+    return "A sophisticated digital illustration rendered in a cinematic YA style — a single atmospheric still scene. Realistic proportions, emotionally nuanced expression, moody detailed background. Strong contrast and a refined color palette. Edge-to-edge composition with depth and mood. Pure rendered illustration — no design elements of any kind.";
   }
 }
 
@@ -609,7 +609,7 @@ const generatePreviewChapters = inngest.createFunction(
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Pure illustration only — no text, no words, no letters, no borders, no frames, no grid lines, no ruler marks, no color strips, no swatches, no UI elements of any kind anywhere in the image.`;
       const coverBytes = await callGptImage(coverPrompt);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
       await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
