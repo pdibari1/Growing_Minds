@@ -1261,72 +1261,87 @@ Be specific. Only state facts that appear in the text above. Do not invent or in
 
 // ── FACT VIOLATION CORRECTION ──
 // Two-pass post-generation correction:
-//   Pass 1 — Haiku scans for violations (fast, cheap). Returns immediately if clean.
-//   Pass 2 — Sonnet makes surgical sentence-level fixes when violations are found.
+//   Pass 1 — Haiku runs a CHECKLIST scan: each fact is verified individually.
+//             This is more reliable than a free-form "find contradictions" scan,
+//             because the model can't skip a fact or fail to connect an inference.
+//   Pass 2 — Sonnet makes surgical sentence-level fixes for any failed facts.
 // Runs after correctKindness in every chapter batch.
 async function correctFactViolations(chapterText, childData) {
   if (!chapterText) return chapterText;
 
-  // Build fact context from both the structured parsed list AND the raw parent text.
-  // Using both ensures nothing gets missed if parseCustomDetails skimmed over a detail.
-  const factParts = [];
-  if (childData.parsedFacts) {
-    factParts.push(`STRUCTURED FACTS (extracted from parent input):\n${childData.parsedFacts}`);
-  }
-  if (childData.customDetails) {
-    factParts.push(`PARENT'S EXACT WORDS (use as ground truth for anything not in the list above):\n${childData.customDetails}`);
-  }
-  if (factParts.length === 0) return chapterText; // nothing to check against
+  // Parse the structured facts into individual lines for the checklist.
+  // Also keep the raw customDetails as a fallback reference.
+  const factLines = childData.parsedFacts
+    ? childData.parsedFacts.split('\n').map(l => l.trim()).filter(l => l && /^\d+\./.test(l))
+    : [];
 
-  const factContext = factParts.join('\n\n');
+  if (factLines.length === 0 && !childData.customDetails) return chapterText;
 
-  // ── Pass 1: Haiku violation scan ──
+  // If we have no structured facts, fall back to the raw parent text
+  const factSource = factLines.length > 0
+    ? factLines.join('\n')
+    : childData.customDetails;
+  const rawFallback = childData.customDetails
+    ? `\n\nPARENT'S EXACT WORDS (use if a fact above is ambiguous):\n${childData.customDetails}`
+    : '';
+
+  // ── Pass 1: Haiku CHECKLIST scan ──
+  // Go through EACH fact and explicitly verdict it: HONORED or VIOLATED.
+  // This prevents the model from glossing over indirect contradictions
+  // (e.g. "car rolled to the drop-off lane" when the parent said "park a block away and walk").
   const scanPrompt = `You are a fact-checker for a personalized children's story.
-
-PARENT-STATED FACTS — these are ground truth. The parent wrote them. The story must honor them exactly:
-${factContext}
 
 CHAPTER TEXT:
 ${chapterText}
 
-Find every sentence in the chapter that directly contradicts a parent-stated fact.
-A contradiction means: the story says X when the parent clearly stated Y.
-Examples of contradictions: wrong color ("purple backpack" when parent said "pink"), wrong routine ("pulled up to school" when parent said "park a block away and walk"), wrong name, wrong place, wrong item.
+FACTS TO VERIFY — check every single one:
+${factSource}${rawFallback}
 
-For each contradiction:
-- Quote the exact bad sentence from the chapter
-- State which parent fact it violates
-- Write the corrected replacement sentence
+For each numbered fact, write one line in this exact format:
+[fact number] HONORED — [one phrase confirming how]
+[fact number] VIOLATED — [quote the bad sentence] | should be: [corrected sentence]
 
-If there are ZERO contradictions, respond with exactly: NO VIOLATIONS`;
+Skip VERBATIM REQUIRED facts — those are handled separately.
+Skip facts that the chapter simply doesn't mention (not mentioning ≠ violating).
+Only flag VIOLATED when the chapter actively contradicts the fact.
 
-  let violations;
+Output ONLY these verdict lines. If every relevant fact is honored, output: ALL CLEAR`;
+
+  let checklistResult;
   try {
-    violations = await callClaudeHaiku(scanPrompt, 800);
+    checklistResult = await callClaudeHaiku(scanPrompt, 1000);
   } catch(e) {
     console.error(`correctFactViolations scan failed: ${e.message}`);
-    return chapterText; // fail open — return original
+    return chapterText;
   }
 
-  if (violations.trim() === 'NO VIOLATIONS') return chapterText;
-  console.log(`correctFactViolations: violations found — running correction pass`);
+  if (!checklistResult || checklistResult.trim() === 'ALL CLEAR') return chapterText;
+
+  // Extract only the VIOLATED lines
+  const violatedLines = checklistResult
+    .split('\n')
+    .filter(l => l.includes('VIOLATED'))
+    .join('\n')
+    .trim();
+
+  if (!violatedLines) return chapterText;
+  console.log(`correctFactViolations: violations found — running correction pass:\n${violatedLines}`);
 
   // ── Pass 2: Sonnet surgical correction ──
   const fixPrompt = `You are a children's book editor fixing specific factual errors in one chapter.
 
 PARENT-STATED FACTS (ground truth — must be honored):
-${factContext}
+${factSource}${rawFallback}
 
-VIOLATIONS TO FIX:
-${violations}
+VIOLATIONS TO FIX (format: bad sentence | corrected sentence):
+${violatedLines}
 
 ORIGINAL CHAPTER:
 ${chapterText}
 
 Rules:
-- Fix ONLY the sentences identified as violations.
-- Change as few words as possible — swap the wrong detail for the correct one.
-- Do not alter any other sentence, dialogue, pacing, or narrative.
+- Fix ONLY the sentences identified as violations — swap the wrong detail for the correct one.
+- Change as few words as possible. Preserve all other sentences, dialogue, and pacing exactly.
 - Return the corrected chapter text only. No explanation, no preamble.`;
 
   try {
