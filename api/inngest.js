@@ -185,8 +185,12 @@ const generateStoryOrder = inngest.createFunction(
         const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
         const batchMandatoryMoments = momentsRaw ? JSON.parse(momentsRaw) : mandatoryMoments;
 
+        // Load handoff state from previous batch (world state snapshot from last written chapters)
+        const handoffRaw = await redisRequest("GET", [`handoff:${storyId}`]).catch(() => null);
+        const handoffState = handoffRaw || null;
+
         // Generate this batch
-        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance, batchMandatoryMoments);
+        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance, batchMandatoryMoments, handoffState);
 
         // Deterministic regex enforcement: replace any unapproved diminutive with the full name
         batchChapters = batchChapters.map(ch =>
@@ -198,6 +202,15 @@ const generateStoryOrder = inngest.createFunction(
           batchChapters.map(ch => correctKindness(ch, childData.namedCharacters))
         );
 
+        // Correct any parent-stated fact violations (wrong colors, wrong routines, etc.)
+        batchChapters = await Promise.all(
+          batchChapters.map(ch => correctFactViolations(ch, childData))
+        );
+
+        // Extract and store handoff state for the next batch
+        const allSoFar = [...priorChapters, ...batchChapters];
+        const newHandoff = await extractChapterHandoff(allSoFar.slice(-2));
+        if (newHandoff) await redisRequest("SET", [`handoff:${storyId}`, newHandoff, "EX", 604800]).catch(() => {});
 
         // Save to Redis immediately
         await saveChaptersToRedis(storyId, priorChapters, batchChapters);
@@ -566,6 +579,12 @@ const generatePreviewChapters = inngest.createFunction(
       let chapters = await generateChapterBatch(childData, outline, 0, PREVIEW_CHAPS, priorChapters, tier, guidance, moments);
       chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
       chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
+      chapters = await Promise.all(chapters.map(ch => correctFactViolations(ch, childData)));
+
+      // Extract handoff state from the end of preview chapters so the upgrade
+      // flow (chapter 4+) continues from exactly where chapter 3 left off.
+      const previewHandoff = await extractChapterHandoff(chapters.slice(-2));
+      if (previewHandoff) await redisRequest("SET", [`handoff:${storyId}`, previewHandoff, "EX", 604800]).catch(() => {});
 
       const all = [...priorChapters, ...chapters];
       await redisRequest("SET", [`story:${storyId}`, JSON.stringify(all), "EX", 604800]);
@@ -754,9 +773,20 @@ const generateRemainingChapters = inngest.createFunction(
         const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
         const upgradeMoments = momentsRaw ? JSON.parse(momentsRaw) : [];
 
-        let chapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, guidance, upgradeMoments);
+        // Load handoff state: for batch 1 this is the snapshot from end of preview chapter 3;
+        // for subsequent batches it's the snapshot from the previous upgrade batch.
+        const handoffRaw = await redisRequest("GET", [`handoff:${storyId}`]).catch(() => null);
+        const handoffState = handoffRaw || null;
+
+        let chapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, guidance, upgradeMoments, handoffState);
         chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
         chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
+        chapters = await Promise.all(chapters.map(ch => correctFactViolations(ch, childData)));
+
+        // Extract and store handoff for next upgrade batch
+        const allSoFar = [...priorChapters, ...chapters];
+        const newHandoff = await extractChapterHandoff(allSoFar.slice(-2));
+        if (newHandoff) await redisRequest("SET", [`handoff:${storyId}`, newHandoff, "EX", 604800]).catch(() => {});
 
         // Extend Redis TTL and save (append to existing chapters 1-3)
         const all = [...priorChapters, ...chapters];
@@ -1187,6 +1217,138 @@ ${chapterText}`;
   }
 }
 
+// ── CHAPTER HANDOFF STATE EXTRACTION ──
+// After each batch, Haiku snapshots the actual world state from what was written —
+// exact object positions, invented character names, where the scene ends.
+// This snapshot is injected into the NEXT batch's prompt so the writer can't contradict
+// or reset anything that was established in previous chapters.
+async function extractChapterHandoff(recentChapters) {
+  if (!recentChapters || recentChapters.length === 0) return null;
+
+  // Use up to the last 2 chapters for the snapshot — enough context, not overwhelming
+  const texts = recentChapters.slice(-2).map(ch =>
+    typeof ch === 'object' ? (ch.text || '') : (ch || '')
+  ).filter(Boolean);
+  if (texts.length === 0) return null;
+
+  const recentText = texts.join('\n\n---\n\n');
+
+  const prompt = `You are tracking continuity for a personalized children's story.
+
+RECENT CHAPTER TEXT:
+${recentText}
+
+Extract a brief CONTINUITY SNAPSHOT that the next chapter writer must maintain exactly.
+Only include details that are INVENTED IN THE TEXT ABOVE — not things from the story plan.
+Focus on the things that cause contradictions when forgotten.
+
+Write as concise bullet points covering:
+- LOCATION & TIME: Exactly where and when the last scene ends (e.g. "dinner table, evening")
+- PROTAGONIST STATE: What they are doing and feeling at the end of the final scene
+- OBJECTS: Any invented objects with their exact properties (color, name, who holds them, where they are)
+- INVENTED CHARACTERS: Names and key physical details of any characters introduced in these chapters
+- OPEN THREADS: Any wish, promise, question, or emotional setup the next chapter must follow through on
+
+Be specific. Only state facts that appear in the text above. Do not invent or infer.`;
+
+  try {
+    return await callClaudeHaiku(prompt, 500);
+  } catch(e) {
+    console.error(`extractChapterHandoff failed: ${e.message}`);
+    return null;
+  }
+}
+
+// ── FACT VIOLATION CORRECTION ──
+// Two-pass post-generation correction:
+//   Pass 1 — Haiku scans for violations (fast, cheap). Returns immediately if clean.
+//   Pass 2 — Sonnet makes surgical sentence-level fixes when violations are found.
+// Runs after correctKindness in every chapter batch.
+async function correctFactViolations(chapterText, childData) {
+  if (!chapterText) return chapterText;
+
+  // Build fact context from both the structured parsed list AND the raw parent text.
+  // Using both ensures nothing gets missed if parseCustomDetails skimmed over a detail.
+  const factParts = [];
+  if (childData.parsedFacts) {
+    factParts.push(`STRUCTURED FACTS (extracted from parent input):\n${childData.parsedFacts}`);
+  }
+  if (childData.customDetails) {
+    factParts.push(`PARENT'S EXACT WORDS (use as ground truth for anything not in the list above):\n${childData.customDetails}`);
+  }
+  if (factParts.length === 0) return chapterText; // nothing to check against
+
+  const factContext = factParts.join('\n\n');
+
+  // ── Pass 1: Haiku violation scan ──
+  const scanPrompt = `You are a fact-checker for a personalized children's story.
+
+PARENT-STATED FACTS — these are ground truth. The parent wrote them. The story must honor them exactly:
+${factContext}
+
+CHAPTER TEXT:
+${chapterText}
+
+Find every sentence in the chapter that directly contradicts a parent-stated fact.
+A contradiction means: the story says X when the parent clearly stated Y.
+Examples of contradictions: wrong color ("purple backpack" when parent said "pink"), wrong routine ("pulled up to school" when parent said "park a block away and walk"), wrong name, wrong place, wrong item.
+
+For each contradiction:
+- Quote the exact bad sentence from the chapter
+- State which parent fact it violates
+- Write the corrected replacement sentence
+
+If there are ZERO contradictions, respond with exactly: NO VIOLATIONS`;
+
+  let violations;
+  try {
+    violations = await callClaudeHaiku(scanPrompt, 800);
+  } catch(e) {
+    console.error(`correctFactViolations scan failed: ${e.message}`);
+    return chapterText; // fail open — return original
+  }
+
+  if (violations.trim() === 'NO VIOLATIONS') return chapterText;
+  console.log(`correctFactViolations: violations found — running correction pass`);
+
+  // ── Pass 2: Sonnet surgical correction ──
+  const fixPrompt = `You are a children's book editor fixing specific factual errors in one chapter.
+
+PARENT-STATED FACTS (ground truth — must be honored):
+${factContext}
+
+VIOLATIONS TO FIX:
+${violations}
+
+ORIGINAL CHAPTER:
+${chapterText}
+
+Rules:
+- Fix ONLY the sentences identified as violations.
+- Change as few words as possible — swap the wrong detail for the correct one.
+- Do not alter any other sentence, dialogue, pacing, or narrative.
+- Return the corrected chapter text only. No explanation, no preamble.`;
+
+  try {
+    const corrected = await callClaude(fixPrompt, 3000);
+    const result = corrected.trim();
+    // Guard: valid chapter text starts with "Chapter" — anything else is a meta-response leak
+    if (!result.startsWith('Chapter')) {
+      console.warn(`correctFactViolations correction returned non-chapter text — using original`);
+      return chapterText;
+    }
+    // Guard: if result is dramatically shorter it was probably truncated
+    if (result.length < chapterText.length * 0.5) {
+      console.warn(`correctFactViolations correction suspiciously short (${result.length} vs ${chapterText.length}) — using original`);
+      return chapterText;
+    }
+    return result;
+  } catch(e) {
+    console.error(`correctFactViolations correction failed: ${e.message}`);
+    return chapterText; // fail open
+  }
+}
+
 async function sanitizeOutline(outline, friendNames) {
   if (!friendNames || friendNames.length === 0) return outline;
   const prompt = `You are editing a children's book chapter outline. The following characters are the hero's friends and must NEVER be the source of any conflict, unkindness, or negative behavior in any chapter summary:
@@ -1605,7 +1767,7 @@ FORMAT:
 // BATCH CHAPTER GENERATION
 // ════════════════════════════════════════════
 
-async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "", mandatoryMoments = []) {
+async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "", mandatoryMoments = [], handoffState = null) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails, parsedFacts } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
@@ -1647,6 +1809,18 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
 
   const isLastBatch = endIdx >= outline.length;
 
+  // Handoff state — world state extracted from the last batch's actual written text.
+  // Injected as a pinned constraint so the writer can't contradict what was established.
+  const handoffBlock = handoffState ? `
+◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
+WORLD STATE ENTERING CHAPTER ${startIdx + 1}
+These are established facts from what was actually written in previous chapters.
+You MUST continue from this exact state. Do not contradict, reset, or ignore any item below.
+◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
+${handoffState}
+◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
+` : "";
+
   // Locked passages — pre-written prose for any VERBATIM REQUIRED facts in this batch
   const batchMoments = (mandatoryMoments || []).filter(m =>
     m.chapterIdx >= startIdx && m.chapterIdx < endIdx
@@ -1686,7 +1860,7 @@ Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Setting: ${city}, ${region} — use the city name and regional geography (mountains, rivers, weather, landscape) naturally, but NEVER use specific street names, addresses, or neighbourhood names.
 ${arcContext}
 ${priorText}
-
+${handoffBlock}
 ${lockedBlock}NOW WRITE these ${endIdx - startIdx} chapters in order:
 ${batchOutline}
 
