@@ -711,6 +711,42 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
       await sendPreviewEmail(customerEmail, childName, chapters, coverUrl, storyId, childData, upgradeUrl);
     });
 
+    // Step 5: Survey email — wait 1 minute then send feedback request
+    // TODO: change "1m" to "48h" before going live
+    await step.sleep("survey-delay", "1m");
+
+    await step.run("send-survey-email", async () => {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const surveyUrl = `${baseUrl}/survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}`;
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'Growing Minds <stories@growingminds.io>',
+        to: customerEmail,
+        subject: `Quick question about ${childName}'s story 📖`,
+        html: `
+<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2e1f;background:#fffdf7;padding:2rem;">
+  <p style="font-family:Georgia,serif;font-size:1.4rem;font-weight:700;color:#2d6a4f;margin:0 0 1.5rem;">Growing Minds 📖</p>
+
+  <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">Hi there,</p>
+
+  <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">I hope you got a chance to read ${childName}'s story together. I'm the person behind Growing Minds, and I read every story before it goes out.</p>
+
+  <p style="font-size:1rem;line-height:1.7;margin:0 0 1.5rem;">I'd love to know honestly how it went — takes about 2 minutes:</p>
+
+  <div style="text-align:center;margin:0 0 2rem;">
+    <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:0.9rem 2rem;border-radius:999px;font-size:1rem;font-weight:700;">Share my feedback →</a>
+  </div>
+
+  <p style="font-size:0.95rem;line-height:1.7;color:#6b8f71;margin:0 0 1rem;">If anything was off — a wrong detail, an image that didn't match, anything — I want to know. That's how we get better.</p>
+
+  <p style="font-size:0.95rem;line-height:1.7;margin:0;">Thank you for trusting us with ${childName}'s story.</p>
+  <p style="font-size:0.95rem;margin:0.5rem 0 0;">— The Growing Minds team</p>
+
+  <hr style="border:none;border-top:1px solid #e8f0e9;margin:2rem 0;"/>
+  <p style="font-size:0.75rem;color:#b0c4b5;margin:0;">You're receiving this because you ordered a personalized story at growingminds.io.</p>
+</div>`
+      });
+    });
+
     console.log(`✅ Preview complete for ${childName} — ${PREVIEW_CHAPS} chapters emailed`);
     return { success: true, childName, chapters: PREVIEW_CHAPS };
   }
