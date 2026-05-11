@@ -907,6 +907,11 @@
 
       <div id="summaryContent"></div>
 
+      <label style="display:flex; align-items:flex-start; gap:0.65rem; font-size:0.88rem; color:#555; line-height:1.5; margin-bottom:1rem; cursor:pointer;">
+        <input type="checkbox" id="consentCheckbox" style="margin-top:0.2rem; flex-shrink:0; accent-color:#6c63ff; width:1rem; height:1rem;">
+        <span>I confirm I am a parent or guardian providing this information on behalf of my child, and I agree to the <a href="https://www.growingminds.io/privacy-policy" target="_blank" style="color:#6c63ff; text-decoration:underline;">Privacy Policy</a> and <a href="https://www.growingminds.io/terms" target="_blank" style="color:#6c63ff; text-decoration:underline;">Terms of Service</a>.</span>
+      </label>
+
       <div class="nav" style="flex-direction:column; align-items:flex-start; gap:1rem;">
         <button class="btn-submit" onclick="submitForm()">✨ Generate my preview →</button>
         <button class="btn-back" style="margin-top:0;" onclick="goTo(6)">← Go back and edit</button>
@@ -1316,6 +1321,11 @@ async function submitForm() {
 
   if (!name || !age || !email || !personality || !interests) {
     alert('Please go back and fill in all required fields (name, age, email, personality, and interests).');
+    return;
+  }
+
+  if (!document.getElementById('consentCheckbox')?.checked) {
+    alert('Please confirm you are a parent or guardian and agree to the Privacy Policy and Terms of Service before continuing.');
     return;
   }
 
