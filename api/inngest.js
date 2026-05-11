@@ -255,8 +255,8 @@ const generateStoryOrder = inngest.createFunction(
       const hairLengthExpanded = hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
         : hairLength === 'regular cut'     ? 'short regular cut, trimmed neatly above the ears'
         : hairLength === 'past the ears'   ? 'medium length, hanging past the ears'
-        : hairLength === 'to the shoulders'? 'long, reaching all the way to the shoulders'
-        : hairLength === 'long'            ? 'very long, flowing well past the shoulders'
+        : hairLength === 'to the shoulders'? 'shoulder-length, ends exactly at the shoulders — not shorter'
+        : hairLength === 'long'            ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
         : hairLength === 'short'           ? 'very short, close-cropped, above the ears'
         : hairLength === 'medium'          ? 'medium-length, chin to shoulder'
         : hairLength || '';
@@ -288,11 +288,16 @@ const generateStoryOrder = inngest.createFunction(
                               `a teenager or adult`;
 
         const coverStyle = getCoverStyleForAge(age);
+        const longHairLengthNote = hairLength === 'long'
+          ? ` MANDATORY HAIR LENGTH: ${name}'s hair reaches their MID-BACK — it must be visibly below the shoulder blades. Do NOT cut the hair short or to the shoulder. The hair falls far down the back.`
+          : hairLength === 'to the shoulders'
+          ? ` MANDATORY HAIR LENGTH: ${name}'s hair ends exactly at the shoulders — not shorter, not longer. The ends rest on top of the shoulders.`
+          : '';
         const coverPrompt = `${coverStyle}
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
         const coverBytes = await callGptImage(coverPrompt);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
@@ -598,8 +603,8 @@ const generatePreviewChapters = inngest.createFunction(
       hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
       : hairLength === 'regular cut'   ? 'short regular cut, trimmed neatly above the ears'
       : hairLength === 'past the ears' ? 'medium length, hanging past the ears'
-      : hairLength === 'to the shoulders' ? 'long, reaching all the way to the shoulders'
-      : hairLength === 'long'          ? 'very long, flowing well past the shoulders'
+      : hairLength === 'to the shoulders' ? 'shoulder-length, ends exactly at the shoulders — not shorter'
+      : hairLength === 'long'          ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
       : hairLength === 'short'         ? 'very short, close-cropped, above the ears'
       : hairLength === 'medium'        ? 'medium-length, chin to shoulder'
       : hairLength || '';
@@ -802,8 +807,8 @@ const generateRemainingChapters = inngest.createFunction(
       hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
       : hairLength === 'regular cut'   ? 'short regular cut, trimmed neatly above the ears'
       : hairLength === 'past the ears' ? 'medium length, hanging past the ears'
-      : hairLength === 'to the shoulders' ? 'long, reaching all the way to the shoulders'
-      : hairLength === 'long'          ? 'very long, flowing well past the shoulders'
+      : hairLength === 'to the shoulders' ? 'shoulder-length, ends exactly at the shoulders — not shorter'
+      : hairLength === 'long'          ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
       : hairLength === 'short'         ? 'very short, close-cropped, above the ears'
       : hairLength === 'medium'        ? 'medium-length, chin to shoulder'
       : hairLength || '';
