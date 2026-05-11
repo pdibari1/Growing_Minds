@@ -13,7 +13,8 @@
     "api/capture-email.js":            { "maxDuration": 10 },
     "api/approve.js":          { "maxDuration": 15 },
     "api/regenerate.js":       { "maxDuration": 15 },
-    "api/cancel.js":           { "maxDuration": 15 }
+    "api/cancel.js":           { "maxDuration": 15 },
+    "api/survey.js":           { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/confirmation", "destination": "/confirmation.html" },
@@ -25,6 +26,7 @@
     { "source": "/intake-express", "destination": "/intake-express.html" },
     { "source": "/intake-signature", "destination": "/intake-signature.html" },
     { "source": "/test", "destination": "/test.html" },
-    { "source": "/test2", "destination": "/test2.html" }
+    { "source": "/test2", "destination": "/test2.html" },
+    { "source": "/survey", "destination": "/survey.html" }
   ]
 }
