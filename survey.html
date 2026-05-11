@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — Quick Feedback</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #2d6a4f;
+      --green-mid:   #3a8a65;
+      --green-light: #52b788;
+      --green-pale:  #d8f3dc;
+      --green-faint: #f0faf3;
+      --yellow:      #f9c74f;
+      --cream:       #fefae0;
+      --warm-white:  #fffdf7;
+      --brown:       #5c3d2e;
+      --text:        #1a2e1f;
+      --muted:       #6b8f71;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--warm-white);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .wrap {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.5rem;
+      color: var(--green);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .logo span { color: var(--yellow); }
+    .header h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+    }
+    .header p {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .time-badge {
+      display: inline-block;
+      background: var(--green-pale);
+      color: var(--green);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+      letter-spacing: 0.03em;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      background: var(--green-pale);
+      border-radius: 999px;
+      height: 6px;
+      margin-bottom: 2rem;
+    }
+    .progress-fill {
+      background: var(--green-light);
+      height: 6px;
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    /* Cards */
+    .card {
+      background: #fff;
+      border: 1.5px solid #e8f0e9;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 2px 12px rgba(45,106,79,0.06);
+    }
+    .q-number {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--green-light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+    .q-label {
+      font-family: 'Fraunces', serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 1.25rem;
+    }
+    .q-sub {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: -0.8rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* NPS */
+    .nps-row {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+    .nps-btn {
+      flex: 1;
+      min-width: 36px;
+      padding: 0.6rem 0;
+      border: 1.5px solid #dde8de;
+      border-radius: 8px;
+      background: #fff;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .nps-btn:hover { border-color: var(--green-light); color: var(--green); }
+    .nps-btn.selected { background: var(--green); border-color: var(--green); color: #fff; }
+    .nps-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    /* Star rating */
+    .stars {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .star {
+      font-size: 2rem;
+      cursor: pointer;
+      transition: transform 0.1s;
+      filter: grayscale(1) opacity(0.35);
+      user-select: none;
+    }
+    .star:hover,
+    .star.lit { filter: none; transform: scale(1.1); }
+    .star-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+      min-height: 1.2em;
+    }
+
+    /* Multi-choice chips */
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    .chip {
+      padding: 0.5rem 1rem;
+      border: 1.5px solid #dde8de;
+      border-radius: 999px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      background: #fff;
+      transition: all 0.15s;
+    }
+    .chip:hover { border-color: var(--green-light); color: var(--green); }
+    .chip.selected { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+
+    /* Textarea */
+    textarea {
+      width: 100%;
+      border: 1.5px solid #dde8de;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.95rem;
+      color: var(--text);
+      resize: vertical;
+      min-height: 100px;
+      background: var(--warm-white);
+      transition: border-color 0.15s;
+      line-height: 1.5;
+    }
+    textarea:focus { outline: none; border-color: var(--green-light); background: #fff; }
+    textarea::placeholder { color: #b0c4b5; }
+
+    /* Submit */
+    .submit-wrap { text-align: center; margin-top: 2rem; }
+    .btn-submit {
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 1rem 2.5rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.25);
+    }
+    .btn-submit:hover { background: var(--green-mid); transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .submit-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.75rem;
+    }
+
+    /* Thank you */
+    .thankyou {
+      display: none;
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+    .thankyou .emoji { font-size: 3.5rem; margin-bottom: 1rem; }
+    .thankyou h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+    .thankyou p {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 400px;
+      margin: 0 auto 1.5rem;
+    }
+    .thankyou .upgrade-cta {
+      display: inline-block;
+      background: var(--yellow);
+      color: var(--brown);
+      border-radius: 999px;
+      padding: 0.85rem 2rem;
+      font-weight: 800;
+      font-size: 0.95rem;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(249,199,79,0.4);
+      transition: transform 0.15s;
+    }
+    .thankyou .upgrade-cta:hover { transform: translateY(-1px); }
+
+    /* Error */
+    .err { color: #c0392b; font-size: 0.82rem; margin-top: 0.4rem; display: none; }
+    .err.show { display: block; }
+
+    @media (max-width: 480px) {
+      .card { padding: 1.5rem; }
+      .header h1 { font-size: 1.6rem; }
+      .nps-btn { font-size: 0.8rem; padding: 0.5rem 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">Growing<span>Minds</span> 📖</div>
+    <div class="time-badge">⏱ Takes about 2 minutes</div>
+    <h1>How did we do?</h1>
+    <p>Your honest feedback helps us write even better stories. Thank you for taking a moment — it means a lot.</p>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+  <form id="surveyForm" novalidate>
+
+    <!-- Hidden fields (populated from URL params) -->
+    <input type="hidden" id="f_storyId" name="storyId"/>
+    <input type="hidden" id="f_childName" name="childName"/>
+    <input type="hidden" id="f_email" name="email"/>
+
+    <!-- Q1: NPS -->
+    <div class="card" id="card-1">
+      <div class="q-number">Question 1 of 7</div>
+      <div class="q-label">How likely are you to recommend Growing Minds to a friend or family member?</div>
+      <div class="nps-row" id="npsRow">
+        <button type="button" class="nps-btn" data-val="0" onclick="pickNps(this)">0</button>
+        <button type="button" class="nps-btn" data-val="1" onclick="pickNps(this)">1</button>
+        <button type="button" class="nps-btn" data-val="2" onclick="pickNps(this)">2</button>
+        <button type="button" class="nps-btn" data-val="3" onclick="pickNps(this)">3</button>
+        <button type="button" class="nps-btn" data-val="4" onclick="pickNps(this)">4</button>
+        <button type="button" class="nps-btn" data-val="5" onclick="pickNps(this)">5</button>
+        <button type="button" class="nps-btn" data-val="6" onclick="pickNps(this)">6</button>
+        <button type="button" class="nps-btn" data-val="7" onclick="pickNps(this)">7</button>
+        <button type="button" class="nps-btn" data-val="8" onclick="pickNps(this)">8</button>
+        <button type="button" class="nps-btn" data-val="9" onclick="pickNps(this)">9</button>
+        <button type="button" class="nps-btn" data-val="10" onclick="pickNps(this)">10</button>
+      </div>
+      <div class="nps-labels"><span>Not likely at all</span><span>Extremely likely</span></div>
+      <div class="err" id="err-nps">Please select a score.</div>
+    </div>
+
+    <!-- Q2: Personalization -->
+    <div class="card" id="card-2">
+      <div class="q-number">Question 2 of 7</div>
+      <div class="q-label" id="q2label">How well did the story capture your child's personality and details?</div>
+      <div class="q-sub">Think about whether the specific details you entered actually showed up in the story.</div>
+      <div class="stars" id="stars-personalization" data-key="personalization">
+        <span class="star" data-val="1" onclick="pickStar('personalization',1)">⭐</span>
+        <span class="star" data-val="2" onclick="pickStar('personalization',2)">⭐</span>
+        <span class="star" data-val="3" onclick="pickStar('personalization',3)">⭐</span>
+        <span class="star" data-val="4" onclick="pickStar('personalization',4)">⭐</span>
+        <span class="star" data-val="5" onclick="pickStar('personalization',5)">⭐</span>
+      </div>
+      <div class="star-label" id="starlabel-personalization"></div>
+      <div class="err" id="err-personalization">Please give a rating.</div>
+    </div>
+
+    <!-- Q3: Illustrations -->
+    <div class="card" id="card-3">
+      <div class="q-number">Question 3 of 7</div>
+      <div class="q-label">How did you feel about the illustrations?</div>
+      <div class="q-sub">Cover image and the scene illustrations inside the story.</div>
+      <div class="stars" id="stars-illustrations" data-key="illustrations">
+        <span class="star" data-val="1" onclick="pickStar('illustrations',1)">⭐</span>
+        <span class="star" data-val="2" onclick="pickStar('illustrations',2)">⭐</span>
+        <span class="star" data-val="3" onclick="pickStar('illustrations',3)">⭐</span>
+        <span class="star" data-val="4" onclick="pickStar('illustrations',4)">⭐</span>
+        <span class="star" data-val="5" onclick="pickStar('illustrations',5)">⭐</span>
+      </div>
+      <div class="star-label" id="starlabel-illustrations"></div>
+      <div class="err" id="err-illustrations">Please give a rating.</div>
+    </div>
+
+    <!-- Q4: Child reaction (open) -->
+    <div class="card" id="card-4">
+      <div class="q-number">Question 4 of 7</div>
+      <div class="q-label" id="q4label">What was your child's reaction when you read it together?</div>
+      <div class="q-sub">Their words, their face, anything — this is the most fun part for us to read. 😊</div>
+      <textarea id="childReaction" name="childReaction" placeholder="e.g. "She kept saying 'that's me!' and made me read it three times…"" maxlength="1000"></textarea>
+    </div>
+
+    <!-- Q5: Anything wrong (open) -->
+    <div class="card" id="card-5">
+      <div class="q-number">Question 5 of 7</div>
+      <div class="q-label">Was anything in the story inaccurate or not quite right?</div>
+      <div class="q-sub">Details you entered that got changed, characters that felt off, anything that didn't match your child. Be honest — this helps us most.</div>
+      <textarea id="anythingWrong" name="anythingWrong" placeholder="e.g. "The story said she had a purple backpack but I said pink…" (or leave blank if everything was great!)" maxlength="1000"></textarea>
+    </div>
+
+    <!-- Q6: Upgrade motivation (multi-choice) -->
+    <div class="card" id="card-6">
+      <div class="q-number">Question 6 of 7</div>
+      <div class="q-label">What would make you want to get the full 10-chapter book?</div>
+      <div class="q-sub">Select all that apply.</div>
+      <div class="chips" id="upgradeChips">
+        <button type="button" class="chip" data-val="price" onclick="toggleChip(this)">A lower price</button>
+        <button type="button" class="chip" data-val="quality" onclick="toggleChip(this)">Seeing the full story first</button>
+        <button type="button" class="chip" data-val="physical" onclick="toggleChip(this)">A printed physical book option</button>
+        <button type="button" class="chip" data-val="gift" onclick="toggleChip(this)">It's a gift for someone else</button>
+        <button type="button" class="chip" data-val="already" onclick="toggleChip(this)">I already plan to upgrade!</button>
+        <button type="button" class="chip" data-val="nothing" onclick="toggleChip(this)">Nothing — not interested</button>
+      </div>
+    </div>
+
+    <!-- Q7: One thing (open) -->
+    <div class="card" id="card-7">
+      <div class="q-number">Question 7 of 7</div>
+      <div class="q-label">What's the #1 thing we could do better?</div>
+      <div class="q-sub">One sentence is perfect. Brutal honesty welcome.</div>
+      <textarea id="oneThing" name="oneThing" placeholder="e.g. "The form took too long…" or "The cover image didn't look like my son…"" maxlength="500"></textarea>
+    </div>
+
+    <div class="submit-wrap">
+      <button type="button" class="btn-submit" onclick="submitSurvey()" id="submitBtn">Send my feedback ✨</button>
+      <div class="submit-note">Takes a second. We read every single response.</div>
+    </div>
+
+  </form>
+
+  <!-- Thank you screen -->
+  <div class="thankyou" id="thankyouScreen">
+    <div class="emoji">🙏</div>
+    <h2>Thank you so much.</h2>
+    <p>Your feedback goes straight to the person writing these stories. It genuinely helps us make them better for every family.</p>
+    <a href="https://www.growingminds.io/upgrade" class="upgrade-cta" id="upgradeBtn">✨ Get the full 10-chapter story →</a>
+  </div>
+
+</div>
+
+<script>
+  // ── State ──
+  const answers = {
+    nps: null,
+    personalization: null,
+    illustrations: null,
+    childReaction: '',
+    anythingWrong: '',
+    upgradeReasons: [],
+    oneThing: ''
+  };
+
+  const starLabels = {
+    personalization: ['Missed the mark', 'Somewhat personalized', 'Pretty good', 'Really captured them', 'Perfectly captured them!'],
+    illustrations:   ['Disappointed', 'Okay', 'Pretty good', 'Really nice', 'Loved them!']
+  };
+
+  // ── URL params → hidden fields ──
+  (function seedFromUrl() {
+    const p = new URLSearchParams(window.location.search);
+    const storyId   = p.get('sid')  || '';
+    const childName = p.get('name') || '';
+    const email     = p.get('em')   || '';
+    document.getElementById('f_storyId').value   = storyId;
+    document.getElementById('f_childName').value = childName;
+    document.getElementById('f_email').value     = email;
+    if (childName) {
+      document.getElementById('q2label').textContent = `How well did the story capture ${childName}'s personality and details?`;
+      document.getElementById('q4label').textContent = `What was ${childName}'s reaction when you read it together?`;
+    }
+    if (storyId) {
+      document.getElementById('upgradeBtn').href = `https://www.growingminds.io/upgrade?sid=${storyId}`;
+    }
+  })();
+
+  // ── NPS ──
+  function pickNps(btn) {
+    document.querySelectorAll('#npsRow .nps-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    answers.nps = parseInt(btn.dataset.val);
+    document.getElementById('err-nps').classList.remove('show');
+    updateProgress();
+  }
+
+  // ── Stars ──
+  function pickStar(key, val) {
+    const container = document.getElementById(`stars-${key}`);
+    container.querySelectorAll('.star').forEach((s, i) => {
+      s.classList.toggle('lit', i < val);
+    });
+    answers[key] = val;
+    document.getElementById(`starlabel-${key}`).textContent = starLabels[key][val - 1];
+    document.getElementById(`err-${key}`).classList.remove('show');
+    updateProgress();
+  }
+
+  // ── Chips ──
+  function toggleChip(chip) {
+    chip.classList.toggle('selected');
+    answers.upgradeReasons = Array.from(
+      document.querySelectorAll('#upgradeChips .chip.selected')
+    ).map(c => c.dataset.val);
+  }
+
+  // ── Progress ──
+  function updateProgress() {
+    let filled = 0;
+    if (answers.nps !== null) filled++;
+    if (answers.personalization) filled++;
+    if (answers.illustrations) filled++;
+    document.getElementById('progressFill').style.width = `${Math.round((filled / 7) * 100)}%`;
+  }
+
+  // ── Submit ──
+  async function submitSurvey() {
+    let valid = true;
+    if (answers.nps === null) { document.getElementById('err-nps').classList.add('show'); valid = false; }
+    if (!answers.personalization) { document.getElementById('err-personalization').classList.add('show'); valid = false; }
+    if (!answers.illustrations) { document.getElementById('err-illustrations').classList.add('show'); valid = false; }
+    if (!valid) {
+      document.querySelector('.err.show')?.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const payload = {
+      storyId:       document.getElementById('f_storyId').value,
+      childName:     document.getElementById('f_childName').value,
+      email:         document.getElementById('f_email').value,
+      nps:           answers.nps,
+      personalization: answers.personalization,
+      illustrations:   answers.illustrations,
+      childReaction:   document.getElementById('childReaction').value.trim(),
+      anythingWrong:   document.getElementById('anythingWrong').value.trim(),
+      upgradeReasons:  answers.upgradeReasons,
+      oneThing:        document.getElementById('oneThing').value.trim(),
+      submittedAt:     new Date().toISOString()
+    };
+
+    try {
+      const res = await fetch('/api/survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Server error');
+      document.getElementById('surveyForm').style.display = 'none';
+      document.getElementById('thankyouScreen').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Send my feedback ✨';
+      alert('Something went wrong — please try again in a moment.');
+    }
+  }
+</script>
+</body>
+</html>
