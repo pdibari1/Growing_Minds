@@ -712,8 +712,7 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
     });
 
     // Step 5: Survey email — wait 1 minute then send feedback request
-    // TODO: change "1m" to "48h" before going live
-    await step.sleep("survey-delay", "1m");
+    await step.sleep("survey-delay", "28h");
 
     await step.run("send-survey-email", async () => {
       const resend = new Resend(process.env.RESEND_API_KEY);
