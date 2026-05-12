@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — Survey Results</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green:      #2d6a4f;
+      --green-mid:  #3a8a65;
+      --green-light:#52b788;
+      --green-pale: #d8f3dc;
+      --green-faint:#f0faf3;
+      --yellow:     #f9c74f;
+      --cream:      #fefae0;
+      --warm-white: #fffdf7;
+      --text:       #1a2e1f;
+      --muted:      #6b8f71;
+      --red:        #c0392b;
+      --red-pale:   #fff5f5;
+    }
+    body { font-family: 'Nunito', sans-serif; background: #f4f6f4; color: var(--text); min-height: 100vh; }
+
+    /* Login screen */
+    .login-wrap {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .login-box {
+      background: #fff; border-radius: 16px; padding: 2.5rem; max-width: 380px; width: 100%;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08); text-align: center;
+    }
+    .login-box h1 { font-family: 'Fraunces', serif; font-size: 1.5rem; color: var(--green); margin-bottom: 0.5rem; }
+    .login-box p { font-size: 0.9rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .login-box input {
+      width: 100%; border: 1.5px solid #dde8de; border-radius: 8px; padding: 0.75rem 1rem;
+      font-family: 'Nunito', sans-serif; font-size: 1rem; color: var(--text); margin-bottom: 1rem;
+    }
+    .login-box input:focus { outline: none; border-color: var(--green-light); }
+    .btn-login {
+      width: 100%; background: var(--green); color: #fff; border: none; border-radius: 999px;
+      padding: 0.85rem; font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-login:hover { background: var(--green-mid); }
+    .login-err { color: var(--red); font-size: 0.85rem; margin-top: 0.75rem; display: none; }
+
+    /* Dashboard */
+    .dashboard { display: none; }
+
+    /* Header */
+    .dash-header {
+      background: var(--green); color: #fff; padding: 1.25rem 2rem;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+    }
+    .dash-header h1 { font-family: 'Fraunces', serif; font-size: 1.3rem; font-weight: 700; }
+    .dash-header .meta { font-size: 0.85rem; color: var(--green-pale); }
+
+    /* Summary bar */
+    .summary-bar {
+      background: #fff; border-bottom: 1px solid #e8f0e9;
+      padding: 1.25rem 2rem; display: flex; flex-wrap: wrap; gap: 2rem;
+    }
+    .stat { text-align: center; }
+    .stat-val { font-size: 2rem; font-weight: 800; color: var(--green); line-height: 1; }
+    .stat-val.nps-val { font-size: 2.5rem; }
+    .stat-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; margin-top: 0.2rem; }
+
+    /* NPS bar */
+    .nps-bar-wrap { flex: 1; min-width: 240px; }
+    .nps-segments { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin-top: 0.5rem; }
+    .nps-seg { transition: width 0.5s; }
+    .nps-seg.detractor { background: #e74c3c; }
+    .nps-seg.passive   { background: #f9c74f; }
+    .nps-seg.promoter  { background: var(--green-light); }
+    .nps-seg-labels { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; }
+
+    /* Filters */
+    .filters {
+      padding: 1rem 2rem; background: var(--green-faint); border-bottom: 1px solid #e8f0e9;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .filters label { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+    .filters select {
+      border: 1.5px solid #dde8de; border-radius: 8px; padding: 0.4rem 0.75rem;
+      font-family: 'Nunito', sans-serif; font-size: 0.88rem; background: #fff; color: var(--text);
+    }
+    .result-count { font-size: 0.85rem; color: var(--muted); margin-left: auto; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; padding: 1.5rem 2rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.05); font-size: 0.88rem; }
+    thead { background: var(--green); color: #fff; }
+    thead th { padding: 0.85rem 1rem; text-align: left; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid #f0faf3; transition: background 0.1s; cursor: pointer; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--green-faint); }
+    td { padding: 0.85rem 1rem; vertical-align: top; }
+    .badge {
+      display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 800;
+    }
+    .badge.promoter  { background: var(--green-pale); color: var(--green); }
+    .badge.passive   { background: #fef9e7; color: #b7950b; }
+    .badge.detractor { background: var(--red-pale); color: var(--red); }
+    .stars-cell { color: #f9c74f; letter-spacing: -0.1em; }
+    .flag-red { color: var(--red); font-weight: 700; }
+    .truncate { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-style: italic; }
+    .empty { text-align: center; padding: 4rem; color: var(--muted); }
+
+    /* Detail drawer */
+    .drawer-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+    }
+    .drawer {
+      position: fixed; right: 0; top: 0; bottom: 0; width: 480px; max-width: 100vw;
+      background: #fff; z-index: 101; overflow-y: auto; padding: 2rem;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+      transform: translateX(100%); transition: transform 0.25s ease;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-close {
+      float: right; background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted);
+    }
+    .drawer h2 { font-family: 'Fraunces', serif; font-size: 1.3rem; margin-bottom: 0.25rem; }
+    .drawer .drawer-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .drawer-section { margin-bottom: 1.5rem; }
+    .drawer-section h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 800; margin-bottom: 0.5rem; }
+    .score-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+    .score-row .score-key { color: var(--muted); min-width: 130px; }
+    .quote-block {
+      background: var(--green-faint); border-left: 3px solid var(--green-light);
+      padding: 0.85rem 1rem; border-radius: 0 8px 8px 0; font-style: italic;
+      font-size: 0.92rem; line-height: 1.55; color: var(--text);
+    }
+    .warn-block {
+      background: var(--red-pale); border-left: 3px solid var(--red);
+      padding: 0.85rem 1rem; border-radius: 0 8px 8px 0;
+      font-size: 0.92rem; line-height: 1.55;
+    }
+    .improve-block {
+      background: var(--cream); border-left: 3px solid var(--yellow);
+      padding: 0.85rem 1rem; border-radius: 0 8px 8px 0;
+      font-size: 0.92rem; line-height: 1.55;
+    }
+    .chip-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .chip-sm {
+      background: var(--green-pale); color: var(--green);
+      padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700;
+    }
+    .drawer-meta { font-size: 0.78rem; color: #b0c4b5; border-top: 1px solid #f0faf3; padding-top: 1rem; margin-top: 1rem; }
+
+    @media (max-width: 640px) {
+      .dash-header, .summary-bar, .filters, .table-wrap { padding-left: 1rem; padding-right: 1rem; }
+      .drawer { width: 100vw; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <h1>📊 Survey Results</h1>
+    <p>Growing Minds admin only</p>
+    <input type="password" id="passwordInput" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="btn-login" onclick="doLogin()">View Results</button>
+    <div class="login-err" id="loginErr">Incorrect password.</div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard" id="dashboard">
+
+  <div class="dash-header">
+    <div>
+      <h1>📊 Survey Results — Growing Minds</h1>
+      <div class="meta" id="headerMeta">Loading…</div>
+    </div>
+    <button onclick="logout()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;padding:0.5rem 1rem;border-radius:999px;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700;">Log out</button>
+  </div>
+
+  <div class="summary-bar" id="summaryBar">
+    <div class="stat">
+      <div class="stat-val nps-val" id="s-nps">—</div>
+      <div class="stat-label">NPS Score</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="s-total">—</div>
+      <div class="stat-label">Responses</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="s-personal">—</div>
+      <div class="stat-label">Avg Personalization</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="s-illus">—</div>
+      <div class="stat-label">Avg Illustrations</div>
+    </div>
+    <div class="stat nps-bar-wrap">
+      <div style="display:flex;gap:1rem;font-size:0.82rem;font-weight:700;margin-bottom:0.3rem;">
+        <span style="color:#e74c3c;" id="s-det">— Detractors</span>
+        <span style="color:#b7950b;" id="s-pas">— Passives</span>
+        <span style="color:var(--green);" id="s-pro">— Promoters</span>
+      </div>
+      <div class="nps-segments">
+        <div class="nps-seg detractor" id="seg-det" style="width:33%"></div>
+        <div class="nps-seg passive"   id="seg-pas" style="width:33%"></div>
+        <div class="nps-seg promoter"  id="seg-pro" style="width:34%"></div>
+      </div>
+      <div class="nps-seg-labels"><span>Detractors (0–6)</span><span>Passives (7–8)</span><span>Promoters (9–10)</span></div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <label>Filter:</label>
+    <select id="filterNps" onchange="applyFilters()">
+      <option value="all">All NPS</option>
+      <option value="promoter">Promoters (9–10)</option>
+      <option value="passive">Passives (7–8)</option>
+      <option value="detractor">Detractors (0–6)</option>
+    </select>
+    <select id="filterIssues" onchange="applyFilters()">
+      <option value="all">All responses</option>
+      <option value="issues">Has reported issues</option>
+      <option value="no-issues">No issues reported</option>
+    </select>
+    <select id="filterSort" onchange="applyFilters()">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="nps-asc">NPS: Low → High</option>
+      <option value="nps-desc">NPS: High → Low</option>
+    </select>
+    <div class="result-count" id="resultCount"></div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Child</th>
+          <th>NPS</th>
+          <th>Personal.</th>
+          <th>Illus.</th>
+          <th>Issue?</th>
+          <th>Their reaction</th>
+          <th>Upgrade intent</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="empty" id="emptyMsg" style="display:none;">No responses yet — check back after your first survey goes out.</div>
+  </div>
+
+</div>
+
+<!-- Detail drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  <h2 id="d-name"></h2>
+  <div class="drawer-sub" id="d-sub"></div>
+
+  <div class="drawer-section">
+    <h3>Scores</h3>
+    <div class="score-row"><span class="score-key">NPS</span> <span id="d-nps"></span></div>
+    <div class="score-row"><span class="score-key">Personalization</span> <span id="d-personal"></span></div>
+    <div class="score-row"><span class="score-key">Illustrations</span> <span id="d-illus"></span></div>
+  </div>
+
+  <div class="drawer-section" id="d-reaction-sec" style="display:none;">
+    <h3>Child's Reaction</h3>
+    <div class="quote-block" id="d-reaction"></div>
+  </div>
+
+  <div class="drawer-section" id="d-wrong-sec" style="display:none;">
+    <h3>⚠️ Something Was Wrong</h3>
+    <div class="warn-block" id="d-wrong"></div>
+  </div>
+
+  <div class="drawer-section" id="d-upgrade-sec" style="display:none;">
+    <h3>Upgrade Intent</h3>
+    <div class="chip-list" id="d-upgrade"></div>
+  </div>
+
+  <div class="drawer-section" id="d-improve-sec" style="display:none;">
+    <h3>#1 Thing to Improve</h3>
+    <div class="improve-block" id="d-improve"></div>
+  </div>
+
+  <div class="drawer-meta" id="d-meta"></div>
+</div>
+
+<script>
+  let allResponses = [];
+  let filtered = [];
+  let adminToken = '';
+
+  // ── Login ──
+  function doLogin() {
+    const pw = document.getElementById('passwordInput').value.trim();
+    if (!pw) return;
+    adminToken = pw;
+    loadResults();
+  }
+
+  function logout() {
+    adminToken = '';
+    sessionStorage.removeItem('gm_survey_token');
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('loginWrap').style.display = 'flex';
+    document.getElementById('passwordInput').value = '';
+  }
+
+  // ── Load ──
+  async function loadResults() {
+    try {
+      const res = await fetch(`/api/survey-results?token=${encodeURIComponent(adminToken)}`);
+      if (res.status === 401) {
+        document.getElementById('loginErr').style.display = 'block';
+        return;
+      }
+      const data = await res.json();
+      allResponses = data.responses || [];
+      sessionStorage.setItem('gm_survey_token', adminToken);
+      document.getElementById('loginWrap').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      renderSummary(allResponses);
+      applyFilters();
+    } catch (e) {
+      document.getElementById('loginErr').style.display = 'block';
+      document.getElementById('loginErr').textContent = 'Could not connect. Try again.';
+    }
+  }
+
+  // ── Summary stats ──
+  function renderSummary(data) {
+    const n = data.length;
+    document.getElementById('headerMeta').textContent = `${n} total response${n !== 1 ? 's' : ''}`;
+    document.getElementById('s-total').textContent = n;
+
+    if (n === 0) return;
+
+    const promoters  = data.filter(r => r.nps >= 9).length;
+    const passives   = data.filter(r => r.nps >= 7 && r.nps < 9).length;
+    const detractors = data.filter(r => r.nps < 7).length;
+    const nps = Math.round(((promoters - detractors) / n) * 100);
+    const avgP = (data.reduce((s, r) => s + (r.personalization || 0), 0) / n).toFixed(1);
+    const avgI = (data.reduce((s, r) => s + (r.illustrations || 0), 0) / n).toFixed(1);
+
+    document.getElementById('s-nps').textContent = (nps > 0 ? '+' : '') + nps;
+    document.getElementById('s-personal').textContent = avgP + ' ⭐';
+    document.getElementById('s-illus').textContent = avgI + ' ⭐';
+    document.getElementById('s-det').textContent = `${detractors} Detractor${detractors !== 1 ? 's' : ''}`;
+    document.getElementById('s-pas').textContent = `${passives} Passive${passives !== 1 ? 's' : ''}`;
+    document.getElementById('s-pro').textContent = `${promoters} Promoter${promoters !== 1 ? 's' : ''}`;
+    document.getElementById('seg-det').style.width = `${Math.round(detractors / n * 100)}%`;
+    document.getElementById('seg-pas').style.width = `${Math.round(passives / n * 100)}%`;
+    document.getElementById('seg-pro').style.width = `${Math.round(promoters / n * 100)}%`;
+  }
+
+  // ── Filters & sort ──
+  function applyFilters() {
+    const npsFilter    = document.getElementById('filterNps').value;
+    const issueFilter  = document.getElementById('filterIssues').value;
+    const sort         = document.getElementById('filterSort').value;
+
+    filtered = allResponses.filter(r => {
+      if (npsFilter === 'promoter'  && r.nps < 9) return false;
+      if (npsFilter === 'passive'   && (r.nps < 7 || r.nps >= 9)) return false;
+      if (npsFilter === 'detractor' && r.nps >= 7) return false;
+      if (issueFilter === 'issues'    && !r.anythingWrong) return false;
+      if (issueFilter === 'no-issues' && r.anythingWrong) return false;
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      if (sort === 'oldest')   return new Date(a.submittedAt) - new Date(b.submittedAt);
+      if (sort === 'nps-asc')  return a.nps - b.nps;
+      if (sort === 'nps-desc') return b.nps - a.nps;
+      return new Date(b.submittedAt) - new Date(a.submittedAt);
+    });
+
+    document.getElementById('resultCount').textContent = `Showing ${filtered.length} of ${allResponses.length}`;
+    renderTable(filtered);
+  }
+
+  // ── Table ──
+  function renderTable(data) {
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = '';
+    document.getElementById('emptyMsg').style.display = data.length === 0 ? 'block' : 'none';
+
+    data.forEach((r, i) => {
+      const cat = r.nps >= 9 ? 'promoter' : r.nps >= 7 ? 'passive' : 'detractor';
+      const catLabel = r.nps >= 9 ? 'Promoter' : r.nps >= 7 ? 'Passive' : 'Detractor';
+      const date = r.submittedAt
+        ? new Date(r.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : '—';
+      const stars = n => '⭐'.repeat(n || 0);
+      const upgradeShort = (r.upgradeReasons || []).includes('already') ? '✅ Plans to' : (r.upgradeReasons || []).length > 0 ? r.upgradeReasons[0] : '—';
+
+      const tr = document.createElement('tr');
+      tr.onclick = () => openDrawer(r);
+      tr.innerHTML = `
+        <td style="white-space:nowrap;color:var(--muted);">${date}</td>
+        <td><strong>${r.childName || '—'}</strong><br><span style="font-size:0.78rem;color:var(--muted);">${r.email || ''}</span></td>
+        <td><span class="badge ${cat}">${r.nps}/10<br>${catLabel}</span></td>
+        <td class="stars-cell">${stars(r.personalization)}</td>
+        <td class="stars-cell">${stars(r.illustrations)}</td>
+        <td>${r.anythingWrong ? '<span class="flag-red">⚠️ Yes</span>' : '<span style="color:var(--green-light);">✓ No</span>'}</td>
+        <td><div class="truncate">${r.childReaction ? `"${r.childReaction}"` : '<span style="color:#ccc;">—</span>'}</div></td>
+        <td style="font-size:0.82rem;color:var(--muted);">${upgradeShort}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ── Drawer ──
+  function openDrawer(r) {
+    const cat = r.nps >= 9 ? 'promoter' : r.nps >= 7 ? 'passive' : 'detractor';
+    const catLabel = r.nps >= 9 ? '🟢 Promoter' : r.nps >= 7 ? '🟡 Passive' : '🔴 Detractor';
+    const stars = n => '⭐'.repeat(n || 0) + '☆'.repeat(5 - (n || 0));
+    const date = r.submittedAt ? new Date(r.submittedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+
+    document.getElementById('d-name').textContent = r.childName ? `${r.childName}'s Story` : 'Anonymous Response';
+    document.getElementById('d-sub').textContent = `${r.email || 'No email'} · ${date}`;
+    document.getElementById('d-nps').innerHTML = `<strong>${r.nps}/10</strong> &nbsp; ${catLabel}`;
+    document.getElementById('d-personal').innerHTML = `${stars(r.personalization)} <span style="color:var(--muted);margin-left:0.4rem;">${r.personalization}/5</span>`;
+    document.getElementById('d-illus').innerHTML   = `${stars(r.illustrations)} <span style="color:var(--muted);margin-left:0.4rem;">${r.illustrations}/5</span>`;
+
+    const show = (secId, elId, val) => {
+      const sec = document.getElementById(secId);
+      if (val) { sec.style.display = 'block'; document.getElementById(elId).textContent = val; }
+      else { sec.style.display = 'none'; }
+    };
+    show('d-reaction-sec', 'd-reaction', r.childReaction ? `"${r.childReaction}"` : '');
+    show('d-wrong-sec',    'd-wrong',    r.anythingWrong);
+    show('d-improve-sec',  'd-improve',  r.oneThing);
+
+    const upgSec = document.getElementById('d-upgrade-sec');
+    const upgEl  = document.getElementById('d-upgrade');
+    if (r.upgradeReasons && r.upgradeReasons.length > 0) {
+      upgSec.style.display = 'block';
+      const labels = { price:'A lower price', quality:'Seeing the full story first', physical:'Printed book option', gift:'It\'s a gift', already:'Already plans to upgrade!', nothing:'Not interested' };
+      upgEl.innerHTML = r.upgradeReasons.map(v => `<span class="chip-sm">${labels[v] || v}</span>`).join('');
+    } else { upgSec.style.display = 'none'; }
+
+    document.getElementById('d-meta').textContent = `Story ID: ${r.storyId || '—'}`;
+
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawerOverlay').style.display = 'block';
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerOverlay').style.display = 'none';
+  }
+
+  // ── Auto-login from session ──
+  (function() {
+    const saved = sessionStorage.getItem('gm_survey_token');
+    if (saved) { adminToken = saved; loadResults(); }
+  })();
+</script>
+</body>
+</html>
