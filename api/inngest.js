@@ -727,7 +727,7 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
 
   <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">Hi there,</p>
 
-  <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">I hope you got a chance to read ${childName}'s story together. I'm the person behind Growing Minds, and I read every story before it goes out.</p>
+  <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">I hope you got a chance to read ${childName}'s story together. I'm the person behind Growing Minds.</p>
 
   <p style="font-size:1rem;line-height:1.7;margin:0 0 1.5rem;">I'd love to know honestly how it went — takes about 2 minutes:</p>
 
