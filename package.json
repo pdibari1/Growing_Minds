@@ -8,7 +8,9 @@
     "inngest": "^3.54.0",
     "pdf-lib": "^1.17.1",
     "resend": "^4.0.0",
-    "stripe": "^17.0.0"
+    "stripe": "^17.0.0",
+    "satori": "^0.10.11",
+    "@resvg/resvg-js": "^2.6.0"
   },
   "devDependencies": {
     "vercel": "^39.0.0"

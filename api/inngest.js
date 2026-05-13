@@ -307,6 +307,23 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HA
         console.log(`Cover image generated: ${blob.url.slice(0, 60)}`);
       });
 
+      // Step B2: Composite the designed cover (text baked onto illustration)
+      await step.run("design-cover-v1", async () => {
+        try {
+          const rawCoverUrl = await redisRequest("GET", [`cover:${storyId}`]);
+          if (!rawCoverUrl) return;
+          const coverBytes = await fetchImageBytes(rawCoverUrl);
+          const designedPng = await generateDesignedCoverImage(childName, childData.milestone, childData, coverBytes);
+          if (designedPng) {
+            const blob = await put(`covers/${storyId}/designed.png`, designedPng, { access: 'public', contentType: 'image/png' });
+            await redisRequest("SET", [`cover-designed:${storyId}`, blob.url, "EX", 604800]);
+            console.log(`Designed cover stored: ${blob.url.slice(0, 60)}`);
+          }
+        } catch(e) {
+          console.error(`design-cover-v1 failed (non-fatal): ${e.message}`);
+        }
+      });
+
       // Step C: Generate remaining illustrations using fal.ai instant-character
       // The cover image is used as the character reference so all chapter images match
       const remainingKeys = allImageKeys.filter(k => k !== '0-0');
@@ -640,6 +657,23 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
       await redisRequest("SET", [`img:${storyId}:0-0`, blob.url, "EX", 604800]);
     });
 
+    // Composite designed cover (text baked onto illustration)
+    await step.run("design-preview-cover-v1", async () => {
+      try {
+        const rawCoverUrl = await redisRequest("GET", [`cover:${storyId}`]);
+        if (!rawCoverUrl) return;
+        const coverBytes = await fetchImageBytes(rawCoverUrl);
+        const designedPng = await generateDesignedCoverImage(childName, childData.milestone, childData, coverBytes);
+        if (designedPng) {
+          const blob = await put(`covers/${storyId}/designed.png`, designedPng, { access: 'public', contentType: 'image/png' });
+          await redisRequest("SET", [`cover-designed:${storyId}`, blob.url, "EX", 604800]);
+          console.log(`Designed preview cover stored: ${blob.url.slice(0, 60)}`);
+        }
+      } catch(e) {
+        console.error(`design-preview-cover-v1 failed (non-fatal): ${e.message}`);
+      }
+    });
+
     // Scene illustrations for chapters 1-3
     // Use the memoized outline step result directly — avoids a Redis call outside steps
     // (outside-step I/O re-runs on every Inngest replay and can cause finalization to crash).
@@ -706,9 +740,10 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
     // Step 4: Send preview email with chapters + upgrade CTA
     await step.run("preview-send-email", async () => {
       const chapters = await getChaptersFromRedis(storyId);
-      const coverUrl = await redisRequest("GET", [`cover:${storyId}`]);
+      const designedCoverUrl = await redisRequest("GET", [`cover-designed:${storyId}`]);
+      const coverUrl = designedCoverUrl || await redisRequest("GET", [`cover:${storyId}`]);
       const upgradeUrl = `${baseUrl}/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}`;
-      await sendPreviewEmail(customerEmail, childName, chapters, coverUrl, storyId, childData, upgradeUrl);
+      await sendPreviewEmail(customerEmail, childName, chapters, coverUrl, storyId, childData, upgradeUrl, !!designedCoverUrl);
     });
 
     // Step 5: Survey email — wait 1 minute then send feedback request
@@ -2333,6 +2368,98 @@ function fetchImageBytes(url) {
 }
 
 // ════════════════════════════════════════════
+// DESIGNED COVER IMAGE (satori + resvg)
+// ════════════════════════════════════════════
+// Composites the DALL-E illustration with title text into a single PNG.
+// Returns a Buffer, or null if rendering fails (email falls back to HTML card).
+
+async function generateDesignedCoverImage(childName, milestone, childData, coverImageBytes) {
+  try {
+    const satori = require('satori');
+    const { Resvg } = require('@resvg/resvg-js');
+
+    const milestoneTitle = getMilestoneTitle(milestone);
+    const base64 = Buffer.from(coverImageBytes).toString('base64');
+    const dataUri = `data:image/jpeg;base64,${base64}`;
+
+    // Fetch Playfair Display Bold 700 from Google Fonts
+    let fontData = null;
+    try {
+      const css = await fetch(
+        'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap',
+        { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }
+      ).then(r => r.text());
+      const match = css.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/);
+      if (match) fontData = await fetch(match[1]).then(r => r.arrayBuffer());
+    } catch(fontErr) {
+      console.warn(`Cover font fetch failed: ${fontErr.message}`);
+    }
+
+    if (!fontData) {
+      console.warn('generateDesignedCoverImage: no font available — skipping');
+      return null;
+    }
+
+    const W = 600, H = 840;
+
+    // Helper to build a satori element (plain object, no React needed)
+    const el = (type, style, children) => ({
+      type, key: null,
+      props: { style: { display: 'flex', ...style }, children }
+    });
+
+    const root = el('div', { width: W, height: H, position: 'relative', backgroundColor: '#1a3328' }, [
+      // Full-bleed DALL-E illustration
+      { type: 'img', key: null, props: {
+          src: dataUri,
+          style: { position: 'absolute', top: 0, left: 0, width: W, height: H, objectFit: 'cover' }
+      }},
+      // Dark gradient over the bottom ~55% — transparent at top, near-opaque at bottom
+      el('div', {
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.round(H * 0.58),
+        backgroundImage: 'linear-gradient(to top, rgba(6,15,10,0.97) 0%, rgba(6,15,10,0.88) 25%, rgba(6,15,10,0.55) 60%, rgba(6,15,10,0) 100%)'
+      }),
+      // Text block pinned to bottom-left
+      el('div', { position: 'absolute', bottom: 34, left: 36, right: 36, flexDirection: 'column' }, [
+        // "PREVIEW EDITION" badge
+        el('div', { marginBottom: 16 }, [
+          el('div', {
+            borderWidth: 1, borderStyle: 'solid', borderColor: 'rgba(251,191,36,0.6)',
+            borderRadius: 20, paddingTop: 5, paddingBottom: 5, paddingLeft: 15, paddingRight: 15,
+            fontSize: 17, color: '#fbbf24', fontFamily: 'Playfair', letterSpacing: '0.09em',
+            backgroundColor: 'rgba(251,191,36,0.1)'
+          }, 'PREVIEW EDITION')
+        ]),
+        // Child name: "Benjamin and the"
+        el('div', { fontSize: 50, fontWeight: 700, color: '#ffffff', fontFamily: 'Playfair', lineHeight: 1.15, marginBottom: 4 },
+          `${childName} and the`),
+        // Milestone title in gold
+        el('div', { fontSize: 44, fontWeight: 700, color: '#fbbf24', fontFamily: 'Playfair', lineHeight: 1.2, marginBottom: 20 },
+          milestoneTitle),
+        // Thin mint rule
+        el('div', { width: 48, height: 2, backgroundColor: 'rgba(134,239,172,0.45)', marginBottom: 13 }),
+        // Subtitle
+        el('div', { fontSize: 19, color: 'rgba(196,242,212,0.82)', fontFamily: 'Playfair', letterSpacing: '0.05em' },
+          'A Growing Minds Original Story')
+      ])
+    ]);
+
+    const svg = await satori(root, {
+      width: W, height: H,
+      fonts: [{ name: 'Playfair', data: fontData, weight: 700, style: 'normal' }]
+    });
+
+    const resvg = new Resvg(svg, { background: '#1a3328' });
+    const pngData = resvg.render();
+    return pngData.asPng();
+
+  } catch(e) {
+    console.error(`generateDesignedCoverImage failed: ${e.message}`);
+    return null;
+  }
+}
+
+// ════════════════════════════════════════════
 // PDF GENERATION
 // ════════════════════════════════════════════
 
@@ -3208,7 +3335,7 @@ async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
   return Buffer.from(pdfBytes).toString('base64');
 }
 
-async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, childData, upgradeUrl) {
+async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, childData, upgradeUrl, isDesignedCover = false) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { milestone } = childData;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
@@ -3217,11 +3344,27 @@ async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, c
   const pdfBase64 = await generatePreviewPdf(childName, chapters, childData, coverUrl);
   const pdfAttachment = { filename: `${childName}-story-preview.pdf`, content: pdfBase64 };
 
-  const coverBlock = coverUrl
+  const milestoneTitle = getMilestoneTitle(milestone);
+
+  // If we have the designed cover (text baked in as a real PNG), show it as a plain image.
+  // If only the raw DALL-E image is available, fall back to the HTML card layout.
+  const coverBlock = !coverUrl ? '' : isDesignedCover
     ? `<div style="text-align:center;margin:2rem 0 1.5rem;">
-        <img src="${coverUrl}" alt="${childName}'s story cover" style="max-width:280px;width:100%;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.15);" />
+        <img src="${coverUrl}" alt="${childName}'s story cover" width="280" style="width:280px;max-width:280px;border-radius:10px;box-shadow:0 6px 28px rgba(0,0,0,.22);display:block;margin:0 auto;" />
       </div>`
-    : '';
+    : `<div style="text-align:center;margin:2rem 0 1.5rem;">
+        <div style="display:inline-block;width:200px;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.25);">
+          <div style="height:125px;overflow:hidden;background:#1a3328;line-height:0;font-size:0;">
+            <img src="${coverUrl}" alt="" width="200" style="width:200px;height:auto;display:block;border:0;margin:0;padding:0;" />
+          </div>
+          <div style="background:#2d6a4f;padding:14px 16px 13px;text-align:left;">
+            <div style="color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;line-height:1.35;">${childName} and the</div>
+            <div style="color:#fbbf24;font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;line-height:1.35;">${milestoneTitle}</div>
+            <div style="color:rgba(134,239,172,0.9);font-family:Arial,sans-serif;font-size:8px;letter-spacing:.04em;margin-top:6px;">A Growing Minds Original Story</div>
+            <div style="color:rgba(255,255,255,0.55);font-family:Arial,sans-serif;font-size:7px;margin-top:7px;">Chapters 1–3 Preview · Written for ${childName}</div>
+          </div>
+        </div>
+      </div>`;
 
   const moreChaps = parseInt(childData.age) <= 5 ? 12 : parseInt(childData.age) <= 9 ? 17 : 27;
 
