@@ -227,6 +227,44 @@
     .btn-retry { background: var(--green); color: white; border: none; border-radius: 50px; padding: .9rem 2rem; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem; cursor: pointer; transition: all .2s; }
     .btn-retry:hover { background: var(--green-mid); transform: translateY(-1px); }
 
+    /* ── FRIEND LOOK COLLAPSIBLE ── */
+    .friend-look-trigger {
+      display: flex; align-items: center; gap: .5rem;
+      margin-top: .85rem; padding: .5rem .9rem;
+      border: 1.5px dashed var(--border); border-radius: 10px 10px 10px 10px;
+      cursor: pointer; color: var(--muted); font-size: .81rem; font-weight: 700;
+      background: var(--warm-white); transition: all .18s; user-select: none;
+    }
+    .friend-look-trigger:hover { border-color: var(--green-light); color: var(--green); background: var(--green-faint); }
+    .friend-look-trigger.open { border-color: var(--green-light); color: var(--green); background: var(--green-faint); border-style: solid; border-radius: 10px 10px 0 0; }
+    .friend-look-arrow { margin-left: auto; font-size: .7rem; transition: transform .2s; display: inline-block; }
+    .friend-look-trigger.open .friend-look-arrow { transform: rotate(90deg); }
+    .friend-look-body {
+      display: none; padding: 1rem 1rem .6rem;
+      border: 1.5px solid var(--green-light); border-top: none;
+      border-radius: 0 0 10px 10px; background: var(--green-faint);
+    }
+    .friend-look-body.open { display: block; animation: fadeUp .2s ease both; }
+    .friend-look-section { margin-bottom: .9rem; }
+    .friend-look-label { font-size: .74rem; font-weight: 800; color: var(--text-soft); margin-bottom: .45rem; display: block; }
+    /* compact swatches */
+    .swatch-group-sm { display: flex; flex-wrap: wrap; gap: .45rem; }
+    .swatch-wrap-sm { display: flex; flex-direction: column; align-items: center; gap: .28rem; cursor: pointer; transition: transform .15s; }
+    .swatch-wrap-sm:hover { transform: scale(1.08); }
+    .swatch-sm { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--border); transition: border-color .15s, box-shadow .15s; position: relative; }
+    .swatch-wrap-sm.selected .swatch-sm { border-color: var(--green); box-shadow: 0 0 0 2.5px rgba(45,106,79,0.2); }
+    .swatch-wrap-sm.selected .swatch-sm::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: .6rem; font-weight: 900; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+    .swatch-label-sm { font-size: .63rem; font-weight: 700; color: var(--muted); text-align: center; }
+    .swatch-wrap-sm.selected .swatch-label-sm { color: var(--green); font-weight: 800; }
+    /* compact cards */
+    .card-group-sm { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .card-option-sm { display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .5rem .45rem; min-width: 58px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; transition: all .18s; }
+    .card-option-sm:hover { border-color: var(--green-light); transform: translateY(-1px); }
+    .card-option-sm.selected { border-color: var(--green); background: var(--green-pale); box-shadow: 0 0 0 2px rgba(45,106,79,0.12); }
+    .card-icon-sm { font-size: 1.2rem; line-height: 1; }
+    .card-label-sm { font-size: .63rem; font-weight: 800; color: var(--text-soft); text-align: center; line-height: 1.25; }
+    .card-option-sm.selected .card-label-sm { color: var(--green); }
+
     /* responsive */
     @media (max-width: 900px) { .milestone-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {
@@ -512,6 +550,51 @@
         <div id="friendRelationOtherWrap" style="display:none; margin-top:.6rem;">
           <input type="text" id="friendRelationOther" placeholder="Describe the relationship…" maxlength="40"/>
         </div>
+
+        <!-- Collapsible appearance section -->
+        <div class="friend-look-trigger" id="friendLookTrigger" onclick="toggleFriendLook()">
+          <span>👀 What do they look like? <span style="font-weight:600;color:var(--muted-light);">(optional)</span></span>
+          <span class="friend-look-arrow">▶</span>
+        </div>
+        <div class="friend-look-body" id="friendLookBody">
+
+          <div class="friend-look-section">
+            <label class="friend-look-label">Hair color</label>
+            <div class="swatch-group-sm">
+              <div class="swatch-wrap-sm" data-val="Black"      onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#1a1a1a;"></div><div class="swatch-label-sm">Black</div></div>
+              <div class="swatch-wrap-sm" data-val="Dark Brown" onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#3b1f0a;"></div><div class="swatch-label-sm">Dark<br>Brown</div></div>
+              <div class="swatch-wrap-sm" data-val="Brown"      onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#7b4f2e;"></div><div class="swatch-label-sm">Brown</div></div>
+              <div class="swatch-wrap-sm" data-val="Blonde"     onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#f5d06e;border-color:#ddb83a;"></div><div class="swatch-label-sm">Blonde</div></div>
+              <div class="swatch-wrap-sm" data-val="Red"        onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#c0392b;"></div><div class="swatch-label-sm">Red</div></div>
+              <div class="swatch-wrap-sm" data-val="Auburn"     onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#a0522d;"></div><div class="swatch-label-sm">Auburn</div></div>
+              <div class="swatch-wrap-sm" data-val="White/Grey" onclick="pickFriendSwatch('friendHair',this)"><div class="swatch-sm" style="background:#d0d0d0;"></div><div class="swatch-label-sm">White/<br>Grey</div></div>
+            </div>
+          </div>
+
+          <div class="friend-look-section">
+            <label class="friend-look-label">Hair length</label>
+            <div class="card-group-sm">
+              <div class="card-option-sm" data-val="crew cut"         onclick="pickFriendCard('friendHairLength',this)"><div class="card-icon-sm">👨</div><div class="card-label-sm">Crew Cut</div></div>
+              <div class="card-option-sm" data-val="regular cut"      onclick="pickFriendCard('friendHairLength',this)"><div class="card-icon-sm">🧑</div><div class="card-label-sm">Regular Cut</div></div>
+              <div class="card-option-sm" data-val="past the ears"    onclick="pickFriendCard('friendHairLength',this)"><div class="card-icon-sm">👱</div><div class="card-label-sm">Past Ears</div></div>
+              <div class="card-option-sm" data-val="to the shoulders" onclick="pickFriendCard('friendHairLength',this)"><div class="card-icon-sm">👩</div><div class="card-label-sm">Shoulders</div></div>
+              <div class="card-option-sm" data-val="long"             onclick="pickFriendCard('friendHairLength',this)"><div class="card-icon-sm">👸</div><div class="card-label-sm">Long</div></div>
+            </div>
+          </div>
+
+          <div class="friend-look-section">
+            <label class="friend-look-label">Eye color</label>
+            <div class="swatch-group-sm">
+              <div class="swatch-wrap-sm" data-val="Brown"      onclick="pickFriendSwatch('friendEye',this)"><div class="swatch-sm" style="background:#6b3a1f;"></div><div class="swatch-label-sm">Brown</div></div>
+              <div class="swatch-wrap-sm" data-val="Dark Brown" onclick="pickFriendSwatch('friendEye',this)"><div class="swatch-sm" style="background:#2c1a0e;"></div><div class="swatch-label-sm">Dark<br>Brown</div></div>
+              <div class="swatch-wrap-sm" data-val="Blue"       onclick="pickFriendSwatch('friendEye',this)"><div class="swatch-sm" style="background:#4b9fd5;"></div><div class="swatch-label-sm">Blue</div></div>
+              <div class="swatch-wrap-sm" data-val="Green"      onclick="pickFriendSwatch('friendEye',this)"><div class="swatch-sm" style="background:#3a8c4e;"></div><div class="swatch-label-sm">Green</div></div>
+              <div class="swatch-wrap-sm" data-val="Hazel"      onclick="pickFriendSwatch('friendEye',this)"><div class="swatch-sm" style="background:#8d7340;"></div><div class="swatch-label-sm">Hazel</div></div>
+              <div class="swatch-wrap-sm" data-val="Grey"       onclick="pickFriendSwatch('friendEye',this)"><div class="swatch-sm" style="background:#8a9099;"></div><div class="swatch-label-sm">Grey</div></div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
       <div class="section-divider">A little more detail</div>
@@ -568,6 +651,8 @@
         <div class="field-error" id="err-consent">Please agree to the Terms of Service and Privacy Policy to continue.</div>
       </div>
 
+      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin-top:1.2rem;margin-bottom:.25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#2d6a4f;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
+
       <div class="nav">
         <button class="btn-back" onclick="goTo(3)">← Back</button>
         <button class="btn-submit" onclick="submitForm()">✨ Generate My Preview!</button>
@@ -575,6 +660,25 @@
     </div>
 
   </main>
+</div>
+
+<!-- International waitlist modal -->
+<div id="intlModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1.5rem;">
+  <div style="background:#fff;border-radius:20px;padding:2.2rem 2rem;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative;">
+    <button onclick="document.getElementById('intlModal').style.display='none'" style="position:absolute;top:1rem;right:1.2rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9ca3af;">✕</button>
+    <div style="font-size:2rem;margin-bottom:.75rem;">🌍</div>
+    <h3 style="font-size:1.35rem;font-weight:800;color:#1a1a2e;margin-bottom:.5rem;">We're US-only right now</h3>
+    <p style="font-size:.9rem;color:#6b7280;line-height:1.6;margin-bottom:1.3rem;">Growing Minds currently ships within the United States. We're planning to expand to Canada, the UK, and Australia — join the waitlist and you'll be the first to know.</p>
+    <div id="intlForm">
+      <input id="intlEmail" type="email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:.78rem 1rem;border:2px solid #e5e7eb;border-radius:10px;font-size:.95rem;margin-bottom:.75rem;outline:none;"/>
+      <button onclick="submitIntlWaitlist()" style="width:100%;padding:.85rem;background:#2d6a4f;color:white;border:none;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer;">Notify me when available →</button>
+    </div>
+    <div id="intlThanks" style="display:none;text-align:center;padding:.5rem 0;">
+      <div style="font-size:1.8rem;margin-bottom:.5rem;">✅</div>
+      <p style="font-weight:800;color:#2d6a4f;">You're on the list!</p>
+      <p style="font-size:.85rem;color:#6b7280;margin-top:.3rem;">We'll email you when we launch in your region.</p>
+    </div>
+  </div>
 </div>
 
 <!-- Loading overlay -->
@@ -598,6 +702,7 @@
 const st = {
   milestone: '', milestoneLabel: '', milestoneIcon: '',
   hair: '', hairLength: '', hairStyle: '', eye: '', trait: '',
+  friendHair: '', friendHairLength: '', friendEye: '',
 };
 
 const STEPS = [
@@ -745,6 +850,29 @@ function pickCard(type, el) {
   if (type === 'trait') updatePreview('prev-trait', st.trait);
 }
 
+// ── FRIEND LOOK ──
+function toggleFriendLook() {
+  const trigger = document.getElementById('friendLookTrigger');
+  const body    = document.getElementById('friendLookBody');
+  const opening = !body.classList.contains('open');
+  trigger.classList.toggle('open', opening);
+  body.classList.toggle('open', opening);
+}
+
+function pickFriendSwatch(key, el) {
+  const group = el.closest('.swatch-group-sm');
+  group.querySelectorAll('.swatch-wrap-sm').forEach(w => w.classList.remove('selected'));
+  el.classList.add('selected');
+  st[key] = el.dataset.val;
+}
+
+function pickFriendCard(key, el) {
+  const group = el.closest('.card-group-sm');
+  group.querySelectorAll('.card-option-sm').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  st[key] = el.dataset.val;
+}
+
 // ── PREVIEW SIDEBAR ──
 function updatePreview(id, val) {
   const el = document.getElementById(id);
@@ -776,6 +904,25 @@ function initCharCounters(root) {
 initCharCounters();
 
 // ── SUBMIT ──
+async function submitIntlWaitlist() {
+  const email = document.getElementById('intlEmail').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    document.getElementById('intlEmail').style.borderColor = '#dc2626';
+    return;
+  }
+  try {
+    await fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+  } catch(e) {}
+  document.getElementById('intlForm').style.display  = 'none';
+  document.getElementById('intlThanks').style.display = 'block';
+}
+
+// Auto-detect international visitors
+fetch('https://ipapi.co/json/')
+  .then(r => r.json())
+  .then(d => { if (d.country_code && d.country_code !== 'US') document.getElementById('intlModal').style.display = 'flex'; })
+  .catch(() => {});
+
 async function submitForm() {
   if (!validate(4)) return;
 
@@ -797,6 +944,11 @@ async function submitForm() {
     const parts = [friendName];
     if (friendAge) parts.push(`age ${friendAge}`);
     if (finalRelation) parts.push(`(${finalRelation})`);
+    const lookParts = [];
+    if (st.friendHair)       lookParts.push(`${st.friendHair} hair`);
+    if (st.friendHairLength) lookParts.push(`${st.friendHairLength} length`);
+    if (st.friendEye)        lookParts.push(`${st.friendEye} eyes`);
+    if (lookParts.length)    parts.push(`— ${lookParts.join(', ')}`);
     friend = parts.join(' ');
   }
 

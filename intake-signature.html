@@ -912,6 +912,8 @@
         <span>I confirm I am a parent or guardian providing this information on behalf of my child, and I agree to the <a href="https://www.growingminds.io/privacy-policy" target="_blank" style="color:#6c63ff; text-decoration:underline;">Privacy Policy</a> and <a href="https://www.growingminds.io/terms" target="_blank" style="color:#6c63ff; text-decoration:underline;">Terms of Service</a>.</span>
       </label>
 
+      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin:.5rem 0 .25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#6c63ff;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
+
       <div class="nav" style="flex-direction:column; align-items:flex-start; gap:1rem;">
         <button class="btn-submit" onclick="submitForm()">✨ Generate my preview →</button>
         <button class="btn-back" style="margin-top:0;" onclick="goTo(6)">← Go back and edit</button>
@@ -919,6 +921,25 @@
     </div>
 
   </main>
+</div>
+
+<!-- International waitlist modal -->
+<div id="intlModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1.5rem;">
+  <div style="background:#fff;border-radius:20px;padding:2.2rem 2rem;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative;">
+    <button onclick="document.getElementById('intlModal').style.display='none'" style="position:absolute;top:1rem;right:1.2rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9ca3af;">✕</button>
+    <div style="font-size:2rem;margin-bottom:.75rem;">🌍</div>
+    <h3 style="font-size:1.35rem;font-weight:800;color:#1a1a2e;margin-bottom:.5rem;">We're US-only right now</h3>
+    <p style="font-size:.9rem;color:#6b7280;line-height:1.6;margin-bottom:1.3rem;">Growing Minds currently ships within the United States. We're planning to expand to Canada, the UK, and Australia — join the waitlist and you'll be the first to know.</p>
+    <div id="intlForm">
+      <input id="intlEmail" type="email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:.78rem 1rem;border:2px solid #e5e7eb;border-radius:10px;font-size:.95rem;margin-bottom:.75rem;outline:none;"/>
+      <button onclick="submitIntlWaitlist()" style="width:100%;padding:.85rem;background:#6c63ff;color:white;border:none;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer;">Notify me when available →</button>
+    </div>
+    <div id="intlThanks" style="display:none;text-align:center;padding:.5rem 0;">
+      <div style="font-size:1.8rem;margin-bottom:.5rem;">✅</div>
+      <p style="font-weight:800;color:#6c63ff;">You're on the list!</p>
+      <p style="font-size:.85rem;color:#6b7280;margin-top:.3rem;">We'll email you when we launch in your region.</p>
+    </div>
+  </div>
 </div>
 
 <!-- Loading overlay -->
@@ -1302,6 +1323,25 @@ function getMilestoneAnswers() {
 }
 
 // ── SUBMIT ──
+async function submitIntlWaitlist() {
+  const email = document.getElementById('intlEmail').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    document.getElementById('intlEmail').style.borderColor = '#dc2626';
+    return;
+  }
+  try {
+    await fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+  } catch(e) {}
+  document.getElementById('intlForm').style.display  = 'none';
+  document.getElementById('intlThanks').style.display = 'block';
+}
+
+// Auto-detect international visitors
+fetch('https://ipapi.co/json/')
+  .then(r => r.json())
+  .then(d => { if (d.country_code && d.country_code !== 'US') document.getElementById('intlModal').style.display = 'flex'; })
+  .catch(() => {});
+
 async function submitForm() {
   const name        = (document.getElementById('childName')?.value        || '').trim();
   const age         = (document.getElementById('childAge')?.value         || '');

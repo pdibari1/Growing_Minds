@@ -669,7 +669,8 @@
           <li>Tailored to your child's age, personality &amp; milestone</li>
         </ul>
         <a href="intake-form.html" class="btn-primary" style="width:100%; display:block; text-align:center;">Start Their Story →</a>
-        <p class="price-note">📦 Full book ships in 13–15 business days · US, CA, UK &amp; AU</p>
+        <p class="price-note">📦 Ships within the United States · Full book delivered in 13–15 business days</p>
+        <p class="price-note" style="margin-top:.4rem;">🌍 Outside the US? <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:var(--green);font-weight:700;">Join the international waitlist →</a></p>
       </div>
     </div>
   </section>
@@ -832,6 +833,46 @@
       });
     }, { threshold: 0.1 });
     document.querySelectorAll('.reveal').forEach(function(el) { observer.observe(el); });
+  </script>
+
+  <!-- International waitlist modal -->
+  <div id="intlModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:1.5rem;">
+    <div style="background:#fff;border-radius:20px;padding:2.2rem 2rem;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative;">
+      <button onclick="document.getElementById('intlModal').style.display='none'" style="position:absolute;top:1rem;right:1.2rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9ca3af;">✕</button>
+      <div style="font-size:2rem;margin-bottom:.75rem;">🌍</div>
+      <h3 style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:700;color:#1a1a2e;margin-bottom:.5rem;">We're US-only right now</h3>
+      <p style="font-size:.9rem;color:#6b7280;line-height:1.6;margin-bottom:1.3rem;">Growing Minds currently ships within the United States. We're planning to expand to Canada, the UK, and Australia — join the waitlist and you'll be the first to know.</p>
+      <div id="intlForm">
+        <input id="intlEmail" type="email" placeholder="your@email.com" style="width:100%;padding:.78rem 1rem;border:2px solid #e5e7eb;border-radius:10px;font-family:'Nunito',sans-serif;font-size:.95rem;margin-bottom:.75rem;outline:none;"/>
+        <button onclick="submitIntlWaitlist()" style="width:100%;padding:.85rem;background:#2d6a4f;color:white;border:none;border-radius:10px;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:800;cursor:pointer;">Notify me when available →</button>
+      </div>
+      <div id="intlThanks" style="display:none;text-align:center;padding:.5rem 0;">
+        <div style="font-size:1.8rem;margin-bottom:.5rem;">✅</div>
+        <p style="font-weight:800;color:#2d6a4f;">You're on the list!</p>
+        <p style="font-size:.85rem;color:#6b7280;margin-top:.3rem;">We'll email you when we launch in your region.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function submitIntlWaitlist() {
+      const email = document.getElementById('intlEmail').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        document.getElementById('intlEmail').style.borderColor = '#dc2626';
+        return;
+      }
+      try {
+        await fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      } catch(e) {}
+      document.getElementById('intlForm').style.display  = 'none';
+      document.getElementById('intlThanks').style.display = 'block';
+    }
+
+    // Auto-detect international visitors and show modal
+    fetch('https://ipapi.co/json/')
+      .then(r => r.json())
+      .then(d => { if (d.country_code && d.country_code !== 'US') document.getElementById('intlModal').style.display = 'flex'; })
+      .catch(() => {});
   </script>
 </body>
 </html>

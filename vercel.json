@@ -15,7 +15,8 @@
     "api/regenerate.js":       { "maxDuration": 15 },
     "api/cancel.js":           { "maxDuration": 15 },
     "api/survey.js":           { "maxDuration": 15 },
-    "api/survey-results.js":   { "maxDuration": 15 }
+    "api/survey-results.js":   { "maxDuration": 15 },
+    "api/waitlist.js":         { "maxDuration": 10 }
   },
   "rewrites": [
     { "source": "/confirmation", "destination": "/confirmation.html" },
