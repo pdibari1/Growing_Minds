@@ -2202,12 +2202,12 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
 // DALL-E 3 — returns raw image Buffer directly
 function callGptImage(prompt, size = "1024x1024") {
   const payload = JSON.stringify({
-    model: "dall-e-3",
+    model: "gpt-image-1",
     prompt,
     n: 1,
     size,
-    quality: "standard",
-    response_format: "b64_json"
+    quality: "medium",
+    output_format: "jpeg"
   });
 
   return new Promise((resolve, reject) => {
