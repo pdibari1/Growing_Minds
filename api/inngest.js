@@ -995,7 +995,38 @@ const generateRemainingChapters = inngest.createFunction(
       await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
     });
 
-    // Step 8: Cleanup
+    // Step 8: Create Lulu print job (non-fatal — never blocks delivery)
+    await step.run("upgrade-lulu-order", async () => {
+      try {
+        if (!shippingAddress) { console.log("No shipping address — skipping Lulu order"); return; }
+        const { createLuluPrintJob, getCoverDimensions } = require("./lulu");
+
+        const interiorUrl = fullBookUrl;
+        if (!interiorUrl) throw new Error("No interior PDF URL available");
+
+        // Build a print-ready cover PDF (front + spine + back on one page with bleed)
+        const coverUrl = await buildLuluCoverPdf(storyId, childName, childData, interiorUrl);
+        if (!coverUrl) throw new Error("Cover PDF generation failed");
+
+        const job = await createLuluPrintJob({
+          interiorUrl,
+          coverUrl,
+          shippingDetails: shippingAddress,
+          customerEmail,
+          storyId,
+          childName,
+        });
+
+        // Store the Lulu job ID in Redis for status tracking (both directions)
+        await redisRequest("SET", [`lulu-job:${storyId}`,       String(job.id),  "EX", 2592000]);
+        await redisRequest("SET", [`lulu-job-story:${job.id}`,  storyId,         "EX", 2592000]);
+        console.log(`Lulu print job created: ${job.id} for ${childName} (${storyId})`);
+      } catch(e) {
+        console.error(`Lulu order failed (non-fatal): ${e.message}`);
+      }
+    });
+
+    // Step 9: Cleanup
     await step.run("upgrade-cleanup", async () => {
       await deleteChaptersFromRedis(storyId);
       try {
@@ -2460,6 +2491,121 @@ async function generateDesignedCoverImage(childName, milestone, childData, cover
 }
 
 // ════════════════════════════════════════════
+// LULU COVER PDF BUILDER
+// ════════════════════════════════════════════
+
+// Builds a print-ready cover PDF (front + spine + back on one page, with 0.125" bleed)
+// and uploads it to Vercel Blob. Returns the public URL.
+async function buildLuluCoverPdf(storyId, childName, childData, interiorPdfUrl) {
+  try {
+    const { getCoverDimensions } = require("./lulu");
+    const { PDFDocument: PDoc, rgb: prgb, StandardFonts: SF } = require("pdf-lib");
+
+    // Count interior pages to calculate spine width
+    const interiorBytes = await fetchImageBytes(interiorPdfUrl);
+    const interiorDoc   = await PDoc.load(interiorBytes);
+    const pageCount     = interiorDoc.getPageCount();
+
+    // Ask Lulu for exact cover dimensions (in inches)
+    let dims;
+    try {
+      dims = await getCoverDimensions(pageCount);
+    } catch(e) {
+      console.warn(`getCoverDimensions failed (${e.message}), using formula`);
+      // Fallback formula: spine = pageCount / 444 inches, with 0.125" bleed
+      const spineIn = pageCount / 444;
+      dims = {
+        width:  (5.5 * 2 + spineIn + 0.125 * 2),
+        height: (8.5 + 0.125 * 2),
+        spine_width: spineIn,
+      };
+    }
+
+    // Convert inches to PDF points (72 pts per inch)
+    const totalW  = Math.round(dims.width  * 72);
+    const totalH  = Math.round(dims.height * 72);
+    const spineW  = Math.round((dims.spine_width || 0) * 72);
+    const bleedPt = Math.round(0.125 * 72); // 9 pts
+    const trimW   = Math.round(5.5 * 72);   // 396 pts
+    const trimH   = Math.round(8.5 * 72);   // 612 pts
+
+    const coverDoc = await PDoc.create();
+    const page     = coverDoc.addPage([totalW, totalH]);
+
+    const timesRoman = await coverDoc.embedFont(SF.TimesRoman);
+    const timesBold  = await coverDoc.embedFont(SF.TimesRomanBold);
+    const helvetica  = await coverDoc.embedFont(SF.Helvetica);
+
+    const green  = prgb(0.176, 0.416, 0.310);
+    const gold   = prgb(0.976, 0.780, 0.310);
+    const white  = prgb(1, 1, 1);
+    const darkGreen = prgb(0.06, 0.15, 0.10);
+
+    // ── BACK COVER (left side, x = 0 to bleed+trimW) ──
+    page.drawRectangle({ x: 0, y: 0, width: bleedPt + trimW, height: totalH, color: darkGreen });
+    page.drawText("A Growing Minds Original Story", {
+      x: bleedPt + 24, y: totalH / 2 + 20,
+      font: helvetica, size: 10, color: white,
+    });
+    page.drawText("growingminds.io", {
+      x: bleedPt + 24, y: bleedPt + 20,
+      font: helvetica, size: 9, color: prgb(0.5, 0.8, 0.6),
+    });
+
+    // ── SPINE (middle) ──
+    const spineX = bleedPt + trimW;
+    page.drawRectangle({ x: spineX, y: 0, width: spineW, height: totalH, color: green });
+    if (spineW > 30) {
+      // Draw title text vertically on spine if wide enough
+      page.drawText(`${childName} · Growing Minds`, {
+        x: spineX + spineW / 2 + 6,
+        y: bleedPt + 20,
+        font: timesBold, size: Math.min(9, spineW * 0.4),
+        color: white,
+        rotate: { type: "degrees", angle: 90 },
+      });
+    }
+
+    // ── FRONT COVER (right side) ──
+    const frontX = spineX + spineW;
+    page.drawRectangle({ x: frontX, y: 0, width: trimW + bleedPt, height: totalH, color: darkGreen });
+
+    // Try to embed the DALL-E cover illustration
+    try {
+      const rawCoverUrl = await redisRequest("GET", [`cover:${storyId}`]);
+      if (rawCoverUrl) {
+        const imgBytes = await fetchImageBytes(rawCoverUrl);
+        const img = await coverDoc.embedJpg(imgBytes).catch(() => coverDoc.embedPng(imgBytes));
+        page.drawImage(img, { x: frontX, y: bleedPt + Math.round(trimH * 0.35),
+          width: trimW, height: Math.round(trimH * 0.65) });
+      }
+    } catch(imgErr) { console.warn("Cover image embed failed:", imgErr.message); }
+
+    // Green band at bottom of front cover
+    page.drawRectangle({ x: frontX, y: bleedPt, width: trimW, height: Math.round(trimH * 0.38), color: green });
+
+    const milestoneTitle = getMilestoneTitle(childData.milestone);
+    const mx = frontX + 24;
+    page.drawText(`${childName} and the`, { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 30, font: timesBold, size: 22, color: white });
+    page.drawText(milestoneTitle,          { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 60, font: timesBold, size: 20, color: gold });
+    page.drawText("A Growing Minds Original Story", { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 88, font: helvetica, size: 9, color: prgb(0.8, 0.9, 0.85) });
+    page.drawText(`Written for ${childName}, age ${childData.age}`, { x: mx, y: bleedPt + 42, font: timesBold, size: 11, color: white });
+    page.drawText(`${childData.city}, ${childData.region}`,         { x: mx, y: bleedPt + 24, font: timesRoman, size: 9, color: prgb(0.8, 0.9, 0.85) });
+
+    const coverPdfBytes = await coverDoc.save();
+    const blob = await put(`covers/${storyId}/lulu-cover.pdf`, coverPdfBytes, {
+      access: "public", contentType: "application/pdf",
+    });
+
+    console.log(`Lulu cover PDF built: ${blob.url} (${pageCount} pages, spine ${spineW}pt)`);
+    return blob.url;
+  } catch(e) {
+    console.error(`buildLuluCoverPdf failed: ${e.message}`);
+    return null;
+  }
+}
+
+// ════════════════════════════════════════════
 // PDF GENERATION
 // ════════════════════════════════════════════
 
@@ -2471,7 +2617,7 @@ async function createStoryPDF(child, chapters, illustrations, tier) {
   const helvetica  = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const pageWidth = 432, pageHeight = 648, margin = 54;
+  const pageWidth = 396, pageHeight = 612, margin = 48; // 5.5" × 8.5" — Lulu standard trim
   const contentW = pageWidth - margin * 2;
   const green = rgb(0.176, 0.416, 0.310);
   const gold  = rgb(0.976, 0.780, 0.310);
@@ -3227,7 +3373,7 @@ async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
   const helvetica  = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const pageWidth = 432, pageHeight = 648, margin = 54;
+  const pageWidth = 396, pageHeight = 612, margin = 48; // 5.5" × 8.5" — Lulu standard trim
   const contentW = pageWidth - margin * 2;
   const green = rgb(0.176, 0.416, 0.310);
   const gold  = rgb(0.976, 0.780, 0.310);

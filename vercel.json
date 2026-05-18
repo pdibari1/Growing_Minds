@@ -16,7 +16,8 @@
     "api/cancel.js":           { "maxDuration": 15 },
     "api/survey.js":           { "maxDuration": 15 },
     "api/survey-results.js":   { "maxDuration": 15 },
-    "api/waitlist.js":         { "maxDuration": 10 }
+    "api/waitlist.js":         { "maxDuration": 10 },
+    "api/lulu-webhook.js":     { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/confirmation", "destination": "/confirmation.html" },
@@ -30,6 +31,7 @@
     { "source": "/test", "destination": "/test.html" },
     { "source": "/test2", "destination": "/test2.html" },
     { "source": "/survey", "destination": "/survey.html" },
-    { "source": "/survey-results", "destination": "/survey-results.html" }
+    { "source": "/survey-results", "destination": "/survey-results.html" },
+    { "source": "/returns",        "destination": "/returns.html" }
   ]
 }
