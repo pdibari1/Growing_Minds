@@ -298,7 +298,7 @@ const generateStoryOrder = inngest.createFunction(
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
 Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
-        const coverBytes = await callGptImage(coverPrompt);
+        const coverBytes = await callCoverImage(coverPrompt);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
         // Store cover URL separately with a 7-day TTL — the illustration key (2h) may expire
@@ -2234,6 +2234,62 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
 }
 
 // DALL-E 3 — returns raw image Buffer directly
+// Try DALL-E 3 first (better artistic quality), fall back to gpt-image-1 if unavailable
+async function callCoverImage(prompt, size = "1024x1024") {
+  try {
+    return await callDallE3(prompt, size);
+  } catch(e) {
+    console.warn(`DALL-E 3 failed (${e.message}) — falling back to gpt-image-1`);
+    return callGptImage(prompt, size);
+  }
+}
+
+function callDallE3(prompt, size = "1024x1024") {
+  const payload = JSON.stringify({
+    model: "dall-e-3",
+    prompt,
+    n: 1,
+    size,
+    quality: "standard",
+    response_format: "b64_json"
+  });
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.openai.com",
+      port: 443,
+      path: "/v1/images/generations",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      timeout: 180000
+    };
+
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.error) return reject(new Error(data.error.message));
+          const b64 = data.data[0].b64_json;
+          if (!b64) return reject(new Error("DALL-E 3: no b64_json in response"));
+          resolve(Buffer.from(b64, "base64"));
+        } catch(e) {
+          reject(new Error("DALL-E 3 parse error: " + body.slice(0, 200)));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("DALL-E 3 timeout")));
+    req.write(payload);
+    req.end();
+  });
+}
+
 function callGptImage(prompt, size = "1024x1024") {
   const payload = JSON.stringify({
     model: "gpt-image-1",
