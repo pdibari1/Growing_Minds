@@ -797,7 +797,10 @@ const generateRemainingChapters = inngest.createFunction(
     const { storyId, childName, customerEmail, shippingAddress } = event.data;
 
     // Load everything from Redis — preview function stored it all with 7-day TTLs
-    const storyToken = await redisRequest("GET", [`storytoken:${storyId}`]);
+    // Fall back to `token:{storyId}` (set by generate-preview.js, 48h TTL) in case
+    // the preview/completed Inngest flow hasn't saved its copy yet
+    const storyToken = await redisRequest("GET", [`storytoken:${storyId}`])
+                    || await redisRequest("GET", [`token:${storyId}`]);
     if (!storyToken) throw new Error(`No storyToken in Redis for ${storyId} — preview may have expired`);
 
     const childData = decodeStoryData(storyToken);
