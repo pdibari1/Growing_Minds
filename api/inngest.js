@@ -33,7 +33,7 @@ function getStoryTier(age) {
 function getStyleGuideForAge(age) {
   const ageNum = parseInt(age) || 7;
   if (ageNum <= 7) {
-    return "Fully painted children's picture book illustration. Warm soft lighting, rich vibrant colors, large expressive cartoon faces, simple inviting compositions. Smooth color fills with soft outlines — bright, cheerful, and playful. Like a modern animated picture book. NO heavy black ink lines. NO coloring-book line art. Fully colored throughout.";
+    return "Disney animated feature film style. A fully painted digital illustration — rich, luminous, cinematic. Large expressive eyes with detailed irises and bright catchlights. Soft rounded cartoon features with smooth glowing skin. Warm golden light with vibrant saturated colors. Flowing voluminous hair with rich color and texture. Lush colorful background filled edge to edge. The character radiates warmth and joy. Painterly detail throughout — no flat fills, no outlines, no coloring-book look. Pure Disney/Pixar quality digital art.";
   } else if (ageNum <= 11) {
     return "Detailed middle-grade chapter book illustration. Rich complex backgrounds, more realistic character proportions — like cover art for a middle-grade adventure novel. Warm but sophisticated color palette with depth and texture. Painterly digital art with expressive characters and dynamic compositions. NO flat baby cartoon style. Fully rendered with atmospheric lighting.";
   } else {
@@ -44,7 +44,7 @@ function getStyleGuideForAge(age) {
 function getCoverStyleForAge(age) {
   const ageNum = parseInt(age) || 7;
   if (ageNum <= 7) {
-    return "A highly polished 3D cartoon scene rendered in the style of a modern Pixar or DreamWorks animated film — a single breathtaking still frame. Vibrant saturated colors, smooth glossy surfaces, warm bright lighting with a soft golden glow. Large expressive eyes, big warm smile, rounded cartoon features. Rich colorful background filling the entire image edge to edge. The character radiates energy and warmth. Pure rendered illustration — no design elements of any kind.";
+    return "Disney animated feature film style. A single breathtaking portrait illustration — fully painted, cinematic quality. The character fills the frame with a warm glowing smile and enormous expressive eyes with detailed irises and bright catchlights. Flowing voluminous hair with rich warm color and fine strand detail. Soft luminous skin with subtle warm shading. Vibrant saturated colors throughout. Golden warm lighting with a rich colorful background filling the entire image edge to edge. Painterly digital art with rich texture and depth — no flat fills, no outlines, no coloring-book style. Pure Disney/Pixar quality digital illustration.";
   } else if (ageNum <= 11) {
     return "A polished digital illustration rendered in a dynamic middle-grade adventure style — a single vivid still scene. Confident, expressive character with more realistic proportions and cartoon personality. Rich detailed background with bold saturated colors, strong lighting and depth. Cinematic energy filling the frame edge to edge. Pure rendered illustration — no design elements of any kind.";
   } else {
