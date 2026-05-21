@@ -824,12 +824,42 @@ const generateRemainingChapters = inngest.createFunction(
     }
     childData.namedCharacters = namedCharacters;
 
-    // Load stored outline and parsedFacts
-    const outlineRaw = await redisRequest("GET", [`outline:${storyId}`]);
-    const outline = outlineRaw ? JSON.parse(outlineRaw) : null;
-    if (!outline) throw new Error(`No outline in Redis for ${storyId}`);
+    // Load stored outline — fall back to regeneration if preview job failed/expired
     const parsedFacts = await redisRequest("GET", [`facts:${storyId}`]);
     if (parsedFacts) childData.parsedFacts = parsedFacts;
+
+    const outline = await step.run("ensure-outline", async () => {
+      const outlineRaw = await redisRequest("GET", [`outline:${storyId}`]);
+      if (outlineRaw) {
+        console.log(`Upgrade: loaded outline from Redis for ${storyId}`);
+        return JSON.parse(outlineRaw);
+      }
+
+      // Outline missing — preview/completed may have failed or timed out. Regenerate.
+      console.warn(`Upgrade: outline missing for ${storyId} — regenerating from storyToken`);
+      const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || "";
+      let result = await generateOutline(childData, tier, null, guidance || null);
+
+      const friendNames = [childName];
+      if (childData.friend && childData.friend !== "none") {
+        childData.friend.split(/,|\band\b/i).forEach(f => {
+          const t = f.trim();
+          if (t && !friendNames.includes(t)) friendNames.push(t);
+        });
+      }
+      result = await sanitizeOutline(result, friendNames);
+
+      const facts = await redisRequest("GET", [`facts:${storyId}`]);
+      if (facts && childData.customDetails) {
+        result = await verifyOutlineAgainstFacts(result, facts, childData.customDetails);
+      }
+
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 604800]);
+      console.log(`Upgrade: regenerated outline (${result.length} chapters) for ${storyId}`);
+      return result;
+    });
+
+    if (!outline) throw new Error(`Failed to load or regenerate outline for ${storyId}`);
 
     console.log(`Upgrade: generating chapters ${PREVIEW_CHAPS + 1}–${tier.chapCount} for ${childName}`);
 
