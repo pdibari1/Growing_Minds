@@ -557,9 +557,15 @@ const generatePreviewChapters = inngest.createFunction(
     });
     if (parsedFacts) childData.parsedFacts = parsedFacts;
 
-    // Step 1: Generate full outline (needed for narrative coherence even in preview)
+    // Step 1: Generate full outline — use the story seed from generate-preview.js so
+    // chapters 1-3 follow the same arc the customer saw in the free preview.
     const rawOutline = await step.run("preview-generate-outline", async () => {
-      const result = await generateOutline(childData, tier, null, milestoneGuidance);
+      const seed = await redisRequest("GET", [`seed:${storyId}`]);
+      if (seed) {
+        console.log(`Preview: using story seed for ${storyId}`);
+        await redisRequest("DEL", [`seed:${storyId}`]);
+      }
+      const result = await generateOutline(childData, tier, seed || null, milestoneGuidance);
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 604800]);
       return result;
     });
