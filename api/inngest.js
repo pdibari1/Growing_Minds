@@ -445,11 +445,11 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HA
       await redisRequest("DEL", [`cover:${storyId}`]);
     });
 
-    // Step 7c: Wait up to 15 minutes for admin approval — auto-sends if no action taken
+    // Step 7c: Wait up to 2 hours for admin approval — auto-sends if no action taken
     await step.waitForEvent("wait-for-approval", {
       event: "story/approved",
       match: "data.storyId",
-      timeout: "15m"
+      timeout: "2h"
     });
 
     // Step 7d: Send customer email — skip if admin triggered a regeneration
@@ -1013,7 +1013,7 @@ const generateRemainingChapters = inngest.createFunction(
     await step.waitForEvent("upgrade-wait-for-approval", {
       event: "story/approved",
       match: "data.storyId",
-      timeout: "15m"
+      timeout: "2h"
     });
 
     // Step 7: Send delivery email
