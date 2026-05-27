@@ -1420,15 +1420,16 @@ async function correctFactViolations(chapterText, childData) {
     ? childData.parsedFacts.split('\n').map(l => l.trim()).filter(l => l && /^\d+\./.test(l))
     : [];
 
-  if (factLines.length === 0 && !childData.customDetails) return chapterText;
+  // Build the profile summary — always available even without custom details
+  const basicProfile = `Name: ${childData.name || ''}, Age: ${childData.age || ''}, Milestone: ${childData.milestone || ''}, City: ${childData.city || ''}, Region: ${childData.region || ''}, Favorite: ${childData.favorite || ''}, Friend: ${childData.friend || 'none'}`;
 
-  // If we have no structured facts, fall back to the raw parent text
+  // If we have no structured facts, fall back to raw parent text or basic profile
   const factSource = factLines.length > 0
     ? factLines.join('\n')
-    : childData.customDetails;
+    : (childData.customDetails || basicProfile);
   const rawFallback = childData.customDetails
     ? `\n\nPARENT'S EXACT WORDS (use if a fact above is ambiguous):\n${childData.customDetails}`
-    : '';
+    : `\n\nBASIC PROFILE:\n${basicProfile}`;
 
   // ── Pass 1: Haiku CHECKLIST scan ──
   // Go through EACH fact and explicitly verdict it: HONORED or VIOLATED.
@@ -1436,21 +1437,24 @@ async function correctFactViolations(chapterText, childData) {
   // (e.g. "car rolled to the drop-off lane" when the parent said "park a block away and walk").
   const scanPrompt = `You are a fact-checker for a personalized children's story.
 
+CHILD'S PROFILE (the only source of known facts):
+${factSource}${rawFallback}
+
 CHAPTER TEXT:
 ${chapterText}
 
-FACTS TO VERIFY — check every single one:
-${factSource}${rawFallback}
-
-For each numbered fact, write one line in this exact format:
+TASK 1 — FACT VIOLATIONS: For each numbered fact in the profile, write one line:
 [fact number] HONORED — [one phrase confirming how]
-[fact number] VIOLATED — [quote the bad sentence] | should be: [corrected sentence]
+[fact number] VIOLATED — [quote the exact bad sentence] | should be: [corrected sentence]
+Skip VERBATIM REQUIRED facts. Skip facts the chapter simply doesn't mention (not mentioning ≠ violating). Only flag VIOLATED when the chapter actively contradicts the fact.
 
-Skip VERBATIM REQUIRED facts — those are handled separately.
-Skip facts that the chapter simply doesn't mention (not mentioning ≠ violating).
-Only flag VIOLATED when the chapter actively contradicts the fact.
+TASK 2 — INVENTED SPECIFICS: Also scan for sentences that contain a specific physical detail the parent did not provide. Flag any sentence that:
+- Names or describes a specific object attributed to the character (with color, newness, or unique descriptors) that is NOT in the profile — e.g. "her new sparkly backpack", "his red lunchbox", "a unicorn pencil case Mom packed"
+- Describes a specific place, shop, or landmark the character passes or visits that is NOT in the profile — e.g. "they drove past the bakery", "the yellow brick building on the corner"
+Do NOT flag generic items that cannot be wrong: "her bag", "a pencil", "his lunch", "the school", "her classroom". Only flag when the detail is specific enough that the parent could say "that's not right."
+Flag these as: [INVENTED] [quote the exact sentence] | replace with: [generic version that removes the invented specifics]
 
-Output ONLY these verdict lines. If every relevant fact is honored, output: ALL CLEAR`;
+Output ONLY the verdict lines from both tasks. If nothing needs fixing, output: ALL CLEAR`;
 
   let checklistResult;
   try {
@@ -1462,30 +1466,32 @@ Output ONLY these verdict lines. If every relevant fact is honored, output: ALL 
 
   if (!checklistResult || checklistResult.trim() === 'ALL CLEAR') return chapterText;
 
-  // Extract only the VIOLATED lines
-  const violatedLines = checklistResult
+  // Extract VIOLATED and INVENTED lines
+  const fixLines = checklistResult
     .split('\n')
-    .filter(l => l.includes('VIOLATED'))
+    .filter(l => l.includes('VIOLATED') || l.includes('[INVENTED]'))
     .join('\n')
     .trim();
 
-  if (!violatedLines) return chapterText;
-  console.log(`correctFactViolations: violations found — running correction pass:\n${violatedLines}`);
+  if (!fixLines) return chapterText;
+  console.log(`correctFactViolations: issues found — running correction pass:\n${fixLines}`);
 
   // ── Pass 2: Sonnet surgical correction ──
-  const fixPrompt = `You are a children's book editor fixing specific factual errors in one chapter.
+  const fixPrompt = `You are a children's book editor fixing specific errors in one chapter.
 
-PARENT-STATED FACTS (ground truth — must be honored):
+PARENT-STATED FACTS (ground truth):
 ${factSource}${rawFallback}
 
-VIOLATIONS TO FIX (format: bad sentence | corrected sentence):
-${violatedLines}
+SENTENCES TO FIX (format: bad sentence | corrected/generic version):
+${fixLines}
 
 ORIGINAL CHAPTER:
 ${chapterText}
 
 Rules:
-- Fix ONLY the sentences identified as violations — swap the wrong detail for the correct one.
+- Fix ONLY the sentences listed above — replace each bad sentence with the corrected/generic version shown.
+- For VIOLATED sentences: swap the wrong detail for the parent-stated correct one.
+- For INVENTED sentences: replace the specific invented detail with the generic version shown (e.g. "her new sparkly backpack" → "her bag").
 - Change as few words as possible. Preserve all other sentences, dialogue, and pacing exactly.
 - Return the corrected chapter text only. No explanation, no preamble.`;
 
@@ -1792,6 +1798,7 @@ AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - GRADE ADVANCEMENT: If the custom details state current grades AND the story is set in the future (e.g. "next year", "starting school in the fall"), ALL characters advance one grade together. Example: if custom details say "he's in 1st grade, she's in pre-K" and the story is about starting school next year, then he will be in 2nd grade and she will be in Kindergarten — not 1st grade. Every character's grade moves forward by the same number of years. Never freeze one character's grade while advancing another's. FIRST-DAY PHRASING: If the milestone IS the first day of school, siblings at the same school are also starting their new grade that day — write "starting 2nd grade" or "beginning his 2nd grade year", never "already in 2nd grade." "Already in" implies they've been there; on the first day, everyone is arriving fresh.
 
 STORY RULES — apply to every chapter summary:
+- ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail in the outline — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the profile or custom details above, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (invented). "They drove to school" ✓ — "they drove past the shops on the corner" ✗ (invented route detail). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). The parent knows every specific detail about their child's life — if it isn't in the profile, don't invent it. Write generically when the specific detail hasn't been provided.
 - STICK TO KNOWN DETAILS: Only reference specific real-world details — teacher names, school names, pet names, sibling names, home layout, routines, hobbies, family traditions — if they are explicitly provided in the child's profile or custom details. For anything not specified, keep it general so it cannot clash with the child's real life. Write "his teacher" not an invented name. Write "a place he loved" not an invented location. If it's not in the profile, leave it vague.
 - CUSTOM DETAILS ARE BINDING: The custom details provided by the parent are the only source of truth for every fact about these characters' lives — their relationships, where they go, what grade they're in, who they know, what they're doing. Do not infer, extrapolate, or invent any fact that isn't explicitly stated. Do not add sequence, timing, or causality that the custom details don't establish. If the custom details say two siblings are starting school this fall, do not write that one started before the other — that sequence isn't stated, so it doesn't exist. Read the custom details like a contract: every stated fact is fixed, every unstated fact is unknown.
 - RITUALS AND SEQUENCES ARE SACRED: If the parent's custom details describe a specific ritual, routine, counting sequence, set of steps, or phrase said out loud — that ritual must appear in the outline's chapter summaries exactly as described. Do NOT replace it with a similar-but-invented routine. Do NOT write "they have a special goodbye" and leave it vague — write the actual ritual steps into the summary. The chapter where the ritual appears must describe it with enough specificity that the chapter writer cannot substitute something else.
@@ -2032,6 +2039,7 @@ ${milestoneGuidance}
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
+- ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail you write — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the child's profile or custom details, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (parent knows if this is real). "They drove to school" ✓ — "they drove past the shops on the corner" ✗ (invented route). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). The parent will read every sentence. If a specific detail isn't in the profile, write the generic version.
 - CONFLICT SOURCE: All tension comes from the milestone challenge — self-doubt, difficulty, bad luck, external obstacles. Named friends (${namedCharactersStr}) are always supportive. If the chapter outline refers to "a classmate" or "another kid" doing something unkind, write that character as a physically distinct stranger — never give them the name or identity of a named friend, and never place a named friend in the same action. If ${namedCharactersStr.split(', ').join(' or ')} is present in a scene where unkindness occurs, they must be bystanders who react with concern — never the one doing the unkind thing
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. Within a single paragraph, a character's location must be internally consistent — if they are inside, every detail in that paragraph must reflect being inside; if they are outside, every detail must reflect being outside. Never write a sentence where a character is simultaneously inside (e.g. looking through a window) and outside (e.g. "staying outside") in the same breath.
 - NO DANGLING SETUPS: If a sentence creates suspense or anticipation — "he heard something that made his stomach drop", "then she saw it", "something was wrong" — the very next sentence must deliver what that something is. Never use a suspense hook as a transition into unrelated backstory. The payoff must be immediate and in the same scene.

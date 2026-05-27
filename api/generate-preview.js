@@ -130,6 +130,7 @@ STORY DIRECTION — your preview must set up this arc:
 ${storySeed}
 
 RULES:
+- ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail you write — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the profile or custom details above, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (invented, parent knows if this is real). "They drove to school" ✓ — "they drove past the coffee shop on the corner" ✗ (invented route detail). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). When in doubt, write the generic version. The parent will notice every specific detail that isn't true.
 - Named characters are never mean or unkind — they only appear being warm and supportive
 - No smartphones, cell phones, tablets, or personal devices exist in this world
 - No assumed disabilities for any character
