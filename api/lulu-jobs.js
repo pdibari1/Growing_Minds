@@ -22,6 +22,13 @@ async function getCost(podPackageId, pageCount) {
       line_items: [{ pod_package_id: podPackageId, quantity: 1, page_count: pageCount }],
       shipping_option_level: "GROUND",
       currency: "USD",
+      shipping_address: {
+        street1: "123 Main St",
+        city: "San Francisco",
+        state_code: "CA",
+        country_code: "US",
+        postcode: "94105",
+      },
     });
     const cost = result?.line_item_costs?.[0];
     return cost
