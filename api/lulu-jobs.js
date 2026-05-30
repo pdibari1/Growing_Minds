@@ -18,7 +18,7 @@ const PACKAGES = {
 
 async function getCost(podPackageId, pageCount) {
   try {
-    const result = await luluRequest("POST", "/print-jobs/cost-calculations/", {
+    const result = await luluRequest("POST", "/print-job-cost-calculations/", {
       line_items: [{ pod_package_id: podPackageId, quantity: 1, page_count: pageCount }],
       shipping_option_level: "GROUND",
       currency: "USD",
