@@ -10,9 +10,9 @@ const PAGE_COUNTS = {
 };
 
 const PACKAGES = {
-  "BW Standard":    "0550X0850.BW.STD.PB.060UW444.MXX",
-  "BW Premium":     "0550X0850.BW.PRE.PB.060UW444.MXX",
-  "Color Standard": "0550X0850.FC.STD.PB.080CW444.MXX",
+  "BW Standard":    "0550X0850.BW.STD.PB.060UW444.MXX",   // rejected — ink coverage
+  "BW Premium":     "0550X0850.BW.PRE.PB.060UW444.MXX",   // rejected — ink coverage
+  "Color Standard": "0550X0850.FC.STD.PB.080CW444.MXX",   // ✓ ACTIVE
   "Color Premium":  "0550X0850.FC.PRE.PB.080CW444.MXX",
 };
 

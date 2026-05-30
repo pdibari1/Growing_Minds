@@ -11,8 +11,8 @@ const LULU_TOKEN_PATH = "/auth/realms/glasstree/protocol/openid-connect/token";
 
 if (SANDBOX) console.log("[lulu] ⚠️  SANDBOX MODE — orders will not be printed or charged");
 
-// 5.5" × 8.5" | B&W | Standard | Perfect Bound | 60# Uncoated White | Matte cover
-const POD_PACKAGE_ID = "0550X0850.BW.STD.PB.060UW444.MXX";
+// 5.5" × 8.5" | Full Color | Standard | Perfect Bound | 80# Coated White | Matte cover
+const POD_PACKAGE_ID = "0550X0850.FC.STD.PB.080CW444.MXX";
 
 // ── Token cache (in-process; refreshes when < 60s remain) ──
 let _token = null;
