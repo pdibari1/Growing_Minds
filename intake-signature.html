@@ -889,8 +889,13 @@
       </div>
 
       <div class="field" style="margin-top:.6rem;">
+        <label>Anything you'd like the story to avoid? <span class="opt">Optional</span></label>
+        <textarea id="storyAvoid" maxlength="500" placeholder="e.g. Please don't make it about doing things alone. No scary moments — she's sensitive. Avoid any competition." rows="3"></textarea>
+      </div>
+
+      <div class="field" style="margin-top:.6rem;">
         <label>Anything else we should know? <span class="opt">Optional</span></label>
-        <textarea id="anythingElse" maxlength="700" placeholder="Anything at all — family traditions, inside jokes, things that matter, things to avoid." rows="3"></textarea>
+        <textarea id="anythingElse" maxlength="700" placeholder="Anything at all — family traditions, inside jokes, things that matter." rows="3"></textarea>
       </div>
 
       <div class="nav">
@@ -1379,6 +1384,15 @@ async function submitForm() {
   // Compile customDetails from all panels
   const mqConfig = state.milestone ? MILESTONE_QUESTIONS[state.milestone] : null;
   const parts = [];
+
+  // Constraints go first — prepend as labeled directives so they're seen before everything else
+  const storyAvoid  = (document.getElementById('storyAvoid')?.value  || '').trim();
+  const wantFeel2   = (document.getElementById('wantToFeel')?.value  || '').trim();
+  if (storyAvoid || wantFeel2) {
+    parts.push(`=== STORY CONSTRAINTS ===`);
+    if (storyAvoid)  parts.push(`FORBIDDEN — do not include in the story under any circumstances: ${storyAvoid}`);
+    if (wantFeel2)   parts.push(`REQUIRED OUTCOME OR LESSON — the story must end with this: ${wantFeel2}`);
+  }
   if (mqConfig) {
     parts.push(`=== MILESTONE: ${state.milestoneLabel} ===`);
     mqConfig.questions.forEach((q, i) => {
@@ -1408,12 +1422,11 @@ async function submitForm() {
     if (strengths) parts.push(`Great at: ${strengths}`);
     if (nickname)  parts.push(`Nickname: ${nickname}`);
   }
-  if (cantDo || realFeel || wouldCorr || wantFeel || extra) {
+  if (cantDo || realFeel || wouldCorr || extra) {
     parts.push(`\n=== THINGS THE STORY MUST GET RIGHT ===`);
     if (cantDo)    parts.push(`Can't do yet: ${cantDo}`);
     if (realFeel)  parts.push(`Real feelings: ${realFeel}`);
     if (wouldCorr) parts.push(`Would correct: ${wouldCorr}`);
-    if (wantFeel)  parts.push(`Want them to feel: ${wantFeel}`);
     if (extra)     parts.push(`Additional: ${extra}`);
   }
   const customDetails = parts.join('\n');

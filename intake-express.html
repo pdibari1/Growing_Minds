@@ -612,6 +612,28 @@
         <textarea id="customDetails" placeholder="Write as much as you like — family structure, pet names, habits, fears, favourite sayings, inside jokes…" maxlength="1000"></textarea>
       </div>
 
+      <div class="details-box">
+        <div class="details-label">Anything you'd like the story to avoid? <span style="font-weight:400;opacity:0.7">(optional)</span></div>
+        <div class="details-examples">
+          Tell us if there are themes, situations, or plot directions that wouldn't fit your child.<br/>
+          <em>"Please don't make it about doing things alone."</em> &nbsp;·&nbsp;
+          <em>"No scary or dark moments — she's sensitive."</em> &nbsp;·&nbsp;
+          <em>"Avoid any competition or winning/losing."</em>
+        </div>
+        <textarea id="storyAvoid" placeholder="Themes or situations to leave out…" maxlength="500"></textarea>
+      </div>
+
+      <div class="details-box">
+        <div class="details-label">Any specific lesson or outcome you'd love? <span style="font-weight:400;opacity:0.7">(optional)</span></div>
+        <div class="details-examples">
+          If you have a message you'd like the story to land on, tell us here.<br/>
+          <em>"I'd love the story to end with her feeling proud of herself."</em> &nbsp;·&nbsp;
+          <em>"I want the lesson to be about asking for help."</em> &nbsp;·&nbsp;
+          <em>"I'd like it to end with the whole family celebrating together."</em>
+        </div>
+        <textarea id="storyLesson" placeholder="A lesson, message, or ending you'd love…" maxlength="500"></textarea>
+      </div>
+
       <div class="nav">
         <button class="btn-back" onclick="goTo(2)">← Back</button>
         <button class="btn-next" onclick="goTo(4)">Next: Hometown →</button>
@@ -957,13 +979,23 @@ async function submitForm() {
   const ethnicityOther = document.getElementById('ethnicityOther').value.trim();
   const ethnicity      = ethnicityVal === 'other' ? (ethnicityOther || '') : ethnicityVal;
 
-  // Custom details — combine the general textarea + milestone details
+  // Custom details — combine constraints + general textarea + milestone details
   const generalDetails   = document.getElementById('customDetails').value.trim();
   const milestoneDetails = document.getElementById('milestoneDetails').value.trim();
+  const storyAvoid       = document.getElementById('storyAvoid').value.trim();
+  const storyLesson      = document.getElementById('storyLesson').value.trim();
   const milestoneStr     = milestoneDetails
     ? `${st.milestoneLabel}. ${milestoneDetails}`
     : st.milestoneLabel;
-  const customDetails = [generalDetails, milestoneDetails ? `About this milestone: ${milestoneDetails}` : ''].filter(Boolean).join('\n\n');
+  // Constraints go first so they appear at the top of the CRITICAL CUSTOM DETAILS block
+  const constraintLines = [];
+  if (storyAvoid)  constraintLines.push(`FORBIDDEN — do not include in the story under any circumstances: ${storyAvoid}`);
+  if (storyLesson) constraintLines.push(`REQUIRED OUTCOME OR LESSON — the story must end with this: ${storyLesson}`);
+  const customDetails = [
+    constraintLines.join('\n'),
+    generalDetails,
+    milestoneDetails ? `About this milestone: ${milestoneDetails}` : ''
+  ].filter(Boolean).join('\n\n');
 
   // Show loading
   document.getElementById('loadingTitle').textContent = `Writing ${name}'s story opening…`;
