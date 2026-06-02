@@ -764,7 +764,7 @@ Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is
         subject: `Quick question about ${childName}'s story 📖`,
         html: `
 <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2e1f;background:#fffdf7;padding:2rem;">
-  <p style="font-family:Georgia,serif;font-size:1.4rem;font-weight:700;color:#2d6a4f;margin:0 0 1.5rem;">Growing Minds 📖</p>
+  <p style="font-family:'Lora',Georgia,serif;font-size:1.4rem;font-weight:700;color:#2d6a4f;margin:0 0 1.5rem;">Growing Minds 📖</p>
 
   <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">Hi there,</p>
 
@@ -2946,9 +2946,10 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 <html>
 <head>
 <meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
+  body { font-family: 'Lora', Georgia, serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
   /* 5.5×8.5" digest trim size */
   @page {
     size: 5.5in 8.5in;
@@ -2999,7 +3000,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     display: inline-block;
     background: #f9c74f;
     color: #1a1a2e;
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 7.5pt;
     font-weight: 800;
     letter-spacing: .12em;
@@ -3011,7 +3012,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-title-line1 {
-    font-family: Georgia, serif;
+    font-family: 'Lora', Georgia, serif;
     font-size: 12pt;
     font-weight: 700;
     color: rgba(255,255,255,0.75);
@@ -3020,7 +3021,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-title-main {
-    font-family: Georgia, serif;
+    font-family: 'Lora', Georgia, serif;
     font-size: 28pt;
     font-weight: 900;
     color: #ffffff;
@@ -3035,7 +3036,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-meta {
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 8pt;
     color: rgba(255,255,255,0.45);
     line-height: 1.5;
@@ -3043,7 +3044,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-publisher {
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 7.5pt;
     color: rgba(255,255,255,0.25);
     letter-spacing: .08em;
@@ -3053,10 +3054,10 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   .chapter { padding: 8px 0 40px; page-break-before: always; position: relative; }
 
   /* Page numbers */
-  @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
-  @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  @page :left  { @bottom-left  { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  @page :right { @bottom-right { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
   .chapter-number {
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 8pt;
     font-weight: 800;
     letter-spacing: .18em;
@@ -3065,7 +3066,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     margin-bottom: 6px;
   }
   .chapter-title {
-    font-family: ${parseInt(age) <= 9 ? "Georgia, serif" : "Georgia, serif"};
+    font-family: 'Lora', Georgia, serif;
     font-size: ${parseInt(age) <= 5 ? '22pt' : '18pt'};
     color: #1a1a2e;
     margin-bottom: 28px;
@@ -3080,7 +3081,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   /* Body text */
   .chapter-body p {
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: ${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'};
     line-height: ${parseInt(age) <= 5 ? '2.2' : '2.0'};
     font-weight: ${parseInt(age) <= 9 ? '600' : '500'};
@@ -3091,7 +3092,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   /* Drop cap on first paragraph of each chapter */
   .chapter-body p:first-child::first-letter {
-    font-family: Georgia, serif;
+    font-family: 'Lora', Georgia, serif;
     font-size: 4em;
     font-weight: 900;
     color: #2d6a4f;
@@ -3134,7 +3135,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     page-break-after: always;
   }
   .title-page-name {
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 10pt;
     font-weight: 800;
     letter-spacing: .15em;
@@ -3143,7 +3144,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     margin-bottom: 1.5rem;
   }
   .title-page-title {
-    font-family: Georgia, serif;
+    font-family: 'Lora', Georgia, serif;
     font-size: 28pt;
     font-weight: 900;
     color: #1a1a2e;
@@ -3154,7 +3155,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     width: 60px; height: 2px; background: #e5e7eb; margin: 0 auto 2.5rem;
   }
   .title-page-dedication {
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 11pt;
     font-style: italic;
     color: #6b7280;
@@ -3162,7 +3163,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
   .title-page-publisher {
     margin-top: 2rem;
-    font-family: Arial, sans-serif;
+    font-family: 'Lato', Arial, sans-serif;
     font-size: 8pt;
     color: #b0b8c1;
     letter-spacing: .06em;
@@ -3197,23 +3198,23 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
         Every adventure in these pages belongs to you.
       </div>
     </div>
-    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
+    <div style="font-family:'Lato',Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
   </div>
 
   <!-- TABLE OF CONTENTS -->
   <div style="padding:32px 0;page-break-before:always;page-break-after:always;">
-    <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
-    <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
+    <div style="font-family:'Lato',Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
+    <div style="font-family:'Lora',Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
     <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">
-      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
+      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">
         ${tocRowsLeft}
       </table>
-      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
+      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">
         ${tocRowsRight}
       </table>
     </div>
-    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:Arial,sans-serif;font-size:8pt;color:#6b7280;">
+    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:'Lato',Arial,sans-serif;font-size:8pt;color:#6b7280;">
       ✦ Chapters 16–30 are included in your printed hardcover book, arriving in 13–15 business days.
     </div>
   </div>
@@ -3322,46 +3323,47 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
 <html>
 <head>
 <meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
+  body { font-family: 'Lora', Georgia, serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
   /* 5.5×8.5" digest trim size */
   @page { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
   @page :first { size: 5.5in 8.5in; margin: 0; }
   @page :left  { size: 5.5in 8.5in; margin: 18mm 22mm 20mm 18mm; }
   @page :right { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
-  @page :left  { @bottom-left  { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
-  @page :right { @bottom-right { content: counter(page); font-family: Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  @page :left  { @bottom-left  { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  @page :right { @bottom-right { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
 
   /* ── COVER ── */
   .cover { width:100%; height:100vh; background:#1a3a2a; position:relative; overflow:hidden; page-break-after:always; }
   .cover-image { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
   .cover-gradient { position:absolute; bottom:0; left:0; width:100%; height:65%; background:linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%); }
   .cover-panel { position:absolute; bottom:0; left:0; width:100%; padding:28px 48px 36px; display:flex; flex-direction:column; justify-content:flex-end; gap:0; }
-  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:Arial,sans-serif; font-size:7.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:12px; width:fit-content; }
-  .cover-title-line1 { font-family:Georgia,serif; font-size:12pt; font-weight:700; color:rgba(255,255,255,0.75); letter-spacing:.04em; margin-bottom:2px; }
-  .cover-title-main { font-family:Georgia,serif; font-size:28pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:12px; }
+  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:'Lato',Arial,sans-serif; font-size:7.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:12px; width:fit-content; }
+  .cover-title-line1 { font-family:'Lora',Georgia,serif; font-size:12pt; font-weight:700; color:rgba(255,255,255,0.75); letter-spacing:.04em; margin-bottom:2px; }
+  .cover-title-main { font-family:'Lora',Georgia,serif; font-size:28pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:12px; }
   .cover-divider { width:40px; height:2px; background:rgba(255,255,255,0.25); margin-bottom:10px; }
-  .cover-meta { font-family:Arial,sans-serif; font-size:8pt; color:rgba(255,255,255,0.45); line-height:1.5; margin-bottom:10px; }
-  .cover-publisher { font-family:Arial,sans-serif; font-size:7.5pt; color:rgba(255,255,255,0.25); letter-spacing:.08em; text-transform:uppercase; }
+  .cover-meta { font-family:'Lato',Arial,sans-serif; font-size:8pt; color:rgba(255,255,255,0.45); line-height:1.5; margin-bottom:10px; }
+  .cover-publisher { font-family:'Lato',Arial,sans-serif; font-size:7.5pt; color:rgba(255,255,255,0.25); letter-spacing:.08em; text-transform:uppercase; }
 
   /* ── CHAPTERS ── */
   .chapter { padding:8px 0 40px; page-break-before:always; position:relative; }
-  .chapter-number { font-family:Arial,sans-serif; font-size:8pt; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:#2d6a4f; margin-bottom:6px; }
-  .chapter-title { font-family:Georgia,serif; font-size:${parseInt(age) <= 5 ? '22pt' : '18pt'}; color:#1a1a2e; margin-bottom:28px; line-height:1.2; }
+  .chapter-number { font-family:'Lato',Arial,sans-serif; font-size:8pt; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:#2d6a4f; margin-bottom:6px; }
+  .chapter-title { font-family:'Lora',Georgia,serif; font-size:${parseInt(age) <= 5 ? '22pt' : '18pt'}; color:#1a1a2e; margin-bottom:28px; line-height:1.2; }
   .chapter-divider { width:40px; height:3px; background:#2d6a4f; margin-bottom:28px; border-radius:2px; }
-  .chapter-body p { font-family:Arial,sans-serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '600' : '500'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
-  .chapter-body p:first-child::first-letter { font-family:Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
+  .chapter-body p { font-family:'Lato',Arial,sans-serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '600' : '500'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
+  .chapter-body p:first-child::first-letter { font-family:'Lora',Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
   .chapter-body img { width:100%; max-width:320px; display:block; margin:2rem auto; border-radius:4px; }
   .chapter-end { text-align:center; color:#abc3b9; font-size:16pt; margin-top:2rem; }
 
   /* ── TITLE PAGE ── */
   .title-page { height:100vh; display:flex; flex-direction:column; justify-content:space-between; align-items:center; text-align:center; padding:36px 0; page-break-after:always; }
-  .title-page-name { font-family:Arial,sans-serif; font-size:10pt; font-weight:800; letter-spacing:.15em; text-transform:uppercase; color:#2d6a4f; margin-bottom:1.5rem; }
-  .title-page-title { font-family:Georgia,serif; font-size:28pt; font-weight:900; color:#1a1a2e; line-height:1.2; margin-bottom:1rem; }
+  .title-page-name { font-family:'Lato',Arial,sans-serif; font-size:10pt; font-weight:800; letter-spacing:.15em; text-transform:uppercase; color:#2d6a4f; margin-bottom:1.5rem; }
+  .title-page-title { font-family:'Lora',Georgia,serif; font-size:28pt; font-weight:900; color:#1a1a2e; line-height:1.2; margin-bottom:1rem; }
   .title-page-divider { width:60px; height:2px; background:#e5e7eb; margin:0 auto 2.5rem; }
-  .title-page-dedication { font-family:Arial,sans-serif; font-size:11pt; font-style:italic; color:#6b7280; line-height:1.8; }
+  .title-page-dedication { font-family:'Lato',Arial,sans-serif; font-size:11pt; font-style:italic; color:#6b7280; line-height:1.8; }
 </style>
 </head>
 <body>
@@ -3392,17 +3394,17 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
         Every adventure in these pages belongs to you.
       </div>
     </div>
-    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">Growing Minds &middot; growingminds.io &middot; &copy; ${new Date().getFullYear()}</div>
+    <div style="font-family:'Lato',Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">Growing Minds &middot; growingminds.io &middot; &copy; ${new Date().getFullYear()}</div>
   </div>
 
   <!-- TABLE OF CONTENTS (all 30 chapters) -->
   <div style="padding:32px 0;page-break-before:always;page-break-after:always;">
-    <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
-    <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
+    <div style="font-family:'Lato',Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
+    <div style="font-family:'Lora',Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
     <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">
-      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">${tocRowsLeft}</table>
-      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">${tocRowsRight}</table>
+      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">${tocRowsLeft}</table>
+      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">${tocRowsRight}</table>
     </div>
   </div>
 
@@ -3607,10 +3609,10 @@ async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, c
             <img src="${coverUrl}" alt="" width="200" style="width:200px;height:auto;display:block;border:0;margin:0;padding:0;" />
           </div>
           <div style="background:#2d6a4f;padding:14px 16px 13px;text-align:left;">
-            <div style="color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;line-height:1.35;">${childName} and the</div>
-            <div style="color:#fbbf24;font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;line-height:1.35;">${milestoneTitle}</div>
-            <div style="color:rgba(134,239,172,0.9);font-family:Arial,sans-serif;font-size:8px;letter-spacing:.04em;margin-top:6px;">A Growing Minds Original Story</div>
-            <div style="color:rgba(255,255,255,0.55);font-family:Arial,sans-serif;font-size:7px;margin-top:7px;">Chapters 1–3 Preview · Written for ${childName}</div>
+            <div style="color:#ffffff;font-family:'Lora',Georgia,serif;font-size:12px;font-weight:700;line-height:1.35;">${childName} and the</div>
+            <div style="color:#fbbf24;font-family:'Lora',Georgia,serif;font-size:12px;font-weight:700;line-height:1.35;">${milestoneTitle}</div>
+            <div style="color:rgba(134,239,172,0.9);font-family:'Lato',Arial,sans-serif;font-size:8px;letter-spacing:.04em;margin-top:6px;">A Growing Minds Original Story</div>
+            <div style="color:rgba(255,255,255,0.55);font-family:'Lato',Arial,sans-serif;font-size:7px;margin-top:7px;">Chapters 1–3 Preview · Written for ${childName}</div>
           </div>
         </div>
       </div>`;
@@ -3638,7 +3640,7 @@ async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, c
       <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a2e;">
         <div style="background:#2d6a4f;padding:1.75rem 2rem;text-align:center;border-radius:12px 12px 0 0;">
           <p style="color:#86efac;font-size:.75rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .3rem;">Growing Minds</p>
-          <h1 style="color:white;font-size:1.4rem;margin:0;font-family:Georgia,serif;">${storyTitle}</h1>
+          <h1 style="color:white;font-size:1.4rem;margin:0;font-family:'Lora',Georgia,serif;">${storyTitle}</h1>
         </div>
         <div style="background:#fefae0;padding:1.5rem 2rem 2rem;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
           <p style="font-size:1rem;color:#374151;margin:.5rem 0 1rem;">Hi! The first 3 chapters of ${childName}'s personalized story are attached as a PDF — open it up and read together tonight! 📖</p>
@@ -3731,7 +3733,7 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
         const words = previewChapter.split(/\s+/).slice(0, 400).join(' ');
         return `<div style="margin:1.5rem 0;padding:1rem 1.25rem;background:#f9fafb;border-left:3px solid #2d6a4f;border-radius:0 6px 6px 0;">
           <p style="font-weight:700;color:#6b7280;font-size:.8rem;margin:0 0 8px;">CHAPTER 1 PREVIEW</p>
-          <p style="font-family:Georgia,serif;font-size:.9rem;line-height:1.7;color:#1a1a2e;margin:0;">${words}${previewChapter.split(/\s+/).length > 400 ? '…' : ''}</p>
+          <p style="font-family:'Lora',Georgia,serif;font-size:.9rem;line-height:1.7;color:#1a1a2e;margin:0;">${words}${previewChapter.split(/\s+/).length > 400 ? '…' : ''}</p>
         </div>`;
       })()
     : '';
