@@ -935,13 +935,18 @@ const generateRemainingChapters = inngest.createFunction(
       );
       if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
 
-      // Only generate keys NOT already in Redis (preview already made 0-0 + first few scene keys)
-      const upgradeKeys = [];
-      for (const key of allImageKeys) {
-        const exists = await redisRequest("GET", [`img:${storyId}:${key}`]);
-        if (!exists) upgradeKeys.push(key);
-      }
-      console.log(`Upgrade: generating ${upgradeKeys.length} remaining illustrations`);
+      // Compute which keys still need generating inside a step — upgradeKeys must be memoized.
+      // Outside-step Redis checks re-execute on every Inngest replay, causing the array to shrink
+      // between replays and the loop index to drift, silently skipping illustrations.
+      const upgradeKeys = await step.run("compute-upgrade-keys", async () => {
+        const keys = [];
+        for (const key of allImageKeys) {
+          const exists = await redisRequest("GET", [`img:${storyId}:${key}`]);
+          if (!exists) keys.push(key);
+        }
+        console.log(`Upgrade: ${keys.length} illustrations to generate: ${keys.join(', ')}`);
+        return keys;
+      });
 
       for (let b = 0; b < upgradeKeys.length; b++) {
         await step.run(`upgrade-illustration-${b + 1}`, async () => {
