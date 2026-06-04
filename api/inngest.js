@@ -293,11 +293,14 @@ const generateStoryOrder = inngest.createFunction(
           : hairLength === 'to the shoulders'
           ? ` MANDATORY HAIR LENGTH: ${name}'s hair ends exactly at the shoulders — not shorter, not longer. The ends rest on top of the shoulders.`
           : '';
+        const coverScene = getCoverScene(milestone, name, region);
         const coverPrompt = `${coverStyle}
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote}
+
+SCENE: ${coverScene} Setting: ${region}. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
         const coverBytes = await callCoverImage(coverPrompt);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
@@ -652,11 +655,14 @@ const generatePreviewChapters = inngest.createFunction(
         coverAgeNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
                             `a teenager or adult`;
       const coverStyle = getCoverStyleForAge(age);
+      const coverScene = getCoverScene(milestone, name, region);
       const coverPrompt = `${coverStyle}
 
 CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote} ${name} stands smiling in a wide open ${region} outdoor scene. Pure illustration only — no text, no words, no letters, no borders, no frames, no grid lines, no ruler marks, no color strips, no swatches, no UI elements of any kind anywhere in the image.`;
+Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote}
+
+SCENE: ${coverScene} Setting: ${region}. Pure illustration only — no text, no words, no letters, no borders, no frames, no grid lines, no ruler marks, no color strips, no swatches, no UI elements of any kind anywhere in the image.`;
       const coverBytes = await callGptImage(coverPrompt);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
       await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
@@ -2874,6 +2880,43 @@ function getMilestoneTitle(milestone) {
     "Sharing with others": "Giving Heart",
   };
   return map[milestone] || "Big Adventure";
+}
+
+// Maps milestone to a dynamic cover scene description — used in cover image prompts.
+// Each scene describes WHAT THE CHARACTER IS DOING and the emotional composition,
+// not just where they're standing.
+function getCoverScene(milestone, name, region) {
+  const m = (milestone || '').toLowerCase();
+
+  if (m.includes('kindergarten'))
+    return `${name} is mid-stride approaching big colorful school doors with a backpack on, looking up at the building with wide eyes full of wonder and nervous excitement. Dynamic three-quarter angle, bright morning light.`;
+  if (m.includes('preschool') || m.includes('daycare'))
+    return `${name} is stepping through a bright classroom doorway, one hand reaching forward, eyes wide with curiosity and excitement. Colorful classroom visible behind, warm welcoming light.`;
+  if (m.includes('read'))
+    return `${name} is sitting in a cozy spot surrounded by open books, holding one up close, eyes wide with discovery — magical letters and stars shimmer off the page around them. Warm golden reading light.`;
+  if (m.includes('tooth'))
+    return `${name} is holding a tiny tooth up triumphantly, mouth open in a huge gap-toothed grin, eyes sparkling with pride. Confetti and sparkles around them.`;
+  if (m.includes('bike'))
+    return `${name} is mid-ride on a bicycle, leaning forward with confidence, hair streaming back, one arm slightly raised in pure joy — clearly riding solo for the first time. Open path ahead, sky behind.`;
+  if (m.includes('middle school'))
+    return `${name} is walking through school hallway doors with purpose, backpack over one shoulder, looking ahead with a mix of nerves and excitement. Morning light streams in behind them.`;
+  if (m.includes('potty') || m.includes('toilet'))
+    return `${name} is standing tall and proud, arms raised in a victory pose, beaming with pride and accomplishment. Bright cheerful setting, celebratory stars around them.`;
+  if (m.includes('friend'))
+    return `${name} is reaching a hand toward another smiling child, both caught in the first moment of connection. Playground setting, warm afternoon light.`;
+  if (m.includes('sport') || m.includes('team') || m.includes('club'))
+    return `${name} is in action mid-play, uniform on, face full of fierce joyful concentration. Dynamic action angle.`;
+  if (m.includes('shar') || m.includes('giv'))
+    return `${name} is holding something out with both hands toward another child, face full of warm pride and generosity. Soft warm light, joyful expression.`;
+  if (m.includes('responsib') || m.includes('helper'))
+    return `${name} is doing their special job — focused, capable, and proud. They look confident and grown-up in a small but meaningful way.`;
+  if (m.includes('feel') || m.includes('frustrat') || m.includes('anxiet'))
+    return `${name} is sitting quietly, taking a deep breath, transitioning from a storm of feelings into calm. Soft warm light, peaceful expression.`;
+  if (m.includes('stand') || m.includes('brave') || m.includes('scary') || m.includes('new'))
+    return `${name} is standing tall with quiet confidence, chin raised, looking ahead with steady determined eyes. Heroic composition, warm backlight.`;
+
+  // Generic fallback — still dynamic, not a portrait
+  return `${name} is mid-stride on an adventure in a vibrant ${region} landscape, looking ahead with excitement and curiosity — hair in motion, world stretching wide ahead of them.`;
 }
 
 // ════════════════════════════════════════════
