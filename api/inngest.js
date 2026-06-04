@@ -1834,16 +1834,29 @@ This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wor
 
 NARRATIVE BLUEPRINT:
 1. HOOK IMMEDIATELY: Chapter 1 opens mid-action or mid-problem. No warming up. Something is already happening. Within the first chapter, establish clearly what ${name} WANTS — something specific and small (not just "to be brave" — but "to make one friend to eat lunch with" or "to get through the first day without crying"). This specific desire drives the whole story.
-2. ESCALATING ATTEMPTS: In the rising action, ${name} tries to get what they want. Each attempt either fails outright or partially works but creates a new complication. Things get harder, not easier. The middle of the story is where the stakes rise — not where they plateau.
+2. ESCALATING ATTEMPTS: In the rising action, ${name} tries to get what they want. Each attempt either fails outright or partially works but creates a new complication. Things get harder, not easier. The middle of the story is where the stakes rise — not where they plateau. CRITICAL: escalation means the situation actually worsens across multiple chapters — not just flutters in the same place. By the midpoint the reader should feel genuine uncertainty about whether ${name} will succeed.
 3. TURNING POINT: One chapter is the moment of choice. ${name} must decide: try again or give up. Be brave or stay safe. This is the heart of the story — the moment the reader leans forward. ${parseInt(age) <= 7 ? "For this age, keep it gentle: a moment of 'I don't think I can' that becomes 'I'll try one more time.'" : "Make the choice feel genuinely hard — the wrong option should be tempting."}
 4. CHARACTER-DRIVEN RESOLUTION: ${name} solves the problem through their OWN action and choice — not luck, not an adult fixing it, not a magical coincidence. The breakthrough comes because ${name} did something. The reader should feel ${name} earned it.
-5. CLOSING ECHO: The final chapter circles back to something from the opening — a image, a feeling, a setting, a specific detail — but now it feels different because ${name} has changed. The reader feels the distance travelled.
+5. CLOSING ECHO: The final chapter circles back to something from the opening — an image, a feeling, a setting, a specific detail — but now it feels different because ${name} has changed. The reader feels the distance travelled.
 
 Arc structure across ${tier.chapCount} chapters:
 - Opening (first 20%): Hook → introduce ${name}'s world → establish the specific WANT and the obstacle
 - Rising action (middle 50%): Attempts fail or complicate → stakes rise → ${name} doubts themselves
 - Turning point (next 20%): ${parseInt(age) <= 7 ? "Gentle setback → moment of 'I'm not sure I can' → decision to try one more time" : "Highest stakes → hardest choice → breakthrough moment"}
 - Resolution (final 10%): ${name}'s own action resolves the problem → closing image echoes the opening, but changed
+
+TONAL VARIETY — THIS IS MANDATORY:
+A story where every chapter has the same emotional register is a boring story. You must plan VARIETY across the ${tier.chapCount} chapters. The outline must include:
+- At least 2 COMEDY chapters: something genuinely funny happens — a misunderstanding, an accidental situation, an absurd small disaster, a moment that makes the reader laugh out loud. These are not just "light" chapters — they are specifically funny. Plan the joke. Write it into the summary.
+- At least 2 TRIUMPH chapters: ${name} succeeds at something, feels genuinely proud and joyful, and the reader celebrates with them. Not a quiet "small win" — a real moment of YES.
+- At least 1 WONDER or DISCOVERY chapter: ${name} encounters something surprising, beautiful, or unexpectedly delightful that has nothing to do with the main challenge — a moment of pure delight.
+- The SETBACK chapter (part of the turning point arc) must feel meaningfully harder than earlier chapters — not just another flutter.
+
+SURPRISE RULE: Every chapter summary must contain at least ONE element that is unexpected — something the reader would not predict from the setup. A character who turns out to be different than expected. A plan that goes sideways in a funny or interesting way. An object that reappears in a new context. A coincidence, a reversal, a discovery. Predictable chapters are forgettable chapters.
+
+MOTIF DISCIPLINE: If the story uses a comfort object, gesture, or repeated phrase (e.g. a lucky stone, a hand squeeze, a special word), it may appear in AT MOST 3 chapters across the whole story. More than 3 uses turns a meaningful symbol into a crutch. Plan where those 3 moments fall — make each one earn its place.
+
+CHAPTER ENDINGS: Every chapter summary must include how the chapter ends. Each chapter ending should either: (a) resolve the chapter's small problem with a satisfying beat, OR (b) end on a question or complication that pulls the reader to the next chapter. Chapters must not simply trail off. The last sentence of each summary is the chapter's emotional landing — plan it.`
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
@@ -2067,6 +2080,7 @@ ${milestoneGuidance}
 - CHAPTER TITLES: Titles should be evocative and slightly mysterious — they should hint at the chapter's emotional core without giving it away. Avoid flat descriptive titles like "The Competition" or "A Hard Day." Prefer titles with personality: a fragment of dialogue, a surprising image, an unexpected phrase that makes the reader curious.
 - ENDINGS — FORWARD PULL: Every chapter ending must pull the reader forward. The hook doesn't need to be dramatic — it can be a question, a surprise, a worry, or a quiet promise of what's coming. What it cannot be is a full stop. The last sentence leans forward. Never wrap the scene up neatly; leave one thread loose.
 - MOMENTUM: Chapters are pacing tools. Some chapters build "just one more…" energy — fast, propulsive, ending on a cliffhanger. Others give the reader a breath — slower, emotional, landing on feeling rather than action. Vary the rhythm deliberately. A string of identical chapter shapes kills momentum.
+- EXECUTE THE CHAPTER'S TONAL JOB: Each chapter has a specific emotional register it must deliver. Read the chapter summary and identify what kind of chapter this is: a COMEDY chapter must be genuinely funny — physical mishaps, misunderstandings, absurd situations, moments that make a child giggle. Do not soften a funny chapter into something merely light. A TRIUMPH chapter must feel like a real win — let ${name} feel big, proud, joyful. Do not undercut the triumph with immediate doubt. A WONDER chapter must feel surprising and delightful. A SETBACK chapter must feel like things genuinely got harder — not just another flutter. Whatever the chapter's job is, do it fully. The biggest mistake is writing every chapter in the same gentle middle register regardless of what the outline calls for.`
 ${parseInt(age) >= 8 ? `- SENTENCE RHYTHM: Match sentence length to emotional tempo. Action scenes: short, punchy, immediate. Emotional scenes: longer sentences, more detail, more pause. The reader should feel the difference physically — fast chapters read fast, slow chapters breathe.` : ""}
 ${parseInt(age) >= 10 ? `- CHARACTER DEPTH: Layer ${name}'s internal life across chapters. Track how their thinking shifts — what they believed at the start that turns out to be wrong, what they're beginning to understand, what they're still not ready to face. Let subtext carry weight: what a character doesn't say, doesn't do, or notices but ignores reveals more than exposition. The chapter becomes a narrative lever — it shapes meaning, not just movement.` : ""}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope. End on a warm, satisfying, conclusive note — no cliffhanger on the last chapter." : ""}
