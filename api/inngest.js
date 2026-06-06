@@ -622,7 +622,7 @@ const generatePreviewChapters = inngest.createFunction(
     });
 
     // Step 3: Illustrations — cover + scene images for chapters 1-3
-    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
+    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region, milestone } = childData;
     const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
     const styleGuide = getStyleGuide();
     const hairLengthExpanded =
