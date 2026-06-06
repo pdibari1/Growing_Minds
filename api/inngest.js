@@ -246,7 +246,7 @@ const generateStoryOrder = inngest.createFunction(
       const imgBatches = Math.ceil(allImageKeys.length / IMG_BATCH);
       console.log(`STARTING ${imgBatches} illustration batches`);
 
-      const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
+      const { name, age, hair, hairLength, hairStyle, eye, gender, city, region, milestone } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
       const styleGuide = getStyleGuide();
