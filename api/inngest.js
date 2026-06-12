@@ -1008,6 +1008,8 @@ const generateRemainingChapters = inngest.createFunction(
       const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
       const pdfBuffer = Buffer.from(pdfBase64, 'base64');
       const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
+      // Store URL in Redis so the lulu-jobs test endpoint can retrieve it
+      await redisRequest("SET", [`fullbookurl:${storyId}`, blob.url, "EX", 2592000]); // 30 days
       return blob.url;
     });
 
@@ -1045,13 +1047,29 @@ const generateRemainingChapters = inngest.createFunction(
       await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
     });
 
-    // Step 8: Create Lulu print job (non-fatal — never blocks delivery)
+    // Step 8: Send Lulu approval email to admin
+    await step.run("upgrade-send-lulu-approval", async () => {
+      if (!shippingAddress) { console.log("No shipping address — skipping Lulu approval email"); return; }
+      const token = adminToken(storyId);
+      await sendLuluApprovalEmail(storyId, childName, childData, fullBookUrl, token);
+    });
+
+    // Step 9: Wait for admin to approve Lulu send (up to 7 days — null on timeout = skip)
+    const luluApproval = await step.waitForEvent("upgrade-wait-for-lulu", {
+      event: "lulu/approved",
+      match: "data.storyId",
+      timeout: "7d",
+    });
+
+    // Step 10: Create Lulu print job — only if admin approved (non-fatal — never blocks delivery)
     await step.run("upgrade-lulu-order", async () => {
       try {
+        if (!luluApproval) { console.log(`Lulu approval timed out for ${storyId} — skipping print job`); return; }
         if (!shippingAddress) { console.log("No shipping address — skipping Lulu order"); return; }
-        const { createLuluPrintJob, getCoverDimensions } = require("./lulu");
+        const { createLuluPrintJob } = require("./lulu");
 
-        const interiorUrl = fullBookUrl;
+        // Use remade PDF if available — remake-images may have rebuilt it after original generation
+        const interiorUrl = await redisRequest("GET", [`fullbookurl:${storyId}`]) || fullBookUrl;
         if (!interiorUrl) throw new Error("No interior PDF URL available");
 
         // Build a print-ready cover PDF (front + spine + back on one page with bleed)
@@ -2649,10 +2667,15 @@ async function buildLuluCoverPdf(storyId, childName, childData, interiorPdfUrl) 
       };
     }
 
-    // Convert inches to PDF points (72 pts per inch)
-    const totalW  = Math.round(dims.width  * 72);
-    const totalH  = Math.round(dims.height * 72);
-    const spineW  = Math.round((dims.spine_width || 0) * 72);
+    // Convert inches to PDF points (72 pts per inch).
+    // Lulu returns total cover width (back bleed + back trim + spine + front trim + front bleed).
+    // For 5.5" trim with 0.125" bleed on each side: spine = totalWidth - (5.5*2 + 0.125*2)
+    const coverWidthIn  = parseFloat(dims.width);
+    const coverHeightIn = parseFloat(dims.height);
+    const spineIn = Math.max(0, coverWidthIn - (5.5 * 2 + 0.125 * 2));
+    const totalW  = Math.round(coverWidthIn  * 72);
+    const totalH  = Math.round(coverHeightIn * 72);
+    const spineW  = Math.round(spineIn * 72);
     const bleedPt = Math.round(0.125 * 72); // 9 pts
     const trimW   = Math.round(5.5 * 72);   // 396 pts
     const trimH   = Math.round(8.5 * 72);   // 612 pts
@@ -3850,6 +3873,65 @@ async function sendAdminNotificationEmail(storyId, customerEmail, childName, chi
   }
 }
 
+async function sendLuluApprovalEmail(storyId, childName, childData, fullBookUrl, token) {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
+  const { milestone, age, city, region } = childData;
+  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
+
+  const approveUrl = `${baseUrl}/api/approve-lulu?storyId=${encodeURIComponent(storyId)}&token=${token}`;
+  const remakeUrl  = `${baseUrl}/api/remake-images?storyId=${encodeURIComponent(storyId)}&token=${token}`;
+
+  const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]).catch(() => null);
+
+  const coverBlock = coverImageUrl ? `
+    <div style="margin-bottom:1.5rem;">
+      <a href="${coverImageUrl}" target="_blank">
+        <img src="${coverImageUrl}" alt="Cover" style="width:100%;max-width:260px;border-radius:6px;display:block;" />
+      </a>
+    </div>` : '';
+
+  try {
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: "hello@growingminds.io",
+      subject: `📦 Ready to print: ${storyTitle}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
+          <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:10px 10px 0 0;">
+            <h2 style="color:white;margin:0;font-size:1.1rem;">Ready to Send to Lulu</h2>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
+            <table style="border-collapse:collapse;width:100%;margin-bottom:1.25rem;">
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:7px 4px;font-weight:700;color:#6b7280;width:110px;font-size:.85rem;">STORY</td>
+                <td style="padding:7px 4px;font-weight:700;">${storyTitle}</td>
+              </tr>
+              <tr>
+                <td style="padding:7px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td>
+                <td style="padding:7px 4px;">${childName}, age ${age} · ${city}, ${region}</td>
+              </tr>
+            </table>
+            ${coverBlock}
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:1.25rem;margin-bottom:1rem;">
+              <p style="font-weight:700;color:#166534;font-size:.9rem;margin:0 0 12px;">Choose an action:</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:white;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">📦 Send to Lulu</a>
+                <a href="${remakeUrl}" style="display:inline-block;background:#b45309;color:white;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">🔄 Remake Images</a>
+              </div>
+            </div>
+            ${fullBookUrl ? `<p style="margin:.5rem 0 0;font-size:.85rem;color:#6b7280;"><a href="${fullBookUrl}" style="color:#2d6a4f;">View full-book PDF</a></p>` : ''}
+            <p style="margin:1rem 0 0;font-size:.8rem;color:#9ca3af;">This link is valid for 7 days. If no action is taken, the print job will be skipped automatically.</p>
+          </div>
+        </div>
+      `
+    });
+    console.log(`Lulu approval email sent for ${childName} (${storyId})`);
+  } catch(e) {
+    console.error(`Lulu approval email failed: ${e.message}`);
+  }
+}
+
 // ════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════
@@ -4157,6 +4239,143 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
   });
 }
 
+// ════════════════════════════════════════════
+// REMAKE IMAGES — re-generates all illustrations for a story, then sends a fresh Lulu approval email
+// Triggered by images/remake event from api/remake-images.js
+// The original generateRemainingChapters run keeps waiting for lulu/approved — it will receive
+// it when the admin clicks "Send to Lulu" on the new approval email.
+// ════════════════════════════════════════════
+const remakeStoryImages = inngest.createFunction(
+  { id: "remake-story-images", retries: 1, timeout: "45m" },
+  { event: "images/remake" },
+  async ({ event, step }) => {
+    const { storyId } = event.data;
+
+    // Load story data from Redis
+    const storyToken = await redisRequest("GET", [`storytoken:${storyId}`]);
+    if (!storyToken) throw new Error(`No storyToken in Redis for ${storyId} — may have expired`);
+
+    const childData = decodeStoryData(storyToken);
+    if (!childData) throw new Error("Could not decode story token");
+
+    const customDetails = await redisRequest("GET", [`customdetails:${storyId}`]);
+    if (customDetails) childData.customDetails = customDetails;
+
+    const childName = await redisRequest("GET", [`childname:${storyId}`]) || childData.name;
+    const customerEmail = await redisRequest("GET", [`customeremail:${storyId}`]);
+
+    const tier = getStoryTier(childData.age);
+    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
+
+    const hairLengthExpanded =
+      hairLength === 'crew cut'           ? 'very short crew cut, buzzed close to the head'
+      : hairLength === 'regular cut'      ? 'short regular cut, trimmed neatly above the ears'
+      : hairLength === 'past the ears'    ? 'medium length, hanging past the ears'
+      : hairLength === 'to the shoulders' ? 'shoulder-length, ends exactly at the shoulders — not shorter'
+      : hairLength === 'long'             ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
+      : hairLength === 'short'            ? 'very short, close-cropped, above the ears'
+      : hairLength === 'medium'           ? 'medium-length, chin to shoulder'
+      : hairLength || '';
+
+    // Step 1: Clear existing non-cover illustrations
+    await step.run("remake-clear-illustrations", async () => {
+      const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
+      if (imgKeys && imgKeys.length > 0) {
+        const urlsToDelete = [];
+        for (const k of imgKeys) {
+          if (k === `img:${storyId}:0-0`) continue; // keep cover image
+          const url = await redisRequest("GET", [k]);
+          if (url) urlsToDelete.push(url);
+          await redisRequest("DEL", [k]);
+        }
+        if (urlsToDelete.length > 0) await del(urlsToDelete);
+        console.log(`Remake: cleared ${imgKeys.length - 1} illustrations for ${storyId}`);
+      }
+    });
+
+    // Step 2: Load outline (needed for scene prompts)
+    const outlineRaw = await redisRequest("GET", [`outline:${storyId}`]);
+    const outline = outlineRaw ? JSON.parse(outlineRaw) : [];
+    if (!outline.length) throw new Error(`Outline missing from Redis for ${storyId} — cannot remake images`);
+
+    // Steps 3..N: Re-generate all illustrations
+    if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
+      const step2 = Math.floor(outline.length / tier.imageCount);
+      const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
+        `${Math.min(i * step2, outline.length - 1)}-0`
+      );
+      if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
+
+      for (let b = 0; b < allImageKeys.length; b++) {
+        await step.run(`remake-illustration-${b + 1}`, async () => {
+          const key = allImageKeys[b];
+          const ci = parseInt(key.split('-')[0]);
+          const chap = outline[ci];
+          const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
+          if (!coverBlobUrl) throw new Error("Cover not found in Redis");
+
+          const allChapters = await getChaptersFromRedis(storyId);
+          const chapterText = allChapters[ci] || null;
+          const visualScene = chapterText
+            ? await extractScenePrompt(chapterText, name, age, city, region)
+            : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
+
+          const ageNum = parseInt(age);
+          const mainAgeAppearance =
+            ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
+            ageNum <= 4  ? `a preschooler — small, round babyish face, very short` :
+            ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face` :
+            ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face` :
+            ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child` :
+            ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
+                           `a teenager or adult`;
+          const illustrationStyle =
+            ageNum <= 7  ? `Large expressive facial emotions. Simple, uncluttered composition.` :
+            ageNum <= 10 ? `Expressive character faces with personality and humor.` :
+                           `Atmospheric and cinematic.`;
+          const mainCharHairNote = hairStyle
+            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
+            : `${hairLengthExpanded} ${hair}-colored hair`;
+          const sceneStyleGuide = getStyleGuideForAge(age);
+          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+
+          const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
+          const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
+          await redisRequest("SET", [`img:${storyId}:${key}`, blob.url, "EX", 604800]);
+        });
+      }
+    }
+
+    // Rebuild full-book PDF with new illustrations
+    const newFullBookUrl = await step.run("remake-rebuild-pdf", async () => {
+      const allChapters = await getChaptersFromRedis(storyId);
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      const illustrationsB64 = {};
+      for (const [key, url] of Object.entries(illustrationUrls)) {
+        try {
+          const bytes = await fetchImageBytes(url);
+          illustrationsB64[key] = `data:image/jpeg;base64,${bytes.toString('base64')}`;
+        } catch(e) { console.error(`Remake PDF image ${key} failed: ${e.message}`); }
+      }
+      const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
+      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+      const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
+      await redisRequest("SET", [`fullbookurl:${storyId}`, blob.url, "EX", 2592000]);
+      console.log(`Remake: rebuilt full-book PDF for ${childName} (${storyId})`);
+      return blob.url;
+    });
+
+    // Send a fresh Lulu approval email — the original run is still waiting for lulu/approved
+    await step.run("remake-send-lulu-approval", async () => {
+      const token = adminToken(storyId);
+      await sendLuluApprovalEmail(storyId, childName, childData, newFullBookUrl, token);
+    });
+
+    console.log(`✅ Remake complete for ${childName} (${storyId})`);
+    return { success: true, storyId, childName };
+  }
+);
+
 // ── SERVE — must be after all function definitions ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, generateRemainingChapters] });
+const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, generateRemainingChapters, remakeStoryImages] });
 module.exports = handler;

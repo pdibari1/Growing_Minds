@@ -61,12 +61,13 @@ async function luluRequest(method, path, body = null) {
 }
 
 // ── Get cover dimensions for a given page count ──
-// Returns { cover_width, cover_height, spine_width } in points (72 pts = 1 inch)
+// Returns { width, height, unit } — Lulu total cover size including bleed, in inches.
+// Spine must be derived: spine = width - (5.5*2 + 0.125*2) for 5.5" trim with 0.125" bleed.
 async function getCoverDimensions(pageCount) {
   const result = await luluRequest("POST", "/print-jobs/cover-dimensions/", {
     pod_package_id: POD_PACKAGE_ID,
     interior_page_count: pageCount,
-    unit: "INCH",
+    unit: "inch",   // must be lowercase — Lulu enum: pt | mm | inch
   });
   return result;
 }
@@ -84,7 +85,7 @@ async function createLuluPrintJob({ interiorUrl, coverUrl, shippingDetails, cust
   const job = await luluRequest("POST", "/print-jobs/", {
     external_id: storyId,
     contact_email: process.env.LULU_CONTACT_EMAIL || "hello@growingminds.io",
-    shipping_level: "GROUND",
+    shipping_option: "GROUND",  // API field is shipping_option, not shipping_level
     line_items: [{
       title: `${childName}'s Personalized Story Book`,
       cover: { source_url: coverUrl },
