@@ -33,9 +33,9 @@ function getStoryTier(age) {
 function getStyleGuideForAge(age) {
   const ageNum = parseInt(age) || 7;
   if (ageNum <= 7) {
-    return "Highly detailed 2D digital illustration. Style: premium mobile game character art — luminous, ultra-saturated, richly rendered. NOT 3D CGI. NOT flat cartoon. NOT photorealistic. Smooth cel-shaded skin with warm soft glow. Large detailed eyes with luminous irises and bright catchlights. Voluminous flowing hair with multi-layered color variation and light streaks. Ultra-saturated warm color palette — colors feel backlit and glowing. Rich detailed scene filling the frame edge to edge. Pure 2D digital illustration with premium rendering quality.";
+    return "Highly detailed 2D digital illustration. Style: premium mobile game character art — luminous, ultra-saturated, richly rendered. NOT 3D CGI. NOT flat cartoon. NOT photorealistic. Smooth cel-shaded skin with warm soft glow. Detailed eyes with luminous irises and bright catchlights — eyes are proportional to the face, NOT cartoonishly oversized. Voluminous flowing hair with multi-layered color variation and light streaks. Ultra-saturated warm color palette — colors feel backlit and glowing. Rich detailed scene filling the frame edge to edge. Pure 2D digital illustration with premium rendering quality. CHARACTER PROPORTIONS: draw the character with correct school-age body proportions — head is 1/6 of total body height, lean limbs, flat stomach. FORBIDDEN: toddler proportions, oversized round head, chubby baby cheeks, stubby limbs, round belly.";
   } else if (ageNum <= 11) {
-    return "Detailed middle-grade chapter book illustration. Rich complex backgrounds, more realistic character proportions — like cover art for a middle-grade adventure novel. Warm but sophisticated color palette with depth and texture. Painterly digital art with expressive characters and dynamic compositions. NO flat baby cartoon style. Fully rendered with atmospheric lighting.";
+    return "Detailed middle-grade chapter book illustration. Rich complex backgrounds, realistic character proportions — like cover art for a middle-grade adventure novel. Warm but sophisticated color palette with depth and texture. Painterly digital art with expressive characters and dynamic compositions. NO flat baby cartoon style. NO toddler proportions — characters must look their actual age with correct body proportions. Fully rendered with atmospheric lighting.";
   } else {
     return "Sophisticated graphic novel illustration. Realistic proportions, nuanced color palette, strong contrast and mood. Characters carry emotional depth. Cinematic painterly style — like a YA graphic novel or illustrated teen fiction. NO childlike cartoon style. Fully rendered with depth and atmosphere.";
   }
@@ -54,6 +54,19 @@ function getCoverStyleForAge(age) {
 
 function getStyleGuide(age) {
   return getStyleGuideForAge(age);
+}
+
+// ── AGE BODY DESCRIPTION — explicit full-body proportion rules to prevent toddler drift ──
+// Passed into every illustration prompt as a hard constraint on the model.
+function getAgeBodyDescription(age) {
+  const ageNum = parseInt(age) || 7;
+  if (ageNum <= 2) return `a toddler, approximately ${age} years old. Body proportions: head is 1/4 of total body height (large relative to body), very chubby round cheeks, round protruding belly, short stubby arms and legs, barely walking height.`;
+  if (ageNum <= 4) return `a preschooler, approximately ${age} years old. Body proportions: head is about 1/5 of total body height, still a round soft face but less babyish than a toddler, short but defined limbs, small round belly. Clearly a little kid, NOT a baby.`;
+  if (ageNum <= 6) return `a kindergarten-age child, exactly ${age} years old. Body proportions: head is about 1/5.5 of total body height — NOT an oversized toddler head. Face is softly oval, losing toddler roundness. Flat stomach, no baby belly. Arms and legs are short but clearly longer and leaner than a toddler's. Small build but unmistakably a young child, NOT a toddler or baby.`;
+  if (ageNum <= 8) return `a school-age child, exactly ${age} years old. CRITICAL BODY PROPORTIONS: head is approximately 1/6 of total body height — a normal human head, NOT oversized. Face is clearly oval, NOT round and chubby — a defined jawline is visible, cheeks are lean not puffy. Eyes are normal human proportion relative to the face, NOT cartoonishly large. Stomach is completely flat, NO baby belly. Arms and legs are lean and noticeably long relative to the torso. Overall build: slim, upright, energetic. This child looks like a real 7–8 year old standing next to adults — not a cute baby or toddler. FORBIDDEN: giant round head, chubby cheeks, oversized eyes, round belly, stubby limbs.`;
+  if (ageNum <= 11) return `an older elementary child, exactly ${age} years old. Body proportions: head is 1/6.5 of total body height. Face has defined features, lean cheeks, visible jawline. Long lean limbs. Flat stomach. Build is approaching preteen — taller and more angular than younger children. Clearly still a kid but not a little kid. FORBIDDEN: toddler proportions, chubby cheeks, oversized head.`;
+  if (ageNum <= 14) return `a middle-school-aged child, exactly ${age} years old. Body proportions: head is 1/7 of total body height. More mature facial features, lean build, long limbs. Teen proportions beginning to emerge. Clearly still a kid but almost a teenager.`;
+  return `a teenager, approximately ${age} years old. Near-adult proportions: head is 1/7.5 of total body height. Lean, angular features. Adult-length limbs.`;
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -351,14 +364,7 @@ SCENE: ${coverScene} Setting: ${region}. The image shows only this scene — not
 
           // Age-specific illustration style directive
           const ageNum = parseInt(age);
-          const mainAgeAppearance =
-            ageNum <= 2  ? `a toddler — tiny body, very chubby round face, barely walking height` :
-            ageNum <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
-            ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid` :
-            ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, small body, clearly a child` :
-            ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child, NOT a teenager` :
-            ageNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
-                           `a teenager or adult`;
+          const mainAgeAppearance = getAgeBodyDescription(age);
           const illustrationStyle = ageNum <= 7
             ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition — one clear action in focus. The illustration should make the scene immediately readable without the text.`
             : ageNum <= 10
@@ -724,14 +730,7 @@ SCENE: ${coverScene} Setting: ${region}. Pure illustration only — no text, no 
           : (chap?.imagePrompt || `${name} having a great time outdoors in ${city}`);
 
         const ageNum = parseInt(age);
-        const mainAgeAppearance =
-          ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
-          ageNum <= 4  ? `a preschooler — small, round babyish face, very short` :
-          ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid` :
-          ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, small body` :
-          ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child` :
-          ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
-                         `a teenager or adult`;
+        const mainAgeAppearance = getAgeBodyDescription(age);
         const illustrationStyle = ageNum <= 7
           ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition.`
           : ageNum <= 10
@@ -963,14 +962,7 @@ const generateRemainingChapters = inngest.createFunction(
             : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
 
           const ageNum = parseInt(age);
-          const mainAgeAppearance =
-            ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
-            ageNum <= 4  ? `a preschooler — small, round babyish face, very short` :
-            ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face` :
-            ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face` :
-            ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child` :
-            ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
-                           `a teenager or adult`;
+          const mainAgeAppearance = getAgeBodyDescription(age);
           const illustrationStyle = ageNum <= 7 ? `Large expressive facial emotions. Simple, uncluttered composition.` : ageNum <= 10 ? `Expressive character faces with personality and humor.` : `Atmospheric and cinematic.`;
           const mainCharHairNote = hairStyle
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
@@ -2109,6 +2101,7 @@ ${parseInt(age) >= 10 ? `- CHARACTER DEPTH: Layer ${name}'s internal life across
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope. End on a warm, satisfying, conclusive note — no cliffhanger on the last chapter." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
 - STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
+- SECONDARY CHARACTERS HAVE NO INVENTED ATTRIBUTES: If the parent provided a companion's name, that name is ALL you know about them. Do not invent their height, build, hair, appearance, personality, catchphrases, backstory, or any other characteristic. If the profile says "friend: Jake", write "Jake" — not "Jake, the tallest kid in class", not "funny Jake", not "Jake who always knew what to say". Use only what is explicitly stated. If you don't know something about a named character, omit the attribute entirely. "Jake ran over" ✓ — "Jake, the tallest friend he had, ran over" ✗. "Emma smiled" ✓ — "Emma, always the brave one, smiled" ✗. Every invented trait about a named character is a fact the parent can contradict. When in doubt, use the name only.
 - CUSTOM DETAILS ARE BINDING: The custom details are the only source of truth for every fact about these characters' lives. Do not infer, extrapolate, or invent anything not explicitly stated. Do not add sequence, timing, or causal relationships that the custom details don't establish. If a fact about a character's situation, history, or timeline isn't written in the custom details, it is unknown — do not fill in the blank. Read the custom details like a legal contract: stated facts are fixed, unstated facts do not exist.
 - FREQUENCY IS EXACT AND NON-TRANSFERABLE: Frequency words are literal and binding. If custom details say something happened "once" or "one time", it happened exactly once — never imply it is recurring, regular, or habitual. If two separate facts share a setting (e.g. "helps with drop-off daily" AND "had lunch in the cafeteria once"), do not merge them into a single recurring event. Each fact stands alone with its own frequency. Never promote a one-time event into a habit. Never borrow the frequency of one fact and attach it to another.
 - RITUALS AND SEQUENCES ARE SACRED — REPRODUCE VERBATIM: If the parent's custom details describe a specific ritual, routine, counting sequence, set of steps, or phrase said out loud — that exact sequence MUST appear in the story written exactly as the parent described it. Do NOT paraphrase it. Do NOT simplify it. Do NOT invent a "similar" or "inspired-by" version. Do NOT replace it with something you think is more charming or creative. Write the exact actions, the exact counts, the exact words. If the parent says "three hugs plus one for good measure, three kisses plus one for good measure, and they rub noses three times plus one for good measure, and Dad counts them out loud" — then that is what happens in the story, in that order, with those counts, with Dad counting. The parent described their real-life ritual because they want their child to open this book and see their actual life reflected back at them. Inventing a different ritual — no matter how good — is a complete failure of the Signature track's purpose. Treat every described ritual as sacred text.
@@ -4321,14 +4314,7 @@ const remakeStoryImages = inngest.createFunction(
             : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
 
           const ageNum = parseInt(age);
-          const mainAgeAppearance =
-            ageNum <= 2  ? `a toddler — tiny body, very chubby round face` :
-            ageNum <= 4  ? `a preschooler — small, round babyish face, very short` :
-            ageNum <= 6  ? `a kindergarten-age child — small compact body, round young face` :
-            ageNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face` :
-            ageNum <= 11 ? `an older elementary child — taller but unmistakably still a child` :
-            ageNum <= 14 ? `a middle-school-aged child — clearly still a kid` :
-                           `a teenager or adult`;
+          const mainAgeAppearance = getAgeBodyDescription(age);
           const illustrationStyle =
             ageNum <= 7  ? `Large expressive facial emotions. Simple, uncluttered composition.` :
             ageNum <= 10 ? `Expressive character faces with personality and humor.` :
