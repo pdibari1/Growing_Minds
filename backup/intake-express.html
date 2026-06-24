@@ -293,7 +293,7 @@
       <div class="preview-row"><span class="preview-icon">🧒</span><span id="prev-name"      class="preview-empty">Child's name…</span></div>
       <div class="preview-row"><span class="preview-icon">🎂</span><span id="prev-age"       class="preview-empty">Age…</span></div>
       <div class="preview-row"><span class="preview-icon">🎨</span><span id="prev-trait"     class="preview-empty">Personality…</span></div>
-      <div class="preview-row"><span class="preview-icon">🌍</span><span id="prev-city"      class="preview-empty">Their world…</span></div>
+      <div class="preview-row"><span class="preview-icon">📍</span><span id="prev-city"      class="preview-empty">Hometown…</span></div>
       <div class="preview-row"><span class="preview-icon">🎯</span><span id="prev-milestone" class="preview-empty">Milestone…</span></div>
     </div>
   </aside>
@@ -525,9 +525,8 @@
       </div>
 
       <div class="field">
-        <label>What are they really into right now? <span class="opt">This builds their world</span></label>
-        <input type="text" id="favThing" placeholder="e.g. dinosaurs, deep sea creatures, space, knights, horses…" maxlength="40"/>
-        <p class="field-hint">Be specific — "deep sea creatures" beats "ocean." This is what shapes the world of their adventure.</p>
+        <label>What's their absolute favorite thing? <span class="opt">1–3 words</span></label>
+        <input type="text" id="favThing" placeholder="e.g. dinosaurs, soccer, drawing, dogs…" maxlength="40"/>
         <div class="field-error" id="err-fav">Please enter their favorite thing.</div>
       </div>
 
@@ -637,19 +636,19 @@
 
       <div class="nav">
         <button class="btn-back" onclick="goTo(2)">← Back</button>
-        <button class="btn-next" onclick="goTo(4)">Next: Their World →</button>
+        <button class="btn-next" onclick="goTo(4)">Next: Hometown →</button>
       </div>
     </div>
 
     <!-- ── PANEL 4: Location + milestone details + submit ── -->
     <div class="panel" id="panel-4">
       <div class="eyebrow">Step 5 of 5 — Final step!</div>
-      <h1 class="panel-title">One last thing — where do they live?</h1>
-      <p class="panel-sub">We'll use this to shape the feel of their world — the landscape, the light, the weather. Not the city itself.</p>
+      <h1 class="panel-title">Almost there</h1>
+      <p class="panel-sub">One last thing — tell us where home is, and a little about this milestone.</p>
 
       <div class="field-row">
         <div class="field">
-          <label>City <span class="opt">— used for atmosphere only, not named in the story</span></label>
+          <label>City</label>
           <input type="text" id="childCity" placeholder="e.g. Austin, Denver…" maxlength="60" oninput="updateCityPreview()"/>
           <div class="field-error" id="err-city">Please enter their city.</div>
         </div>
@@ -733,7 +732,7 @@ const STEPS = [
   { title: 'The basics' },
   { title: 'Their look' },
   { title: 'Personality' },
-  { title: 'Their world' },
+  { title: 'Hometown' },
 ];
 let currentStep = 0;
 
