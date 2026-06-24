@@ -377,7 +377,7 @@ SCENE: ${coverScene} Setting: ${region}. The image shows only this scene — not
             : `${hairLengthExpanded} ${hair}-colored hair`;
 
           const sceneStyleGuide = getStyleGuideForAge(age);
-          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -740,7 +740,7 @@ SCENE: ${coverScene} Setting: ${region}. Pure illustration only — no text, no 
           ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
           : `${hairLengthExpanded} ${hair}-colored hair`;
         const sceneStyleGuide = getStyleGuideForAge(age);
-        const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+        const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
         const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
         const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -968,7 +968,7 @@ const generateRemainingChapters = inngest.createFunction(
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
           const sceneStyleGuide = getStyleGuideForAge(age);
-          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
@@ -1690,7 +1690,7 @@ async function generateMandatoryMoments(verbatimFacts, childData, outline) {
 FACT TO RENDER VERBATIM: ${fact}
 
 CHILD'S NAME: ${name}
-SETTING: Fantasy world inspired by ${name}'s love of ${favorite || 'adventure'}, atmospheric feel of ${region}
+SETTING: ${city}, ${region}
 CHAPTER CONTEXT: ${outline[chapterIdx]?.summary || ''}
 
 Write ONLY the 2–4 sentence passage. No explanation, no title, no quotation marks around the whole passage.`;
@@ -1807,7 +1807,7 @@ ${parsedFacts}
 ${customBlock}
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: This story is set in a fantasy world — never in the real city of ${city}. Build the world from: (1) ${name}'s love of ${favorite} — this defines the world's landscape, creatures, places, and challenges; everything should feel made for someone obsessed with ${favorite}; (2) the regional atmosphere of ${city}, ${region} translated into fantasy geography (Colorado mountains → towering crystalline peaks; Texas → sun-scorched red rock canyons; coastal Maine → storm-dark sea cliffs; midwest plains → endless golden grasslands). Give the world a name in the outline. Never use the real city name, state name, school name, or any real-world landmark.
+Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
 Milestone/theme: ${milestone}
 
 AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
@@ -1943,7 +1943,7 @@ ${arcContext}
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: Fantasy setting — never the real city of ${city}. The world is built from ${name}'s love of ${favorite} and the atmospheric landscape of ${city}, ${region} translated into fantasy geography. Never use the real city name, state name, school name, or any real landmark.
+Setting: ${city}, ${region} — use the city name and regional geography naturally, but never specific street names, addresses, or neighbourhood names.
 Central theme: ${milestone}
 ${isFirst ? "\nThis is the opening chapter — establish the world vividly, introduce the hero with warmth and charm." : ""}
 ${isLast ? "\nThis is the final chapter — resolve the milestone beautifully, end with warmth and hope." : ""}
@@ -2058,7 +2058,7 @@ Correct any errors before outputting.` : "";
 ${customBlock}
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: Fantasy setting — never the real city of ${city}. The world is built from ${name}'s love of ${favorite} and the atmospheric landscape of ${city}, ${region} translated into fantasy geography. Never use the real city name, state name, school name, or any real landmark. Stay consistent with the world established in the outline.
+Setting: ${city}, ${region} — use the city name and regional geography (mountains, rivers, weather, landscape) naturally, but NEVER use specific street names, addresses, or neighbourhood names.
 ${arcContext}
 ${priorText}
 ${handoffBlock}
@@ -2169,7 +2169,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
         ? chap.imagePrompt
         : `Another moment from this scene: ${chap.summary}`;
 
-      const prompt = `${styleGuide}. Scene: ${scenePrompt} The main character is ${charDesc}. Setting: fantasy world with landscape atmosphere drawn from ${region}. No text in the image.`;
+      const prompt = `${styleGuide}. Scene: ${scenePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text in the image.`;
 
       try {
         console.log(`Generating image ${key}`);
@@ -2734,7 +2734,7 @@ async function buildLuluCoverPdf(storyId, childName, childData, interiorPdfUrl) 
     page.drawText(milestoneTitle,          { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 60, font: timesBold, size: 20, color: gold });
     page.drawText("A Growing Minds Original Story", { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 88, font: helvetica, size: 9, color: prgb(0.8, 0.9, 0.85) });
     page.drawText(`Written for ${childName}, age ${childData.age}`, { x: mx, y: bleedPt + 42, font: timesBold, size: 11, color: white });
-    page.drawText(`growingminds.io`,         { x: mx, y: bleedPt + 24, font: timesRoman, size: 9, color: prgb(0.8, 0.9, 0.85) });
+    page.drawText(`${childData.city}, ${childData.region}`,         { x: mx, y: bleedPt + 24, font: timesRoman, size: 9, color: prgb(0.8, 0.9, 0.85) });
 
     const coverPdfBytes = await coverDoc.save();
     const blob = await put(`covers/${storyId}/lulu-cover.pdf`, coverPdfBytes, {
@@ -2789,7 +2789,7 @@ async function createStoryPDF(child, chapters, illustrations, tier) {
   cover.drawText(getMilestoneTitle(milestone), { x: margin, y: pageHeight * 0.35 - 36, font: timesBold, size: 26, color: gold });
   cover.drawText("A Growing Minds Original Story", { x: margin, y: pageHeight * 0.35 - 72, font: helvetica, size: 10, color: rgb(0.8,0.9,0.85) });
   cover.drawText(`Written for ${name}, age ${age}`, { x: margin, y: pageHeight * 0.18, font: helBold, size: 12, color: rgb(1,1,1) });
-  cover.drawText(`growingminds.io`, { x: margin, y: pageHeight * 0.18 - 18, font: timesRoman, size: 10, color: rgb(0.8,0.9,0.85) });
+  cover.drawText(`${city}, ${region}`, { x: margin, y: pageHeight * 0.18 - 18, font: timesRoman, size: 10, color: rgb(0.8,0.9,0.85) });
   cover.drawText("growingminds.io", { x: margin, y: margin, font: helvetica, size: 9, color: rgb(0.6,0.8,0.7) });
 
   // ── STORY PAGES ──
@@ -3259,7 +3259,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
       <div class="cover-title-line1">${childName} and the</div>
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${wordCount} words &nbsp;·&nbsp; growingminds.io</div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${wordCount} words</div>
       <div class="cover-publisher">🌱 growingminds.io</div>
     </div>
   </div>
@@ -3272,7 +3272,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
         This story was written just for ${childName},<br/>
-        age ${age}.<br/>
+        age ${age}, of ${city}, ${region}.<br/>
         Every adventure in these pages belongs to you.
       </div>
     </div>
@@ -3431,7 +3431,7 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
   .chapter-number { font-family:'Lato',Arial,sans-serif; font-size:8pt; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:#2d6a4f; margin-bottom:6px; }
   .chapter-title { font-family:'Lora',Georgia,serif; font-size:${parseInt(age) <= 5 ? '22pt' : '18pt'}; color:#1a1a2e; margin-bottom:28px; line-height:1.2; }
   .chapter-divider { width:40px; height:3px; background:#2d6a4f; margin-bottom:28px; border-radius:2px; }
-  .chapter-body p { font-family:'Lora',Georgia,serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '400' : '400'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
+  .chapter-body p { font-family:'Lato',Arial,sans-serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '600' : '500'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
   .chapter-body p:first-child::first-letter { font-family:'Lora',Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
   .chapter-body img { width:100%; max-width:320px; display:block; margin:2rem auto; border-radius:4px; }
   .chapter-end { text-align:center; color:#abc3b9; font-size:16pt; margin-top:2rem; }
@@ -3455,7 +3455,7 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
       <div class="cover-title-line1">${childName} and the</div>
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;&middot;&nbsp; growingminds.io</div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;&middot;&nbsp; ${city}, ${region}</div>
       <div class="cover-publisher">growingminds.io</div>
     </div>
   </div>
@@ -3468,7 +3468,7 @@ async function generateFullBookPDF(childName, chapters, child, tier, illustratio
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
         This story was written just for ${childName},<br/>
-        age ${age}.<br/>
+        age ${age}, of ${city}, ${region}.<br/>
         Every adventure in these pages belongs to you.
       </div>
     </div>
@@ -3583,7 +3583,7 @@ async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
   cover.drawText("A Growing Minds Original Story", { x: margin, y: pageHeight * 0.35 - 64, font: helvetica, size: 10, color: rgb(0.8,0.9,0.85) });
   cover.drawText("Chapters 1-3 Preview", { x: margin, y: pageHeight * 0.20, font: helBold, size: 11, color: gold });
   cover.drawText(sanitizeForPdf(`Written for ${childName}, age ${age}`), { x: margin, y: pageHeight * 0.20 - 18, font: timesRoman, size: 10, color: rgb(1,1,1) });
-  cover.drawText(`growingminds.io`, { x: margin, y: pageHeight * 0.20 - 36, font: timesRoman, size: 9, color: rgb(0.8,0.9,0.85) });
+  if (city && region) cover.drawText(sanitizeForPdf(`${city}, ${region}`), { x: margin, y: pageHeight * 0.20 - 36, font: timesRoman, size: 9, color: rgb(0.8,0.9,0.85) });
   cover.drawText("growingminds.io", { x: margin, y: margin, font: helvetica, size: 9, color: rgb(0.6,0.8,0.7) });
 
   // ── STORY PAGES ──
@@ -4323,7 +4323,7 @@ const remakeStoryImages = inngest.createFunction(
             ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
             : `${hairLengthExpanded} ${hair}-colored hair`;
           const sceneStyleGuide = getStyleGuideForAge(age);
-          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
+          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: ${city}, ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
 
           const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
           const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });

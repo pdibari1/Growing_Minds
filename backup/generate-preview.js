@@ -81,7 +81,7 @@ module.exports = async function handler(req, res) {
     const seedPrompt = `You are a children's book author planning a ${tier.label} for a ${age}-year-old.
 
 Hero: ${name}, ${genderPronoun}, loves ${favorite}. ${friendLine}
-World: Fantasy setting — never the real city of ${city}. Build the world from: (1) ${name}'s love of ${favorite} — let this define the creatures, landscape, and challenges; (2) the regional atmosphere of ${city}, ${region} translated into fantasy geography (e.g. Colorado → towering crystalline peaks; Texas → sun-scorched red rock canyons; coastal Maine → storm-dark sea cliffs). Give the world a name. Never name the real city, school, or any real landmark.
+Hometown: ${city}, ${region}.
 Milestone/theme: ${milestone}.
 ${customLine}
 
@@ -123,15 +123,13 @@ Return only the arc summary, no title or labels.`;
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: This story is set in a fantasy world — never in the real city of ${city}. Build the world from two things: (1) ${name}'s love of ${favorite} — this defines the world's landscape, creatures, places, and challenges; everything should feel made for someone obsessed with ${favorite}; (2) the regional atmosphere of ${city}, ${region} — translate it into fantasy geography (Colorado mountains → towering crystalline peaks and pine forests; Texas → sun-scorched red rock canyons; coastal Maine → storm-dark sea cliffs; midwest plains → endless golden grasslands). Give the world a name. Never use the real city name, state name, school name, or any real-world landmark.
+Hometown: ${city}, ${region} — use broad geography naturally, never specific street names or addresses.
 ${customLine}
 
 STORY DIRECTION — your preview must set up this arc:
 ${storySeed}
 
 RULES:
-- FANTASY WORLD ONLY: The story is set in a fantasy world, never the real world. Never name the real city, state, school, or any real geographic landmark. All places are fantastical and named by you.
-- NEVER INVENT ATTRIBUTES OF REAL PEOPLE: Only describe named friends or siblings using physical/personality details explicitly provided. If it wasn't stated, don't invent it — not height, build, hair, or personality traits.
 - ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail you write — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the profile or custom details above, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (invented, parent knows if this is real). "They drove to school" ✓ — "they drove past the coffee shop on the corner" ✗ (invented route detail). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). When in doubt, write the generic version. The parent will notice every specific detail that isn't true.
 - Named characters are never mean or unkind — they only appear being warm and supportive
 - No smartphones, cell phones, tablets, or personal devices exist in this world
