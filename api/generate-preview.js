@@ -80,9 +80,14 @@ module.exports = async function handler(req, res) {
     // for every visitor who might not convert.
     const seedPrompt = `You are a children's book author planning a ${tier.label} for a ${age}-year-old.
 
+⚠️ CRITICAL — FANTASY WORLD ONLY: This story NEVER takes place in the real world. It is set entirely in an original fantasy world. Never name or reference the real city, state, school, or any real-world location or landmark. The milestone (${milestone}) happens inside this fantasy world, not in reality.
+
+The fantasy world is built from two things:
+1. ${name}'s love of ${favorite} — this shapes the landscape, creatures, and challenges of the world
+2. The atmospheric feel of ${region} translated into fantasy geography (e.g. mountains → crystalline peaks, Texas plains → sun-scorched red rock canyons, coastal areas → storm-dark sea cliffs). Give the world a name.
+
 Hero: ${name}, ${genderPronoun}, loves ${favorite}. ${friendLine}
-World: Fantasy setting — never the real city of ${city}. Build the world from: (1) ${name}'s love of ${favorite} — let this define the creatures, landscape, and challenges; (2) the regional atmosphere of ${city}, ${region} translated into fantasy geography (e.g. Colorado → towering crystalline peaks; Texas → sun-scorched red rock canyons; coastal Maine → storm-dark sea cliffs). Give the world a name. Never name the real city, school, or any real landmark.
-Milestone/theme: ${milestone}.
+Milestone/theme: ${milestone} — this happens in the fantasy world, not in a real school, real home, or real city.
 ${customLine}
 
 Write a 4-6 sentence story arc that covers: how the story opens, the main challenge ${name} faces, a key low point, and how it resolves. Be specific to this child's details. This is a planning note, not prose.
@@ -121,9 +126,14 @@ Return only the arc summary, no title or labels.`;
       : "Full emotional range appropriate for this age.";
     const previewPrompt = `You are a warm, imaginative children's book author. Write the opening of a personalized children's ${tier.label}.
 
+⚠️ CRITICAL — FANTASY WORLD ONLY: This story is set ENTIRELY in an original fantasy world. It never takes place in the real world. Never name or reference ${city}, ${region}, any real school, any real landmark, or any real-world location. The milestone (${milestone}) unfolds inside this fantasy world. If the milestone involves school, there is a fantasy academy or hall of learning — not a real school. If it involves home, it is a fantasy dwelling — not a real house in a real city.
+
+The fantasy world is built from:
+1. ${name}'s love of ${favorite} — the world's landscape, creatures, and challenges all feel designed for someone obsessed with ${favorite}
+2. The atmospheric feel of ${region} translated into fantasy geography (mountains → crystalline peaks, Texas → sun-scorched red canyons, coastal → storm-dark sea cliffs, plains → endless golden grasslands). Give the world a name and use it.
+
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: This story is set in a fantasy world — never in the real city of ${city}. Build the world from two things: (1) ${name}'s love of ${favorite} — this defines the world's landscape, creatures, places, and challenges; everything should feel made for someone obsessed with ${favorite}; (2) the regional atmosphere of ${city}, ${region} — translate it into fantasy geography (Colorado mountains → towering crystalline peaks and pine forests; Texas → sun-scorched red rock canyons; coastal Maine → storm-dark sea cliffs; midwest plains → endless golden grasslands). Give the world a name. Never use the real city name, state name, school name, or any real-world landmark.
 ${customLine}
 
 STORY DIRECTION — your preview must set up this arc:

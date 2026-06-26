@@ -1804,11 +1804,17 @@ ${parsedFacts}
 ` : ""}` : "";
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
+
+⚠️ CRITICAL — FANTASY WORLD ONLY: This story NEVER takes place in the real world. Every chapter is set in an original fantasy world. Never name or reference ${city}, ${region}, any real school, any real street, or any real landmark. The milestone (${milestone}) happens inside this fantasy world. If the milestone involves school → use a fantasy academy. If it involves home → a fantasy dwelling. If it involves a hospital → a fantasy healing hall. Every real-world element must have a fantasy equivalent.
+
+The fantasy world is built from:
+1. ${name}'s love of ${favorite} — the world's landscape, creatures, and challenges all feel designed for someone obsessed with ${favorite}
+2. The atmospheric feel of ${region} translated into fantasy geography (mountains → crystalline peaks, Texas → sun-scorched red canyons, coastal → storm-dark sea cliffs, plains → endless golden grasslands). Name the world in the outline and use that name consistently.
+
 ${customBlock}
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: This story is set in a fantasy world — never in the real city of ${city}. Build the world from: (1) ${name}'s love of ${favorite} — this defines the world's landscape, creatures, places, and challenges; everything should feel made for someone obsessed with ${favorite}; (2) the regional atmosphere of ${city}, ${region} translated into fantasy geography (Colorado mountains → towering crystalline peaks; Texas → sun-scorched red rock canyons; coastal Maine → storm-dark sea cliffs; midwest plains → endless golden grasslands). Give the world a name in the outline. Never use the real city name, state name, school name, or any real-world landmark.
-Milestone/theme: ${milestone}
+Milestone/theme: ${milestone} — happening in the fantasy world described above
 
 AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
 - Derive every character's school grade strictly from their age: age 4–5 = Pre-K/Kindergarten, age 6–7 = Grades 1–2, age 8–9 = Grades 2–3, age 10–11 = Grades 4–5, age 12–13 = Grades 6–7
@@ -1934,6 +1940,8 @@ async function generateChapter(child, outline, index, tier) {
 
   const prompt = `Write Chapter ${index + 1} of a personalized children's ${tier.label}. Target length: ${tier.wordsPerChap} words. Write the full chapter — do not stop early.
 
+⚠️ CRITICAL — FANTASY WORLD ONLY: This chapter is set in a fantasy world, never the real world. Never reference ${city}, ${region}, any real school, or any real landmark. Stay in the fantasy world established in the outline.
+
 Chapter title: "${chap.title}"
 What happens in THIS chapter: ${chap.summary}
 ${recentContext}
@@ -1943,8 +1951,8 @@ ${arcContext}
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: Fantasy setting — never the real city of ${city}. The world is built from ${name}'s love of ${favorite} and the atmospheric landscape of ${city}, ${region} translated into fantasy geography. Never use the real city name, state name, school name, or any real landmark.
-Central theme: ${milestone}
+World: Fantasy setting built from ${name}'s love of ${favorite} and the atmospheric landscape of ${region} translated into fantasy geography. Never use any real city name, state name, school name, or real landmark.
+Central theme: ${milestone} — happening in the fantasy world
 ${isFirst ? "\nThis is the opening chapter — establish the world vividly, introduce the hero with warmth and charm." : ""}
 ${isLast ? "\nThis is the final chapter — resolve the milestone beautifully, end with warmth and hope." : ""}
 
@@ -2055,10 +2063,13 @@ FINAL CHECK before you finish:
 Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
+
+⚠️ CRITICAL — FANTASY WORLD ONLY: These chapters are set in a fantasy world, never the real world. Never reference ${city}, ${region}, any real school, or any real landmark. Stay in the fantasy world established in the outline.
+
 ${customBlock}
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: Fantasy setting — never the real city of ${city}. The world is built from ${name}'s love of ${favorite} and the atmospheric landscape of ${city}, ${region} translated into fantasy geography. Never use the real city name, state name, school name, or any real landmark. Stay consistent with the world established in the outline.
+World: Fantasy setting built from ${name}'s love of ${favorite} and the atmospheric feel of ${region} translated into fantasy geography. Never use any real city name, state name, school name, or real landmark. Stay consistent with the world established in the outline.
 ${arcContext}
 ${priorText}
 ${handoffBlock}
