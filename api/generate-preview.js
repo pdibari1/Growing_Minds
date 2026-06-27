@@ -80,25 +80,26 @@ module.exports = async function handler(req, res) {
     // for every visitor who might not convert.
     const seedPrompt = `You are a children's book author planning a ${tier.label} for a ${age}-year-old.
 
-⚠️ CRITICAL — FANTASY WORLD ONLY: This story NEVER takes place in the real world. It is set entirely in an original fantasy world. Never name or reference the real city, state, school, or any real-world location or landmark. The milestone (${milestone}) happens inside this fantasy world, not in reality.
-
-The fantasy world is built from two things:
-1. ${name}'s love of ${favorite} — this shapes the landscape, creatures, and challenges of the world
-2. The atmospheric feel of ${region} translated into fantasy geography (e.g. mountains → crystalline peaks, Texas plains → sun-scorched red rock canyons, coastal areas → storm-dark sea cliffs). Give the world a name.
+THIS IS A PORTAL FANTASY. The story follows this exact structure:
+1. REAL WORLD OPENING: ${name} is in their ordinary life, and the milestone (${milestone}) is approaching — they may feel excited, nervous, or uncertain about it.
+2. THE MAGIC HAPPENS: Something connected to ${name}'s love of ${favorite} comes to life, glows, speaks, or opens a door. This is the portal. It is unexpected and wondrous. Examples: a stuffed dinosaur blinks and leads them through a crack in the wall; a book about space opens onto a real star map; a toy castle door swings open to reveal a glowing staircase. Make it specific to ${favorite}.
+3. ANOTHER WORLD: ${name} crosses into a completely different world — a fantasy realm built entirely around ${favorite}. This world has its own name, creatures, landscape, and rules. It is nothing like home.
+4. THE MIRROR CHALLENGE: In this world, ${name} faces a challenge that emotionally mirrors the real milestone — but in fantastical terms. If the milestone is about belonging somewhere new, ${name} must earn a place in a magical community. If it's about welcoming something new and vulnerable, ${name} must protect a young magical creature. If it's about being brave, ${name} must complete a quest that requires exactly that. The challenge is never the literal milestone — it is the emotional heart of it, played out in fantasy.
+5. LOW POINT: Something goes wrong. ${name} doubts themselves.
+6. BREAKTHROUGH: ${name} finds what they need — courage, patience, love — and resolves the challenge.
+7. RETURN HOME: ${name} returns to the real world changed. They now face the real milestone (${milestone}) with new confidence because of what they experienced.
 
 Hero: ${name}, ${genderPronoun}, loves ${favorite}. ${friendLine}
-Milestone/theme: ${milestone} — this happens in the fantasy world, not in a real school, real home, or real city.
+Real milestone: ${milestone}
 ${customLine}
 
-Write a 4-6 sentence story arc that covers: how the story opens, the main challenge ${name} faces, a key low point, and how it resolves. Be specific to this child's details. This is a planning note, not prose.
+Write a 5-7 sentence story arc covering all 7 steps above. Be specific to this child. Name the fantasy world. Describe the portal mechanism (what specifically comes to life or opens). Describe the mirror challenge in the fantasy world. This is a planning note, not prose.
 
 Rules:
-- Named companions (${friend && friend !== "none" ? friend : "none"}) are only ever warm and supportive — never obstacles or antagonists
-- No smartphones, cell phones, or devices exist in this world
-- All conflict comes from the milestone challenge itself, not from unkind friends
-- Use character names exactly as given — never invent nicknames, never write that anyone dislikes or hates a name or nickname
-- No teasing, mocking, or unkind banter between any characters
-- GRADE LEVELS: The story takes place AT the milestone moment. If custom details specify what grade a sibling will be in when the hero reaches this milestone, use that future grade — not their current grade. Re-read the custom details carefully and calculate sibling grades relative to the milestone, not today. IMPORTANT: If the milestone IS the first day of school, then ALL children — including siblings at the same school — are also starting their new grade that same day. Never say a sibling is "already in" a grade when it's everyone's first day. Write "starting 2nd grade" or "beginning his 2nd grade year" — never "already in 2nd grade."
+- Named companions (${friend && friend !== "none" ? friend : "none"}) are only ever warm and supportive
+- No smartphones or devices
+- All conflict comes from the mirror challenge, not from unkind friends
+- Use character names exactly as given
 
 Return only the arc summary, no title or labels.`;
 
@@ -124,42 +125,35 @@ Return only the arc summary, no title or labels.`;
       : ageNum <= 9
       ? "Emotions can be real but must be clearly passing. The tone stays warm and hopeful even at the cliffhanger."
       : "Full emotional range appropriate for this age.";
-    const previewPrompt = `You are a warm, imaginative children's book author. Write the opening of a personalized children's ${tier.label}.
+    const previewPrompt = `You are a warm, imaginative children's book author. Write the opening chapter of a personalized children's ${tier.label}.
 
-⚠️ CRITICAL — FANTASY WORLD ONLY: This story is set ENTIRELY in an original fantasy world. It never takes place in the real world. Never name or reference ${city}, ${region}, any real school, any real landmark, or any real-world location. The milestone (${milestone}) unfolds inside this fantasy world. If the milestone involves school, there is a fantasy academy or hall of learning — not a real school. If it involves home, it is a fantasy dwelling — not a real house in a real city.
+THIS IS A PORTAL FANTASY. The opening chapter must follow this exact structure:
+- PART A — REAL WORLD: Open with ${name} in their ordinary life. The milestone (${milestone}) is close — they may feel a mix of excitement and nerves. Keep real-world details generic (no invented specifics about their home, street, or possessions). Establish who ${name} is: their personality, their love of ${favorite}, their companion if any.
+- PART B — THE MAGIC BEGINS: Something connected to ${name}'s love of ${favorite} does something impossible. It glows, moves, speaks, or reveals a hidden door. This is the moment the real world cracks open. Be specific and wondrous — make it feel inevitable, like it was always going to happen.
+- CLIFFHANGER: End the chapter at the threshold — ${name} is about to step through, fall in, or be pulled away — but the chapter ends before they cross over. The reader must desperately want to know what's on the other side.
 
-The fantasy world is built from:
-1. ${name}'s love of ${favorite} — the world's landscape, creatures, and challenges all feel designed for someone obsessed with ${favorite}
-2. The atmospheric feel of ${region} translated into fantasy geography (mountains → crystalline peaks, Texas → sun-scorched red canyons, coastal → storm-dark sea cliffs, plains → endless golden grasslands). Give the world a name and use it.
+STORY ARC (follow this — it describes what comes after this opening chapter):
+${storySeed}
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 ${customLine}
 
-STORY DIRECTION — your preview must set up this arc:
-${storySeed}
-
 RULES:
-- FANTASY WORLD ONLY: The story is set in a fantasy world, never the real world. Never name the real city, state, school, or any real geographic landmark. All places are fantastical and named by you.
-- NEVER INVENT ATTRIBUTES OF REAL PEOPLE: Only describe named friends or siblings using physical/personality details explicitly provided. If it wasn't stated, don't invent it — not height, build, hair, or personality traits.
-- ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail you write — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the profile or custom details above, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (invented, parent knows if this is real). "They drove to school" ✓ — "they drove past the coffee shop on the corner" ✗ (invented route detail). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). When in doubt, write the generic version. The parent will notice every specific detail that isn't true.
-- Named characters are never mean or unkind — they only appear being warm and supportive
-- No smartphones, cell phones, tablets, or personal devices exist in this world
+- REAL WORLD DETAILS: In the real-world section, only use details explicitly provided. Never invent specifics — not their bedroom décor, their backpack, what's on their shelf, what food they're eating. Generic is always safe: "their room," "their things," "beside their bed."
+- NEVER INVENT ATTRIBUTES OF REAL PEOPLE: Only describe named friends or siblings using details explicitly provided. If it wasn't stated, don't write it.
+- Named characters are never mean or unkind — only warm and supportive
+- No smartphones, cell phones, or personal devices
 - No assumed disabilities for any character
-- NAMES AND NICKNAMES: Use every character's name exactly as written. Only use a nickname if the custom details explicitly state one. Never invent nicknames. Never write that a character dislikes, hates, or is embarrassed by a nickname or their name — if a nickname exists it is always used warmly and affectionately
-- No teasing, mocking, or playful insults between characters — all banter must be warm and kind
-- GRADE LEVELS AND AGES: The story takes place AT the milestone moment — not today. If custom details specify what grade a sibling or friend will be in when the hero reaches this milestone, use that future grade, not their current grade. Example: if the hero is starting kindergarten and a sibling is currently in 1st grade, that sibling will be in 2nd grade during the story — write it that way. Double-check all sibling/friend grade levels against the milestone timing before writing. CRITICAL PHRASING: If the milestone IS the first day of school, then siblings attending the same school are also starting their new grade that same day. Never say a sibling is "already in" a grade — write "starting 2nd grade" or "beginning his 2nd grade year." "Already in" implies the sibling has been there for a while; on the first day of school, everyone is starting fresh.
-- PHYSICAL DETAILS: If custom details describe a character's hair (length, texture, style), use exactly those details. Do not invent or change hair descriptions for any character
-- SAFETY: Never include anything inappropriate for children
+- NAMES AND NICKNAMES: Use every character's name exactly as written. Never invent nicknames.
+- No teasing or unkind banter between any characters
+- PHYSICAL DETAILS: If custom details describe a character's hair, use exactly those details.
+- SAFETY: Nothing inappropriate for children
 
 INSTRUCTIONS:
-- Write exactly 180-220 words — the opening of chapter 1
+- Write exactly 180-220 words
 - Use age-appropriate language (${parseInt(age) <= 6 ? "simple, warm, read-aloud style" : parseInt(age) <= 9 ? "early chapter book style" : "middle grade style"})
 - EMOTIONAL CEILING: ${emotionalCeilingNote}
-- Open in medias res — drop us right into ${name}'s world
-- Weave in the physical details (hair, eye color), the hometown, the favorite thing, and the companion naturally
-- Build toward the milestone challenge laid out in the story direction — but DO NOT resolve it
-- End on a genuine cliffhanger — the last sentence must leave the reader desperate to know what happens next
 - Do NOT write a title or chapter heading
 - Write only the story text, nothing else`;
 

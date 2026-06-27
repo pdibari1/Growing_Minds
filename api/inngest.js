@@ -1805,24 +1805,23 @@ ${parsedFacts}
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 
-⚠️ CRITICAL — FANTASY WORLD ONLY: This story NEVER takes place in the real world. Every chapter is set in an original fantasy world. Never name or reference ${city}, ${region}, any real school, any real street, or any real landmark. The milestone (${milestone}) happens inside this fantasy world. If the milestone involves school → use a fantasy academy. If it involves home → a fantasy dwelling. If it involves a hospital → a fantasy healing hall. Every real-world element must have a fantasy equivalent.
+THIS IS A PORTAL FANTASY — like Narnia, The Wizard of Oz, or Alice in Wonderland. The story follows this exact structure:
 
-The fantasy world is built from:
-1. ${name}'s love of ${favorite} — the world's landscape, creatures, and challenges all feel designed for someone obsessed with ${favorite}
-2. The atmospheric feel of ${region} translated into fantasy geography (mountains → crystalline peaks, Texas → sun-scorched red canyons, coastal → storm-dark sea cliffs, plains → endless golden grasslands). Name the world in the outline and use that name consistently.
+PORTAL FANTASY STRUCTURE (mandatory):
+PHASE 1 — REAL WORLD (first 1-2 chapters): ${name} is in their ordinary life. The milestone (${milestone}) is approaching and they have feelings about it. Keep real-world details generic — no invented specifics about their home, school, or possessions. Establish who ${name} is and what they love.
+PHASE 2 — THE PORTAL (1 chapter): Something connected to ${name}'s love of ${favorite} does something impossible — glows, speaks, comes alive, or reveals a hidden passage. ${name} crosses into a completely different world. This is not a dream and not a fantasy version of home — it is another world entirely.
+PHASE 3 — THE OTHER WORLD (middle chapters, majority of the book): ${name} explores and navigates a fantasy world built entirely around ${favorite}. The world has its own name, creatures, landscape, rules, and inhabitants. ${name} faces a MIRROR CHALLENGE — a quest or problem in this world that emotionally mirrors the real milestone (${milestone}), but in pure fantasy terms. Examples: if the milestone is about belonging somewhere new → ${name} must earn a place in a magical community; if it's about welcoming a new sibling → ${name} must protect a vulnerable young creature; if it's about being brave → ${name} must complete a quest that requires courage. The challenge is NEVER the literal milestone — it is the emotional heart of it, expressed in fantasy.
+PHASE 4 — RETURN HOME (final 1-2 chapters): ${name} returns to the real world. They now face the real milestone (${milestone}) with new confidence, understanding, or courage — earned by what they experienced in the other world. The story ends on a note of warm readiness.
+
+THE FANTASY WORLD:
+- Name it. Use the name consistently throughout the outline.
+- Build it from ${name}'s love of ${favorite} — the landscape, creatures, and challenges all feel designed for someone obsessed with ${favorite}.
+- Never reference ${city}, ${region}, any real location, school, or landmark anywhere in the story.
 
 ${customBlock}
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-Milestone/theme: ${milestone} — happening in the fantasy world described above
-
-AGE & SCHOOL GRADE LOGIC — apply this before writing any chapter summaries:
-- Derive every character's school grade strictly from their age: age 4–5 = Pre-K/Kindergarten, age 6–7 = Grades 1–2, age 8–9 = Grades 2–3, age 10–11 = Grades 4–5, age 12–13 = Grades 6–7
-- Children of different ages are NEVER in the same grade unless they are twins or the custom details explicitly state otherwise
-- "Going to school together" means attending the same school building — not the same classroom or grade
-- Never invent a grade level for any character that conflicts with their stated age
-- If a character is described as younger, they cannot be catching up to or joining the same grade as an older character
-- GRADE ADVANCEMENT: If the custom details state current grades AND the story is set in the future (e.g. "next year", "starting school in the fall"), ALL characters advance one grade together. Example: if custom details say "he's in 1st grade, she's in pre-K" and the story is about starting school next year, then he will be in 2nd grade and she will be in Kindergarten — not 1st grade. Every character's grade moves forward by the same number of years. Never freeze one character's grade while advancing another's. FIRST-DAY PHRASING: If the milestone IS the first day of school, siblings at the same school are also starting their new grade that day — write "starting 2nd grade" or "beginning his 2nd grade year", never "already in 2nd grade." "Already in" implies they've been there; on the first day, everyone is arriving fresh.
+Real milestone: ${milestone} — this is what ${name} returns home to face at the end
 
 STORY RULES — apply to every chapter summary:
 - ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail in the outline — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the profile or custom details above, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (invented). "They drove to school" ✓ — "they drove past the shops on the corner" ✗ (invented route detail). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). The parent knows every specific detail about their child's life — if it isn't in the profile, don't invent it. Write generically when the specific detail hasn't been provided.
@@ -1854,17 +1853,19 @@ THE CLIMAX IS STILL A CLIMAX — but for this age, the darkest moment is a gentl
 This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Use this narrative structure — these are not suggestions, they are the blueprint:
 
 NARRATIVE BLUEPRINT:
-1. HOOK IMMEDIATELY: Chapter 1 opens mid-action or mid-problem. No warming up. Something is already happening. Within the first chapter, establish clearly what ${name} WANTS — something specific and small (not just "to be brave" — but "to make one friend to eat lunch with" or "to get through the first day without crying"). This specific desire drives the whole story.
-2. ESCALATING ATTEMPTS: In the rising action, ${name} tries to get what they want. Each attempt either fails outright or partially works but creates a new complication. Things get harder, not easier. The middle of the story is where the stakes rise — not where they plateau. CRITICAL: escalation means the situation actually worsens across multiple chapters — not just flutters in the same place. By the midpoint the reader should feel genuine uncertainty about whether ${name} will succeed.
-3. TURNING POINT: One chapter is the moment of choice. ${name} must decide: try again or give up. Be brave or stay safe. This is the heart of the story — the moment the reader leans forward. ${parseInt(age) <= 7 ? "For this age, keep it gentle: a moment of 'I don't think I can' that becomes 'I'll try one more time.'" : "Make the choice feel genuinely hard — the wrong option should be tempting."}
-4. CHARACTER-DRIVEN RESOLUTION: ${name} solves the problem through their OWN action and choice — not luck, not an adult fixing it, not a magical coincidence. The breakthrough comes because ${name} did something. The reader should feel ${name} earned it.
-5. CLOSING ECHO: The final chapter circles back to something from the opening — an image, a feeling, a setting, a specific detail — but now it feels different because ${name} has changed. The reader feels the distance travelled.
+1. REAL WORLD HOOK: Chapter 1 opens with ${name} in their real life — warm, vivid, immediate. Establish who they are, what they love, and that the milestone (${milestone}) is approaching. Within chapter 1 or 2, establish clearly what ${name} WANTS or FEARS about the milestone — something specific and emotional. This feeling is what the whole story is really about.
+2. THE PORTAL: One chapter is devoted entirely to the magical crossing. Something connected to ${name}'s love of ${favorite} cracks the real world open. The portal moment must feel wondrous and inevitable — like it was always going to happen. ${name} crosses into the other world.
+3. ESCALATING ADVENTURE: In the fantasy world, ${name} tries to navigate the mirror challenge. Each attempt either fails outright or partially works but creates a new complication. The stakes rise. By the midpoint the reader should feel genuine uncertainty about whether ${name} will succeed.
+4. TURNING POINT: One chapter is the moment of choice. ${name} must decide: try again or give up. This is the emotional heart of the story. ${parseInt(age) <= 7 ? "For this age, keep it gentle: a moment of 'I don't think I can' that becomes 'I'll try one more time.'" : "Make the choice feel genuinely hard — the wrong option should be tempting."}
+5. CHARACTER-DRIVEN RESOLUTION: ${name} solves the fantasy world's challenge through their OWN action and choice — not luck, not an adult fixing it. The breakthrough comes because ${name} did something. The reader should feel ${name} earned it.
+6. RETURN AND ECHO: ${name} returns to the real world. The final chapter circles back to the opening — the same milestone, but now ${name} faces it differently. Something from the fantasy world echoes here: a memory, a lesson carried in their chest, a moment of recognition. The reader feels the distance travelled.
 
 Arc structure across ${tier.chapCount} chapters:
-- Opening (first 20%): Hook → introduce ${name}'s world → establish the specific WANT and the obstacle
-- Rising action (middle 50%): Attempts fail or complicate → stakes rise → ${name} doubts themselves
-- Turning point (next 20%): ${parseInt(age) <= 7 ? "Gentle setback → moment of 'I'm not sure I can' → decision to try one more time" : "Highest stakes → hardest choice → breakthrough moment"}
-- Resolution (final 10%): ${name}'s own action resolves the problem → closing image echoes the opening, but changed
+- Real world opening (first ~10%): ${name}'s life, the milestone approaching, who they are
+- The portal (~10%): Magical inciting incident, crossing into the other world
+- Fantasy adventure — rising action (middle ~50%): Mirror challenge, escalating attempts, wonder and danger
+- Turning point (~15%): Highest stakes → hardest choice → breakthrough moment
+- Resolution + return (~15%): Challenge resolved → return home → milestone faced with new confidence
 
 TONAL VARIETY — THIS IS MANDATORY:
 A story where every chapter has the same emotional register is a boring story. You must plan VARIETY across the ${tier.chapCount} chapters. The outline must include:
@@ -1940,7 +1941,7 @@ async function generateChapter(child, outline, index, tier) {
 
   const prompt = `Write Chapter ${index + 1} of a personalized children's ${tier.label}. Target length: ${tier.wordsPerChap} words. Write the full chapter — do not stop early.
 
-⚠️ CRITICAL — FANTASY WORLD ONLY: This chapter is set in a fantasy world, never the real world. Never reference ${city}, ${region}, any real school, or any real landmark. Stay in the fantasy world established in the outline.
+THIS IS A PORTAL FANTASY. ${name} either begins in their real world (early chapters), is crossing into or exploring a fantasy world built around ${name}'s love of ${favorite} (middle chapters), or has returned home (final chapters). Follow the chapter summary exactly. Never reference ${city}, ${region}, any real school, or any real-world landmark in the fantasy world sections.
 
 Chapter title: "${chap.title}"
 What happens in THIS chapter: ${chap.summary}
@@ -1951,8 +1952,7 @@ ${arcContext}
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: Fantasy setting built from ${name}'s love of ${favorite} and the atmospheric landscape of ${region} translated into fantasy geography. Never use any real city name, state name, school name, or real landmark.
-Central theme: ${milestone} — happening in the fantasy world
+Real milestone: ${milestone} — this is what ${name} returns home to face; the fantasy world's challenge mirrors it emotionally
 ${isFirst ? "\nThis is the opening chapter — establish the world vividly, introduce the hero with warmth and charm." : ""}
 ${isLast ? "\nThis is the final chapter — resolve the milestone beautifully, end with warmth and hope." : ""}
 
@@ -2064,12 +2064,12 @@ Correct any errors before outputting.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
 
-⚠️ CRITICAL — FANTASY WORLD ONLY: These chapters are set in a fantasy world, never the real world. Never reference ${city}, ${region}, any real school, or any real landmark. Stay in the fantasy world established in the outline.
+THIS IS A PORTAL FANTASY. ${name} either begins in their real world (early chapters), is crossing into or exploring a fantasy world built around ${name}'s love of ${favorite} (middle chapters), or has returned home (final chapters). Follow each chapter summary exactly. Never reference ${city}, ${region}, any real school, or any real-world landmark in the fantasy world sections.
 
 ${customBlock}
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-World: Fantasy setting built from ${name}'s love of ${favorite} and the atmospheric feel of ${region} translated into fantasy geography. Never use any real city name, state name, school name, or real landmark. Stay consistent with the world established in the outline.
+Real milestone: ${milestone} — this is what ${name} returns home to face; the fantasy world's challenge mirrors it emotionally. Stay consistent with the world established in the outline.
 ${arcContext}
 ${priorText}
 ${handoffBlock}
