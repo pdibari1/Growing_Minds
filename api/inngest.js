@@ -1837,9 +1837,6 @@ CONFLICT SOURCE — this is critical: All tension and difficulty comes from the 
 
 ${milestoneGuidance ? `MILESTONE GUIDANCE — weave these approaches naturally into the story arc. ${name} should discover and practice these strategies through experience, not be told about them. They should feel like story moments, not lessons:
 ${milestoneGuidance}
-` : ""}${storySeed ? `STORY ARC DIRECTION — the customer already read a preview based on this arc. Your outline MUST follow this same general direction so the full story matches what they were shown:
-${storySeed}
-
 ` : ""}EMOTIONAL TONE — CRITICAL:
 ${parseInt(age) <= 7
   ? `${name} is ${age} years old. This book will be read TO or BY ${name}. Its job is to make them feel safe, brave, and understood — not heavy, sad, or overwhelmed.
