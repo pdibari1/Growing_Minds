@@ -189,6 +189,12 @@ const generateStoryOrder = inngest.createFunction(
         // Retrieve prior chapters from Redis for context
         const priorChapters = await getChaptersFromRedis(storyId);
 
+        // Guard against duplicate generation on Inngest retries
+        if (priorChapters.length >= end) {
+          console.log(`Batch ${b + 1} already complete (${priorChapters.length} chapters in Redis, need up to ${end}) — skipping`);
+          return { skipped: true, existing: priorChapters.length };
+        }
+
         // Retrieve milestone guidance and parsed facts from Redis (generated before outline)
         const batchGuidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance || "";
         const batchFacts = await redisRequest("GET", [`facts:${storyId}`]) || parsedFacts || null;
@@ -886,6 +892,14 @@ const generateRemainingChapters = inngest.createFunction(
         console.log(`Upgrade batch ${b + 1}/${batches}: chapters ${start + 1}–${end}`);
 
         const priorChapters = await getChaptersFromRedis(storyId);
+
+        // Guard against duplicate generation on Inngest retries — if this batch's chapters
+        // are already in Redis (from a previous run), skip rather than appending again.
+        if (priorChapters.length >= end) {
+          console.log(`Upgrade batch ${b + 1} already complete (${priorChapters.length} chapters in Redis, need up to ${end}) — skipping`);
+          return { skipped: true, existing: priorChapters.length };
+        }
+
         const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || "";
         const facts = await redisRequest("GET", [`facts:${storyId}`]);
         if (facts) childData.parsedFacts = facts;
