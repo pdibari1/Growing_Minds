@@ -1,4 +1,4 @@
-// api/inngest.js — Full version with tiered stories + DALL-E 3 illustrations
+// api/inngest.js — Full version with tiered stories + fal.ai illustrations (cover + interiors, same model family)
 const { serve } = require("inngest/node");
 const { Inngest } = require("inngest");
 const https = require("https");
@@ -675,7 +675,7 @@ CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppe
 Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote}
 
 SCENE: ${coverScene} Setting: ${region}. Pure illustration only — no text, no words, no letters, no borders, no frames, no grid lines, no ruler marks, no color strips, no swatches, no UI elements of any kind anywhere in the image.`;
-      const coverBytes = await callGptImage(coverPrompt);
+      const coverBytes = await callCoverImage(coverPrompt);
       const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
       await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
       await redisRequest("SET", [`img:${storyId}:0-0`, blob.url, "EX", 604800]);
@@ -2335,13 +2335,101 @@ async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
   }
 }
 
-// DALL-E 3 — returns raw image Buffer directly
-// Try DALL-E 3 first (better artistic quality), fall back to gpt-image-1 if unavailable
+// ════════════════════════════════════════════
+// FAL.AI COVER IMAGE (FLUX Pro 1.1 — text-to-image)
+// ════════════════════════════════════════════
+// The cover has no reference image yet (it IS the reference), so it can't use
+// Instant Character directly. FLUX Pro is the text-to-image sibling model in the
+// same family Instant Character is built on, so generating the cover here — instead
+// of on a completely different renderer (DALL-E 3 / gpt-image-1) — keeps the cover
+// and every interior illustration in the same visual style. Same queue.fal.run
+// submit/poll/result pattern as callFalInstantCharacterOnce above.
+async function callFalCoverImageOnce(prompt, size = "square_hd") {
+  const FAL_KEY = process.env.FAL_KEY;
+  if (!FAL_KEY) throw new Error("FAL_KEY environment variable is not set");
+
+  const submitRes = await fetch('https://queue.fal.run/fal-ai/flux-pro/v1.1', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Key ${FAL_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      prompt,
+      image_size: size,
+      output_format: 'jpeg'
+    }),
+    signal: AbortSignal.timeout(30000)
+  });
+
+  if (!submitRes.ok) {
+    const err = await submitRes.text();
+    throw new Error(`fal.ai cover submit error ${submitRes.status}: ${err.slice(0, 200)}`);
+  }
+
+  const { request_id } = await submitRes.json();
+  if (!request_id) throw new Error("fal.ai cover: no request_id in submit response");
+  console.log(`fal.ai flux-pro cover submitted: ${request_id}`);
+
+  const statusUrl = `https://queue.fal.run/fal-ai/flux-pro/v1.1/requests/${request_id}/status`;
+  const resultUrl = `https://queue.fal.run/fal-ai/flux-pro/v1.1/requests/${request_id}`;
+  const deadline = Date.now() + 180000;
+
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 4000));
+    const statusRes = await fetch(statusUrl, {
+      headers: { 'Authorization': `Key ${FAL_KEY}` }
+    });
+    const status = await statusRes.json();
+    console.log(`fal.ai cover status: ${status.status}`);
+
+    if (status.status === 'COMPLETED') {
+      const resultRes = await fetch(resultUrl, {
+        headers: { 'Authorization': `Key ${FAL_KEY}` }
+      });
+      const result = await resultRes.json();
+      const imageUrl = result?.images?.[0]?.url;
+      if (!imageUrl) throw new Error("fal.ai cover: no image URL in result");
+      console.log(`fal.ai flux-pro cover done: ${imageUrl.slice(0, 60)}`);
+      const imageBytes = await fetchImageBytes(imageUrl);
+      if (imageBytes.length < 20000) {
+        throw new Error(`fal.ai cover returned a suspiciously small image (${imageBytes.length} bytes)`);
+      }
+      return imageBytes;
+    }
+
+    if (status.status === 'FAILED') {
+      throw new Error(`fal.ai cover generation failed: ${JSON.stringify(status.error || status).slice(0, 200)}`);
+    }
+  }
+
+  throw new Error("fal.ai flux-pro cover timed out after 3 minutes");
+}
+
+async function callFalCoverImage(prompt, size = "square_hd") {
+  try {
+    return await callFalCoverImageOnce(prompt, size);
+  } catch(e) {
+    if (e.message.includes("timed out")) {
+      console.warn("fal.ai cover timed out on first attempt — resubmitting to queue");
+      return await callFalCoverImageOnce(prompt, size);
+    }
+    throw e;
+  }
+}
+
+// Cover image — returns raw image Buffer directly.
+// Primary: fal.ai FLUX Pro 1.1, so the cover renders in the same model family as
+// every interior illustration (Instant Character). Previously this called DALL-E 3
+// first — that model was removed from the OpenAI API on 2026-05-12, so it was
+// silently failing and falling back to gpt-image-1 on every single call, and even
+// gpt-image-1 never matched fal.ai's interior style. gpt-image-1 is kept only as a
+// last-resort fallback if fal.ai itself is down.
 async function callCoverImage(prompt, size = "1024x1024") {
   try {
-    return await callDallE3(prompt, size);
+    return await callFalCoverImage(prompt, "square_hd");
   } catch(e) {
-    console.warn(`DALL-E 3 failed (${e.message}) — falling back to gpt-image-1`);
+    console.warn(`fal.ai cover failed (${e.message}) — falling back to gpt-image-1`);
     return callGptImage(prompt, size);
   }
 }
