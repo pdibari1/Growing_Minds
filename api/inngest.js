@@ -22,11 +22,15 @@ const inngest = new Inngest({
 });
 
 // ── STORY TIERS BY AGE ──
+// TEMP TESTING OVERRIDE (2026-07-30): imageCount dropped to 3 for all tiers so cover-vs-interior
+// style testing (fal.ai flux-pro cover fix) is cheap/fast to iterate on. Original values:
+//   a <= 5: imageCount 15 | a <= 9: imageCount 10 | else: imageCount 5
+// Revert to those once the fal.ai cover fix is confirmed and you're back to real runs.
 function getStoryTier(age) {
   const a = parseInt(age);
-  if (a <= 5) return { chapCount: 15, wordsPerChap: 500, maxTokensPerChap: 1000, imageCount: 15, imagesPerChap: 0, label: "illustrated chapter book" };
-  if (a <= 9) return { chapCount: 20, wordsPerChap: 700, maxTokensPerChap: 1400, imageCount: 10, imagesPerChap: 0, label: "chapter book" };
-  return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
+  if (a <= 5) return { chapCount: 15, wordsPerChap: 500, maxTokensPerChap: 1000, imageCount: 3, imagesPerChap: 0, label: "illustrated chapter book" };
+  if (a <= 9) return { chapCount: 20, wordsPerChap: 700, maxTokensPerChap: 1400, imageCount: 3, imagesPerChap: 0, label: "chapter book" };
+  return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 3, imagesPerChap: 0, label: "novel" };
 }
 
 // ── ILLUSTRATION STYLE — three age-tiered styles ──
