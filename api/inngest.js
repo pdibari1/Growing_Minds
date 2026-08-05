@@ -1,20 +1,10 @@
-// api/inngest.js — Full version with tiered stories + fal.ai illustrations (cover + interiors, same model family)
+// api/inngest.js — Full version with tiered stories + DALL-E 3 illustrations
 const { serve } = require("inngest/node");
 const { Inngest } = require("inngest");
 const https = require("https");
-const crypto = require("crypto");
 const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
 const { Resend } = require("resend");
 const { put, del } = require("@vercel/blob");
-
-// Secure token for approve/regenerate links in admin email
-function adminToken(storyId) {
-  return crypto
-    .createHmac("sha256", process.env.ADMIN_WEBHOOK_SECRET || "dev-secret")
-    .update(storyId)
-    .digest("hex")
-    .slice(0, 24);
-}
 
 const inngest = new Inngest({
   id: "growingminds",
@@ -22,55 +12,11 @@ const inngest = new Inngest({
 });
 
 // ── STORY TIERS BY AGE ──
-// TEMP TESTING OVERRIDE (2026-07-30): imageCount dropped to 3 for all tiers so cover-vs-interior
-// style testing (fal.ai flux-pro cover fix) is cheap/fast to iterate on. Original values:
-//   a <= 5: imageCount 15 | a <= 9: imageCount 10 | else: imageCount 5
-// Revert to those once the fal.ai cover fix is confirmed and you're back to real runs.
 function getStoryTier(age) {
   const a = parseInt(age);
-  if (a <= 5) return { chapCount: 15, wordsPerChap: 500, maxTokensPerChap: 1000, imageCount: 3, imagesPerChap: 0, label: "illustrated chapter book" };
-  if (a <= 9) return { chapCount: 20, wordsPerChap: 700, maxTokensPerChap: 1400, imageCount: 3, imagesPerChap: 0, label: "chapter book" };
-  return       { chapCount: 30, wordsPerChap: 800, maxTokensPerChap: 1600, imageCount: 3, imagesPerChap: 0, label: "novel" };
-}
-
-// ── ILLUSTRATION STYLE — three age-tiered styles ──
-function getStyleGuideForAge(age) {
-  const ageNum = parseInt(age) || 7;
-  if (ageNum <= 7) {
-    return "Highly detailed 2D digital illustration. Style: premium mobile game character art — luminous, ultra-saturated, richly rendered. NOT 3D CGI. NOT flat cartoon. NOT photorealistic. Smooth cel-shaded skin with warm soft glow. Detailed eyes with luminous irises and bright catchlights — eyes are proportional to the face, NOT cartoonishly oversized. Voluminous flowing hair with multi-layered color variation and light streaks. Ultra-saturated warm color palette — colors feel backlit and glowing. Rich detailed scene filling the frame edge to edge. Pure 2D digital illustration with premium rendering quality. CHARACTER PROPORTIONS: draw the character with correct school-age body proportions — head is 1/6 of total body height, lean limbs, flat stomach. FORBIDDEN: toddler proportions, oversized round head, chubby baby cheeks, stubby limbs, round belly.";
-  } else if (ageNum <= 11) {
-    return "Detailed middle-grade chapter book illustration. Rich complex backgrounds, realistic character proportions — like cover art for a middle-grade adventure novel. Warm but sophisticated color palette with depth and texture. Painterly digital art with expressive characters and dynamic compositions. NO flat baby cartoon style. NO toddler proportions — characters must look their actual age with correct body proportions. Fully rendered with atmospheric lighting.";
-  } else {
-    return "Sophisticated graphic novel illustration. Realistic proportions, nuanced color palette, strong contrast and mood. Characters carry emotional depth. Cinematic painterly style — like a YA graphic novel or illustrated teen fiction. NO childlike cartoon style. Fully rendered with depth and atmosphere.";
-  }
-}
-
-function getCoverStyleForAge(age) {
-  const ageNum = parseInt(age) || 7;
-  if (ageNum <= 7) {
-    return "Highly detailed 2D digital character illustration. Style: premium mobile game character art — luminous, ultra-saturated, richly rendered. NOT 3D CGI. NOT flat cartoon. NOT photorealistic. CHARACTER: smooth cel-shaded skin with warm soft glow and subtle gradient shading. Large detailed eyes with complex luminous irises, bright multi-point catchlights, and long expressive lashes — eyes are the most striking feature. Extremely voluminous flowing hair with multi-layered color variation, light streaks, and individual strand detail — lush and dynamic. COMPOSITION: character shown from head to hips, centered in a vibrant detailed scene with rich background filling every corner of the frame. COLORS: ultra-saturated warm palette, colors feel backlit and glowing. Joyful, warm energy throughout. Pure 2D digital illustration with premium rendering quality.";
-  } else if (ageNum <= 11) {
-    return "A polished digital illustration rendered in a dynamic middle-grade adventure style — a single vivid still scene. Confident, expressive character with more realistic proportions and cartoon personality. Rich detailed background with bold saturated colors, strong lighting and depth. Cinematic energy filling the frame edge to edge. Pure rendered illustration — no design elements of any kind.";
-  } else {
-    return "A sophisticated digital illustration rendered in a cinematic YA style — a single atmospheric still scene. Realistic proportions, emotionally nuanced expression, moody detailed background. Strong contrast and a refined color palette. Edge-to-edge composition with depth and mood. Pure rendered illustration — no design elements of any kind.";
-  }
-}
-
-function getStyleGuide(age) {
-  return getStyleGuideForAge(age);
-}
-
-// ── AGE BODY DESCRIPTION — explicit full-body proportion rules to prevent toddler drift ──
-// Passed into every illustration prompt as a hard constraint on the model.
-function getAgeBodyDescription(age) {
-  const ageNum = parseInt(age) || 7;
-  if (ageNum <= 2) return `a toddler, approximately ${age} years old. Body proportions: head is 1/4 of total body height (large relative to body), very chubby round cheeks, round protruding belly, short stubby arms and legs, barely walking height.`;
-  if (ageNum <= 4) return `a preschooler, approximately ${age} years old. Body proportions: head is about 1/5 of total body height, still a round soft face but less babyish than a toddler, short but defined limbs, small round belly. Clearly a little kid, NOT a baby.`;
-  if (ageNum <= 6) return `a kindergarten-age child, exactly ${age} years old. Body proportions: head is about 1/5.5 of total body height — NOT an oversized toddler head. Face is softly oval, losing toddler roundness. Flat stomach, no baby belly. Arms and legs are short but clearly longer and leaner than a toddler's. Small build but unmistakably a young child, NOT a toddler or baby.`;
-  if (ageNum <= 8) return `a school-age child, exactly ${age} years old. CRITICAL BODY PROPORTIONS: head is approximately 1/6 of total body height — a normal human head, NOT oversized. Face is clearly oval, NOT round and chubby — a defined jawline is visible, cheeks are lean not puffy. Eyes are normal human proportion relative to the face, NOT cartoonishly large. Stomach is completely flat, NO baby belly. Arms and legs are lean and noticeably long relative to the torso. Overall build: slim, upright, energetic. This child looks like a real 7–8 year old standing next to adults — not a cute baby or toddler. FORBIDDEN: giant round head, chubby cheeks, oversized eyes, round belly, stubby limbs.`;
-  if (ageNum <= 11) return `an older elementary child, exactly ${age} years old. Body proportions: head is 1/6.5 of total body height. Face has defined features, lean cheeks, visible jawline. Long lean limbs. Flat stomach. Build is approaching preteen — taller and more angular than younger children. Clearly still a kid but not a little kid. FORBIDDEN: toddler proportions, chubby cheeks, oversized head.`;
-  if (ageNum <= 14) return `a middle-school-aged child, exactly ${age} years old. Body proportions: head is 1/7 of total body height. More mature facial features, lean build, long limbs. Teen proportions beginning to emerge. Clearly still a kid but almost a teenager.`;
-  return `a teenager, approximately ${age} years old. Near-adult proportions: head is 1/7.5 of total body height. Lean, angular features. Adult-length limbs.`;
+  if (a <= 5) return { chapCount: 30, minWords: 200, maxWords: 400, maxTokensPerChap: 800,  imageCount: 15, imagesPerChap: 0, label: "illustrated novel" };
+  if (a <= 9) return { chapCount: 30, minWords: 300, maxWords: 600, maxTokensPerChap: 1200, imageCount: 10, imagesPerChap: 0, label: "illustrated chapter book" };
+  return       { chapCount: 30, minWords: 400, maxWords: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -87,96 +33,12 @@ const generateStoryOrder = inngest.createFunction(
     const tier = getStoryTier(childData.age);
     console.log(`Starting ${tier.label} for ${childName} (${tier.chapCount} chapters)`);
 
-    // Step 0a: Cache order metadata inside a step so it only runs ONCE (not on every Inngest replay).
-    // Outside-step I/O re-executes on every replay; during finalization any Redis hiccup crashes the run.
-    await step.run("cache-order-data", async () => {
-      await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,       "EX", 604800]); // 7 days
-      await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,    "EX", 604800]);
-      await redisRequest("SET", [`childname:${storyId}`,     childName,        "EX", 604800]);
-      await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"","EX", 604800]);
-    });
-
-    // (no pre-parse step — nicknames are read directly from customDetails at generation time)
-
-    // Build named characters list once — used by both generation prompts and correction passes
-    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
-    const namedCharacters = [childName];
-    if (childData.friend && childData.friend !== "none") {
-      childData.friend.split(/,|\band\b/i).forEach(f => {
-        const t = f.trim();
-        if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
-      });
-    }
-    if (childData.customDetails) {
-      const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
-      nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
-    }
-    childData.namedCharacters = namedCharacters;
-
-    // Step 0b: Generate milestone guidance — research-informed approaches for this specific milestone
-    // This shapes how the story models healthy coping and growth, woven naturally into the narrative
-    const milestoneGuidance = await step.run("generate-milestone-guidance", async () => {
-      const guidance = await generateMilestoneGuidance(childData.milestone, childData.age, childData.name);
-      await redisRequest("SET", [`guidance:${storyId}`, guidance, "EX", 7200]);
-      console.log(`Milestone guidance generated for "${childData.milestone}"`);
-      return guidance;
-    });
-
-    // Step 0c: Parse custom details into a structured fact checklist
-    // Haiku extracts every stated fact so the outline and chapters can be verified against them
-    const parsedFacts = await step.run("parse-custom-details", async () => {
-      if (!childData.customDetails) return null;
-      const facts = await parseCustomDetails(childData.customDetails);
-      if (facts) {
-        await redisRequest("SET", [`facts:${storyId}`, facts, "EX", 7200]);
-        childData.parsedFacts = facts;
-      }
-      return facts || null;
-    });
-    if (parsedFacts) childData.parsedFacts = parsedFacts;
-
-    // Step 1: Generate chapter outline — pull preview story seed from Redis if available
-    const rawOutline = await step.run("generate-outline", async () => {
-      // Check for a story seed cached by generate-preview.js — if present, pass it to
-      // generateOutline so the real story follows the same arc the customer saw in the preview.
-      const seed = await redisRequest("GET", [`seed:${storyId}`]);
-      if (seed) {
-        console.log(`Using preview story seed for ${storyId}`);
-        await redisRequest("DEL", [`seed:${storyId}`]);
-      }
-      const result = await generateOutline(childData, tier, seed || null, milestoneGuidance);
+    // Step 1: Generate chapter outline — save to Redis immediately
+    const outline = await step.run("generate-outline", async () => {
+      const result = await generateOutline(childData, tier);
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);
       return result;
-    });
-
-    // Step 1b: Sanitize outline — replace any named friend in a conflict/unkindness role with an unnamed character
-    const sanitizedOutline = await step.run("sanitize-outline", async () => {
-      const friendNames = namedCharacters.filter(n => n !== childName);
-      if (friendNames.length === 0) return rawOutline;
-      const sanitized = await sanitizeOutline(rawOutline, friendNames);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(sanitized), "EX", 7200]);
-      console.log(`Outline sanitized — ${sanitized.length} chapters`);
-      return sanitized;
-    });
-
-    // Step 1c: Verify outline against parsed facts — ensure every stated custom detail is honoured
-    const outline = await step.run("verify-outline", async () => {
-      if (!parsedFacts || !childData.customDetails) return sanitizedOutline;
-      const verified = await verifyOutlineAgainstFacts(sanitizedOutline, parsedFacts, childData.customDetails);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(verified), "EX", 7200]);
-      console.log(`Outline verified against custom facts — ${verified.length} chapters`);
-      return verified;
-    });
-
-    // Step 1d: Pre-write locked passages for any VERBATIM REQUIRED facts
-    const mandatoryMoments = await step.run("generate-mandatory-moments", async () => {
-      const verbatimFacts = extractVerbatimFacts(parsedFacts);
-      if (verbatimFacts.length === 0) return [];
-      console.log(`Generating ${verbatimFacts.length} mandatory moment(s)`);
-      const moments = await generateMandatoryMoments(verbatimFacts, childData, outline);
-      await redisRequest("SET", [`moments:${storyId}`, JSON.stringify(moments), "EX", 7200]);
-      return moments;
     });
 
     // Step 2: Generate chapters in batches — save each batch to Airtable immediately
@@ -193,47 +55,8 @@ const generateStoryOrder = inngest.createFunction(
         // Retrieve prior chapters from Redis for context
         const priorChapters = await getChaptersFromRedis(storyId);
 
-        // Guard against duplicate generation on Inngest retries
-        if (priorChapters.length >= end) {
-          console.log(`Batch ${b + 1} already complete (${priorChapters.length} chapters in Redis, need up to ${end}) — skipping`);
-          return { skipped: true, existing: priorChapters.length };
-        }
-
-        // Retrieve milestone guidance and parsed facts from Redis (generated before outline)
-        const batchGuidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance || "";
-        const batchFacts = await redisRequest("GET", [`facts:${storyId}`]) || parsedFacts || null;
-        if (batchFacts) childData.parsedFacts = batchFacts;
-
-        // Load mandatory moments from Redis (generated before batches)
-        const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
-        const batchMandatoryMoments = momentsRaw ? JSON.parse(momentsRaw) : mandatoryMoments;
-
-        // Load handoff state from previous batch (world state snapshot from last written chapters)
-        const handoffRaw = await redisRequest("GET", [`handoff:${storyId}`]).catch(() => null);
-        const handoffState = handoffRaw || null;
-
         // Generate this batch
-        let batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, batchGuidance, batchMandatoryMoments, handoffState);
-
-        // Deterministic regex enforcement: replace any unapproved diminutive with the full name
-        batchChapters = batchChapters.map(ch =>
-          enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts)
-        );
-
-        // Correct any named-character kindness violations before saving
-        batchChapters = await Promise.all(
-          batchChapters.map(ch => correctKindness(ch, childData.namedCharacters))
-        );
-
-        // Correct any parent-stated fact violations (wrong colors, wrong routines, etc.)
-        batchChapters = await Promise.all(
-          batchChapters.map(ch => correctFactViolations(ch, childData))
-        );
-
-        // Extract and store handoff state for the next batch
-        const allSoFar = [...priorChapters, ...batchChapters];
-        const newHandoff = await extractChapterHandoff(allSoFar.slice(-2));
-        if (newHandoff) await redisRequest("SET", [`handoff:${storyId}`, newHandoff, "EX", 604800]).catch(() => {});
+        const batchChapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier);
 
         // Save to Redis immediately
         await saveChaptersToRedis(storyId, priorChapters, batchChapters);
@@ -246,18 +69,10 @@ const generateStoryOrder = inngest.createFunction(
     let illustrations = {};
     console.log(`ILLUSTRATIONS CHECK: OPENAI_API_KEY=${!!process.env.OPENAI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}`);
     if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
-      const IMG_BATCH = 4; // Keep batches short — Vercel Pro caps function execution at 300s
-      // Use memoized outline step result; fall back to Redis only if empty.
-      // Avoid unconditional outside-step Redis calls — they re-run on every replay.
-      let freshOutline = Array.isArray(outline) ? outline : [];
-      if (freshOutline.length === 0) {
-        try {
-          const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
-          freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : [];
-        } catch(e) {
-          console.error(`[order] outline Redis fallback failed: ${e.message}`);
-        }
-      }
+      const IMG_BATCH = 10;
+      // Retrieve outline fresh from Redis — Inngest state may be empty on replay
+      const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
+      const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
       console.log(`Fresh outline length: ${freshOutline.length}`);
       const step2 = Math.floor(freshOutline.length / tier.imageCount);
       const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
@@ -269,249 +84,119 @@ const generateStoryOrder = inngest.createFunction(
       const imgBatches = Math.ceil(allImageKeys.length / IMG_BATCH);
       console.log(`STARTING ${imgBatches} illustration batches`);
 
-      const { name, age, hair, hairLength, hairStyle, eye, gender, city, region, milestone } = childData;
-      const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-      const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
-      const styleGuide = getStyleGuide();
+      for (let b = 0; b < imgBatches; b++) {
+        await step.run(`generate-illustrations-${b + 1}`, async () => {
+          const start = b * IMG_BATCH;
+          const keys = allImageKeys.slice(start, start + IMG_BATCH);
+          console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-      // Locked physical description built directly from user form data — never overridden
-      const hairLengthExpanded = hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
-        : hairLength === 'regular cut'     ? 'short regular cut, trimmed neatly above the ears'
-        : hairLength === 'past the ears'   ? 'medium length, hanging past the ears'
-        : hairLength === 'to the shoulders'? 'shoulder-length, ends exactly at the shoulders — not shorter'
-        : hairLength === 'long'            ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
-        : hairLength === 'short'           ? 'very short, close-cropped, above the ears'
-        : hairLength === 'medium'          ? 'medium-length, chin to shoulder'
-        : hairLength || '';
-      const hairDescExpanded = [hairLengthExpanded, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-      // Keep gender — needed for correct character rendering. For long-haired boys, add explicit note.
-      const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
-      const longHairBoyNote = (genderDesc === 'boy' && (hairLength === 'long' || hairLength === 'to the shoulders'))
-        ? ` IMPORTANT: ${name} is a BOY with long hair — render with clearly boyish/masculine facial features (strong brow, boyish jaw, masculine face). Do NOT make this character look like a girl.`
-        : '';
+          const { name, age, hair, hairLength, hairStyle, eye, city, region } = childData;
+          const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+          const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+          const styleGuide = parseInt(age) <= 5
+            ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
+            : parseInt(age) <= 9
+            ? "vibrant digital children's book illustration, colorful and expressive, slightly stylized, warm lighting"
+            : "detailed digital illustration, cinematic lighting, slightly realistic, like a YA novel cover";
 
-      // Step B: Generate cover image
-      await step.run("generate-cover-and-character-sheet-v4", async () => {
-        // Pick a dramatic hero moment from ~65% through the story (climax area)
-        const heroMomentIdx = Math.min(Math.floor(freshOutline.length * 0.65), freshOutline.length - 1);
-        const heroMomentChap = freshOutline[heroMomentIdx] || freshOutline[0];
-        const wavyNote = hairStyle && (hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly'))
-          ? ` MANDATORY HAIR TEXTURE: ${name}'s hair is ${hairStyle.toUpperCase()} — every strand must show visible ${hairStyle} texture. This hair is NOT straight. Do NOT render straight hair. Waves or curls must be clearly visible from root to tip.`
-          : '';
+          const result = {};
 
-        // Tiered age descriptor for cover — same approach as secondary character age enforcement
-        const coverAgeNum = parseInt(age);
-        const coverAgeAppearance =
-          coverAgeNum <= 2  ? `a toddler — tiny body, very chubby round face, barely walking height, clearly a baby or toddler` :
-          coverAgeNum <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
-          coverAgeNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid, very small compared to an adult` :
-          coverAgeNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, clearly a child, small body` :
-          coverAgeNum <= 11 ? `an older elementary child — taller, leaner face, but unmistakably still a child, NOT a teenager` :
-          coverAgeNum <= 14 ? `a middle-school-aged child — approaching adolescence but clearly still a kid, NOT an adult` :
-                              `a teenager or adult`;
+          // Check if cover image (0-0) already exists in Redis
+          const existingUrls = await getIllustrationsFromRedis(storyId);
+          const coverUrl = existingUrls['0-0'] || null;
 
-        const coverStyle = getCoverStyleForAge(age);
-        const longHairLengthNote = hairLength === 'long'
-          ? ` MANDATORY HAIR LENGTH: ${name}'s hair reaches their MID-BACK — it must be visibly below the shoulder blades. Do NOT cut the hair short or to the shoulder. The hair falls far down the back.`
-          : hairLength === 'to the shoulders'
-          ? ` MANDATORY HAIR LENGTH: ${name}'s hair ends exactly at the shoulders — not shorter, not longer. The ends rest on top of the shoulders.`
-          : '';
-        const coverScene = getCoverScene(milestone, name, region);
-        const coverPrompt = `${coverStyle}
+          for (const key of keys) {
+            const [ci] = key.split('-').map(Number);
+            const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
 
-CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
+            try {
+              let imageBytes;
 
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote}${longHairLengthNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}. Length: ${hairLengthExpanded} — do not shorten it.${wavyNote}
+              if (key === '0-0' || !coverUrl) {
+                // Generate cover with DALL-E 3
+                const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
+                const imageUrl = await callDallE(prompt);
+                imageBytes = await fetchImageBytes(imageUrl);
+                console.log(`Image ${key} generated with DALL-E 3`);
+              } else {
+                // Use DALL-E 2 variation based on cover image for character consistency
+                const coverBytes = await fetchImageBytes(coverUrl);
+                imageBytes = await callDallE2Variation(coverBytes);
+                console.log(`Image ${key} generated as variation of cover`);
+              }
 
-SCENE: ${coverScene} Setting: ${region}. The image shows only this scene — nothing else. No title text, no words, no letters anywhere in the image.`;
-        const coverBytes = await callCoverImage(coverPrompt);
-        const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
-        await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
-        // Store cover URL separately with a 7-day TTL — the illustration key (2h) may expire
-        // before notify-admin runs on long stories. This key is never deleted by cleanup.
-        await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
-        console.log(`Cover image generated: ${blob.url.slice(0, 60)}`);
-      });
-
-      // Step B2: Composite the designed cover (text baked onto illustration)
-      await step.run("design-cover-v1", async () => {
-        try {
-          const rawCoverUrl = await redisRequest("GET", [`cover:${storyId}`]);
-          if (!rawCoverUrl) return;
-          const coverBytes = await fetchImageBytes(rawCoverUrl);
-          const designedPng = await generateDesignedCoverImage(childName, childData.milestone, childData, coverBytes);
-          if (designedPng) {
-            const blob = await put(`covers/${storyId}/designed.png`, designedPng, { access: 'public', contentType: 'image/png' });
-            await redisRequest("SET", [`cover-designed:${storyId}`, blob.url, "EX", 604800]);
-            console.log(`Designed cover stored: ${blob.url.slice(0, 60)}`);
+              const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, {
+                access: 'public',
+                contentType: 'image/jpeg'
+              });
+              result[key] = blob.url;
+              console.log(`Image ${key} uploaded to Blob`);
+            } catch(err) {
+              console.error(`Image ${key} failed: ${err.message}`);
+            }
           }
-        } catch(e) {
-          console.error(`design-cover-v1 failed (non-fatal): ${e.message}`);
-        }
-      });
-
-      // Step C: Generate remaining illustrations using fal.ai instant-character
-      // The cover image is used as the character reference so all chapter images match
-      const remainingKeys = allImageKeys.filter(k => k !== '0-0');
-      for (let b = 0; b < remainingKeys.length; b++) {
-        await step.run(`generate-illustration-fal-${b + 1}`, async () => {
-          const key = remainingKeys[b];
-          const [ci] = key.split('-').map(Number);
-          const chap = freshOutline[ci];
-          console.log(`Generating illustration ${b + 1}/${remainingKeys.length}: key ${key}`);
-
-          // Get the cover Blob URL as the character reference
-          const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
-          if (!coverBlobUrl) throw new Error(`cover:${storyId} not found in Redis — cannot generate character-consistent image`);
-
-          // Extract a specific visual scene from the actual written chapter text
-          // Fall back to outline imagePrompt if chapter text isn't available
-          const allChapters = await getChaptersFromRedis(storyId);
-          const chapterText = allChapters[ci] || null;
-          const visualScene = chapterText
-            ? await extractScenePrompt(chapterText, name, age, city, region)
-            : (chap?.imagePrompt || `${name} having fun outdoors in ${city}`);
-
-          // Age-specific illustration style directive
-          const ageNum = parseInt(age);
-          const mainAgeAppearance = getAgeBodyDescription(age);
-          const illustrationStyle = ageNum <= 7
-            ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition — one clear action in focus. The illustration should make the scene immediately readable without the text.`
-            : ageNum <= 10
-            ? `Expressive character faces with personality and humor. Spot-illustration feel — tight on the characters, with enough background to set the scene. Include one small visual detail that adds humor or reveals character beyond what the text says.`
-            : `Atmospheric and cinematic. Detailed environment that captures the mood of the scene. Character expression conveys internal emotion — not just what they're doing but how they feel about it.`;
-
-          // Main character hair texture note
-          const mainCharHairNote = hairStyle
-            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
-            : `${hairLengthExpanded} ${hair}-colored hair`;
-
-          const sceneStyleGuide = getStyleGuideForAge(age);
-          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
-
-          const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
-          const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
-          await saveIllustrationsToRedis(storyId, { [key]: blob.url });
-          console.log(`Image ${key} generated with fal.ai instant-character: ${blob.url.slice(0, 60)}`);
-          return { key, saved: true };
+          await saveIllustrationsToRedis(storyId, result);
+          return { saved: Object.keys(result).length };
         });
       }
     } else {
       console.log("Skipping illustrations");
     }
 
-    // Step 4: Generate PDF with first 10 chapters only and store to Blob
-    const pdfBlobUrl = await step.run("create-pdf-v5", async () => {
-      console.log(`STARTING PDF GENERATION v4`);
+    // Step 4: Generate PDF with first 10 chapters only (stays under PDFShift 2MB limit)
+    const pdfBase64 = await step.run("create-pdf-v3", async () => {
+      console.log(`STARTING PDF GENERATION v3`);
       const chapters = await getChaptersFromRedis(storyId);
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      console.log(`PDF v4: ${chapters.length} chapters, ${Object.keys(illustrationUrls).length} illustration URLs`);
-      console.log(`PDF v4: illustration keys: ${Object.keys(illustrationUrls).join(', ')}`);
-      // Pass Blob URLs directly — PDFShift fetches images by URL, no need to download/base64 encode
-      const pdfBase64 = await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
-      // Store PDF to Blob and return only the URL to avoid Inngest output_too_large
-      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-      const blob = await put(`pdfs/${storyId}/story-part1.pdf`, pdfBuffer, {
-        access: 'public',
-        contentType: 'application/pdf'
-      });
-      console.log(`PDF v3: stored to Blob: ${blob.url.slice(0, 60)}`);
-      return blob.url;
-    });
-    // Step 5: Generate full 30-chapter print PDF — stored permanently in Blob
-    const fullBookUrl = await step.run("create-full-book-v1", async () => {
-      const allChapters = await getChaptersFromRedis(storyId);
-      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      console.log(`PDF v3: ${chapters.length} chapters, ${Object.keys(illustrationUrls).length} illustration URLs`);
 
-      // Pre-fetch every illustration from Blob and base64-encode individually.
-      // Per-image try/catch means one failure never kills the whole PDF.
-      const illustrationsB64 = {};
+      // Convert Blob URLs to base64 so PDFShift can embed them
+      const illustrations = {};
       for (const [key, url] of Object.entries(illustrationUrls)) {
         try {
-          const bytes = await fetchImageBytes(url);
-          illustrationsB64[key] = `data:image/jpeg;base64,${bytes.toString('base64')}`;
-          console.log(`Full book image ${key} encoded (${Math.round(bytes.length / 1024)}KB)`);
+          const imgBytes = await fetchImageBytes(url);
+          illustrations[key] = imgBytes.toString('base64');
+          console.log(`PDF v3: converted image ${key} (${Math.round(imgBytes.length/1024)}KB)`);
         } catch(e) {
-          console.error(`Full book: image ${key} fetch failed — skipping: ${e.message}`);
+          console.error(`PDF v3: failed image ${key}: ${e.message}`);
         }
       }
-      console.log(`Full book: embedded ${Object.keys(illustrationsB64).length}/${Object.keys(illustrationUrls).length} images`);
-
-      const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
-      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-      const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, {
-        access: 'public',
-        contentType: 'application/pdf'
-      });
-      console.log(`Full book PDF stored permanently: ${blob.url.slice(0, 80)} (${Math.round(pdfBuffer.length / 1024)}KB)`);
-      return blob.url;
+      console.log(`PDF v3: ${Object.keys(illustrations).length} images converted, keys: ${Object.keys(illustrations).join(', ')}`);
+      const html_size_kb = Math.round(JSON.stringify(illustrations).length / 1024);
+      console.log(`PDF v3: illustrations data size: ${html_size_kb}KB`);
+      return await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrations);
     });
-
-    // Step 7: Save full story to Airtable for training data
-    await step.run("save-story", async () => {
-      console.log(`Saving story to Airtable for ${childName}`);
-      const allChapters = await getChaptersFromRedis(storyId);
-      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, fullBookUrl);
-    });
-
-    // Step 7b: Notify admin — story preview + approve/regenerate buttons
-    await step.run("notify-admin", async () => {
-      const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]) || null;
-      const chapters = await getChaptersFromRedis(storyId);
-      const previewChapter = chapters && chapters[0] ? chapters[0].text || chapters[0] : null;
-      const token = adminToken(storyId);
-      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl, previewChapter, token);
-      await redisRequest("DEL", [`cover:${storyId}`]);
-    });
-
-    // Step 7c: Wait up to 2 hours for admin approval — auto-sends if no action taken
-    await step.waitForEvent("wait-for-approval", {
-      event: "story/approved",
-      match: "data.storyId",
-      timeout: "2h"
-    });
-
-    // Step 7d: Send customer email — skip if admin triggered a regeneration
+    // Step 5: Send email with PDF of first 10 chapters
     await step.run("send-email", async () => {
-      const skip = await redisRequest("GET", [`skip-delivery:${storyId}`]);
-      if (skip) {
-        console.log(`Delivery skipped for ${storyId} — regeneration was triggered`);
-        await redisRequest("DEL", [`skip-delivery:${storyId}`]);
-        return;
-      }
       console.log(`Sending email to ${customerEmail}`);
-      const pdfBytes = await fetchImageBytes(pdfBlobUrl);
-      const pdfBase64 = pdfBytes.toString('base64');
       await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
     });
 
-    // Step 8: Clean up Redis and Blob storage
+    // Step 6: Save full story to Airtable for training data
+    await step.run("save-story", async () => {
+      console.log(`Saving story to Airtable for ${childName}`);
+      const allChapters = await getChaptersFromRedis(storyId);
+      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters);
+    });
+
+    // Step 7: Clean up Redis and Blob storage
     await step.run("cleanup", async () => {
       await deleteChaptersFromRedis(storyId);
       // Delete illustration URLs from Redis and files from Blob
       try {
         const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
         if (imgKeys && imgKeys.length > 0) {
-          const urlsToDelete = [];
+          const urls = [];
           for (const k of imgKeys) {
             const url = await redisRequest("GET", [k]);
-            // Keep the cover Blob permanently — identify by Redis key, not URL string,
-            // because Vercel Blob appends a random hash so the filename won't be "0-0.jpg"
-            const isCover = k === `img:${storyId}:0-0`;
-            if (url && !isCover) urlsToDelete.push(url);
+            if (url) urls.push(url);
             await redisRequest("DEL", [k]);
           }
-          if (urlsToDelete.length > 0) await del(urlsToDelete);
+          // Delete from Vercel Blob
+          if (urls.length > 0) await del(urls);
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
-
-      await redisRequest("DEL", [`storytoken:${storyId}`]);
-      await redisRequest("DEL", [`customeremail:${storyId}`]);
-      await redisRequest("DEL", [`childname:${storyId}`]);
-      await redisRequest("DEL", [`customdetails:${storyId}`]);
-      // Delete the temporary PDF from Blob
-      try { await del([pdfBlobUrl]); } catch(e) { console.error("PDF blob cleanup error:", e.message); }
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
 
@@ -520,1399 +205,44 @@ SCENE: ${coverScene} Setting: ${region}. The image shows only this scene — not
   }
 );
 
-// ════════════════════════════════════════════
-// PREVIEW — generate chapters 1-3 + email
-// ════════════════════════════════════════════
-
-const generatePreviewChapters = inngest.createFunction(
-  { id: "generate-preview-chapters", retries: 2, timeout: "45m" },
-  { event: "preview/completed" },
-  async ({ event, step }) => {
-    const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
-    const childData = decodeStoryData(storyToken);
-    if (!childData) throw new Error("Could not decode story token");
-    if (customDetails) childData.customDetails = customDetails;
-
-    const tier = getStoryTier(childData.age);
-    const PREVIEW_CHAPS = 3;
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
-
-    // Step 0a: Cache order data — inside a step so it only runs ONCE.
-    // If outside a step, these Redis writes re-execute on every Inngest replay (10-15x),
-    // which wastes quota and risks a Redis timeout crashing finalization.
-    await step.run("preview-cache-order-data", async () => {
-      await redisRequest("SET", [`storytoken:${storyId}`,    storyToken,        "EX", 604800]);
-      await redisRequest("SET", [`customeremail:${storyId}`, customerEmail,     "EX", 604800]);
-      await redisRequest("SET", [`childname:${storyId}`,     childName,         "EX", 604800]);
-      await redisRequest("SET", [`customdetails:${storyId}`, customDetails||"", "EX", 604800]);
-      await redisRequest("SET", [`preview_paid:${storyId}`,  "true",            "EX", 604800]);
-    });
-
-    // Named characters list
-    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
-    const namedCharacters = [childName];
-    if (childData.friend && childData.friend !== "none") {
-      childData.friend.split(/,|\band\b/i).forEach(f => { const t = f.trim(); if (t && !namedCharacters.includes(t)) namedCharacters.push(t); });
-    }
-    if (childData.customDetails) {
-      const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
-      nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
-    }
-    childData.namedCharacters = namedCharacters;
-
-    // Step 0b: Milestone guidance
-    const milestoneGuidance = await step.run("preview-milestone-guidance", async () => {
-      const guidance = await generateMilestoneGuidance(childData.milestone, childData.age, childData.name);
-      await redisRequest("SET", [`guidance:${storyId}`, guidance, "EX", 604800]);
-      return guidance;
-    });
-
-    // Step 0c: Parse custom details
-    const parsedFacts = await step.run("preview-parse-custom-details", async () => {
-      if (!childData.customDetails) return null;
-      const facts = await parseCustomDetails(childData.customDetails);
-      if (facts) await redisRequest("SET", [`facts:${storyId}`, facts, "EX", 604800]);
-      return facts || null;
-    });
-    if (parsedFacts) childData.parsedFacts = parsedFacts;
-
-    // Step 1: Generate full outline — use the story seed from generate-preview.js so
-    // chapters 1-3 follow the same arc the customer saw in the free preview.
-    const rawOutline = await step.run("preview-generate-outline", async () => {
-      const seed = await redisRequest("GET", [`seed:${storyId}`]);
-      if (seed) {
-        console.log(`Preview: using story seed for ${storyId}`);
-        await redisRequest("DEL", [`seed:${storyId}`]);
-      }
-      const result = await generateOutline(childData, tier, seed || null, milestoneGuidance);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 604800]);
-      return result;
-    });
-
-    const sanitizedOutline = await step.run("preview-sanitize-outline", async () => {
-      const friendNames = namedCharacters.filter(n => n !== childName);
-      if (friendNames.length === 0) return rawOutline;
-      const sanitized = await sanitizeOutline(rawOutline, friendNames);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(sanitized), "EX", 604800]);
-      return sanitized;
-    });
-
-    const outline = await step.run("preview-verify-outline", async () => {
-      if (!parsedFacts || !childData.customDetails) return sanitizedOutline;
-      const verified = await verifyOutlineAgainstFacts(sanitizedOutline, parsedFacts, childData.customDetails);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(verified), "EX", 604800]);
-      return verified;
-    });
-
-    // Step 1d: Pre-write locked passages for any VERBATIM REQUIRED facts
-    const mandatoryMoments = await step.run("preview-generate-mandatory-moments", async () => {
-      const verbatimFacts = extractVerbatimFacts(parsedFacts);
-      if (verbatimFacts.length === 0) return [];
-      console.log(`Preview: generating ${verbatimFacts.length} mandatory moment(s)`);
-      const moments = await generateMandatoryMoments(verbatimFacts, childData, outline);
-      await redisRequest("SET", [`moments:${storyId}`, JSON.stringify(moments), "EX", 604800]);
-      return moments;
-    });
-
-    // Step 2: Generate chapters 1-3
-    await step.run("preview-generate-chapters", async () => {
-      const priorChapters = await getChaptersFromRedis(storyId);
-      const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || milestoneGuidance;
-      const facts = await redisRequest("GET", [`facts:${storyId}`]);
-      if (facts) childData.parsedFacts = facts;
-      const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
-      const moments = momentsRaw ? JSON.parse(momentsRaw) : mandatoryMoments;
-
-      let chapters = await generateChapterBatch(childData, outline, 0, PREVIEW_CHAPS, priorChapters, tier, guidance, moments);
-      chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
-      chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
-      chapters = await Promise.all(chapters.map(ch => correctFactViolations(ch, childData)));
-
-      // Extract handoff state from the end of preview chapters so the upgrade
-      // flow (chapter 4+) continues from exactly where chapter 3 left off.
-      const previewHandoff = await extractChapterHandoff(chapters.slice(-2));
-      if (previewHandoff) await redisRequest("SET", [`handoff:${storyId}`, previewHandoff, "EX", 604800]).catch(() => {});
-
-      const all = [...priorChapters, ...chapters];
-      await redisRequest("SET", [`story:${storyId}`, JSON.stringify(all), "EX", 604800]);
-    });
-
-    // Step 3: Illustrations — cover + scene images for chapters 1-3
-    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region, milestone } = childData;
-    const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
-    const styleGuide = getStyleGuide();
-    const hairLengthExpanded =
-      hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
-      : hairLength === 'regular cut'   ? 'short regular cut, trimmed neatly above the ears'
-      : hairLength === 'past the ears' ? 'medium length, hanging past the ears'
-      : hairLength === 'to the shoulders' ? 'shoulder-length, ends exactly at the shoulders — not shorter'
-      : hairLength === 'long'          ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
-      : hairLength === 'short'         ? 'very short, close-cropped, above the ears'
-      : hairLength === 'medium'        ? 'medium-length, chin to shoulder'
-      : hairLength || '';
-    const hairDescExpanded = [hairLengthExpanded, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-    const lockedCharDesc = `a ${age}-year-old ${genderDesc} with ${hairDescExpanded} hair and ${eye} eyes`;
-    const longHairBoyNote = (genderDesc === 'boy' && (hairLength === 'long' || hairLength === 'to the shoulders'))
-      ? ` IMPORTANT: ${name} is a BOY with long hair — render with clearly boyish/masculine facial features.`
-      : '';
-
-    // Cover image
-    await step.run("preview-cover", async () => {
-      const wavyNote = hairStyle && (hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly'))
-        ? ` MANDATORY HAIR TEXTURE: ${name}'s hair is ${hairStyle.toUpperCase()} — every strand must show visible ${hairStyle} texture.`
-        : '';
-      const coverAgeNum = parseInt(age);
-      const coverAgeAppearance =
-        coverAgeNum <= 2  ? `a toddler — tiny body, very chubby round face, barely walking height` :
-        coverAgeNum <= 4  ? `a preschooler — small, round babyish face, very short, clearly a young toddler-age child` :
-        coverAgeNum <= 6  ? `a kindergarten-age child — small compact body, round young face, clearly a little kid` :
-        coverAgeNum <= 8  ? `a 2nd–3rd grade child — young elementary school age, round face, small body` :
-        coverAgeNum <= 11 ? `an older elementary child — taller but unmistakably still a child, NOT a teenager` :
-        coverAgeNum <= 14 ? `a middle-school-aged child — clearly still a kid, NOT an adult` :
-                            `a teenager or adult`;
-      const coverStyle = getCoverStyleForAge(age);
-      const coverScene = getCoverScene(milestone, name, region);
-      const coverPrompt = `${coverStyle}
-
-CRITICAL AGE: ${name} is ${age} years old — they MUST look like ${coverAgeAppearance}. Do NOT render ${name} at the wrong age. Age ${age} — correct body proportions and face shape for a real ${age}-year-old.
-
-Character: ${name}, ${lockedCharDesc}.${longHairBoyNote} HAIR: ${name}'s hair is ${hair}-colored, ${hairStyle ? `${hairStyle}, ` : ''}${hairLengthExpanded}.${wavyNote}
-
-SCENE: ${coverScene} Setting: ${region}. Pure illustration only — no text, no words, no letters, no borders, no frames, no grid lines, no ruler marks, no color strips, no swatches, no UI elements of any kind anywhere in the image.`;
-      const coverBytes = await callCoverImage(coverPrompt);
-      const blob = await put(`illustrations/${storyId}/0-0.jpg`, coverBytes, { access: 'public', contentType: 'image/jpeg' });
-      await redisRequest("SET", [`cover:${storyId}`, blob.url, "EX", 604800]);
-      await redisRequest("SET", [`img:${storyId}:0-0`, blob.url, "EX", 604800]);
-    });
-
-    // Composite designed cover (text baked onto illustration)
-    await step.run("design-preview-cover-v1", async () => {
-      try {
-        const rawCoverUrl = await redisRequest("GET", [`cover:${storyId}`]);
-        if (!rawCoverUrl) return;
-        const coverBytes = await fetchImageBytes(rawCoverUrl);
-        const designedPng = await generateDesignedCoverImage(childName, childData.milestone, childData, coverBytes);
-        if (designedPng) {
-          const blob = await put(`covers/${storyId}/designed.png`, designedPng, { access: 'public', contentType: 'image/png' });
-          await redisRequest("SET", [`cover-designed:${storyId}`, blob.url, "EX", 604800]);
-          console.log(`Designed preview cover stored: ${blob.url.slice(0, 60)}`);
-        }
-      } catch(e) {
-        console.error(`design-preview-cover-v1 failed (non-fatal): ${e.message}`);
-      }
-    });
-
-    // Scene illustrations for chapters 1-3
-    // Use the memoized outline step result directly — avoids a Redis call outside steps
-    // (outside-step I/O re-runs on every Inngest replay and can cause finalization to crash).
-    let freshOutlineForImgs = Array.isArray(outline) ? outline : [];
-    if (freshOutlineForImgs.length === 0) {
-      try {
-        const raw = await redisRequest("GET", [`outline:${storyId}`]);
-        freshOutlineForImgs = raw ? JSON.parse(raw) : [];
-      } catch(e) {
-        console.error(`[preview] outline Redis fallback failed: ${e.message}`);
-      }
-    }
-    const step2 = Math.floor(freshOutlineForImgs.length / tier.imageCount);
-    const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
-      `${Math.min(i * step2, freshOutlineForImgs.length - 1)}-0`
-    );
-    if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
-    // Only generate images whose chapter index falls within the preview (1-3)
-    const previewSceneKeys = allImageKeys.filter(k => {
-      const ci = parseInt(k.split('-')[0]);
-      return ci >= 1 && ci <= PREVIEW_CHAPS;
-    });
-
-    for (let b = 0; b < previewSceneKeys.length; b++) {
-      await step.run(`preview-illustration-${b + 1}`, async () => {
-        const key = previewSceneKeys[b];
-        const ci = parseInt(key.split('-')[0]);
-        const chap = freshOutlineForImgs[ci];
-        const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
-        if (!coverBlobUrl) throw new Error("Cover not found");
-
-        const allChapters = await getChaptersFromRedis(storyId);
-        const chapterText = allChapters[ci] || null;
-        const visualScene = chapterText
-          ? await extractScenePrompt(chapterText, name, age, city, region)
-          : (chap?.imagePrompt || `${name} having a great time outdoors in ${city}`);
-
-        const ageNum = parseInt(age);
-        const mainAgeAppearance = getAgeBodyDescription(age);
-        const illustrationStyle = ageNum <= 7
-          ? `Large expressive facial emotions and clear body language. Simple, uncluttered composition.`
-          : ageNum <= 10
-          ? `Expressive character faces with personality and humor.`
-          : `Atmospheric and cinematic. Character expression conveys internal emotion.`;
-        const mainCharHairNote = hairStyle
-          ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — IMPORTANT: visibly ${hairStyle}, NOT straight` : ''}`
-          : `${hairLengthExpanded} ${hair}-colored hair`;
-        const sceneStyleGuide = getStyleGuideForAge(age);
-        const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
-
-        const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
-        const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
-        await redisRequest("SET", [`img:${storyId}:${key}`, blob.url, "EX", 604800]);
-      });
-    }
-
-    // Step 4: Send preview email with chapters + upgrade CTA
-    await step.run("preview-send-email", async () => {
-      const chapters = await getChaptersFromRedis(storyId);
-      const designedCoverUrl = await redisRequest("GET", [`cover-designed:${storyId}`]);
-      const coverUrl = designedCoverUrl || await redisRequest("GET", [`cover:${storyId}`]);
-      const upgradeUrl = `${baseUrl}/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}`;
-      await sendPreviewEmail(customerEmail, childName, chapters, coverUrl, storyId, childData, upgradeUrl, !!designedCoverUrl);
-    });
-
-    // Step 5: Survey email — wait 1 minute then send feedback request
-    await step.sleep("survey-delay", "28h");
-
-    await step.run("send-survey-email", async () => {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const surveyUrl = `${baseUrl}/survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}`;
-      await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'Growing Minds <stories@growingminds.io>',
-        to: customerEmail,
-        subject: `Quick question about ${childName}'s story 📖`,
-        html: `
-<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2e1f;background:#fffdf7;padding:2rem;">
-  <p style="font-family:'Lora',Georgia,serif;font-size:1.4rem;font-weight:700;color:#2d6a4f;margin:0 0 1.5rem;">Growing Minds 📖</p>
-
-  <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">Hi there,</p>
-
-  <p style="font-size:1rem;line-height:1.7;margin:0 0 1rem;">I hope you got a chance to read ${childName}'s story together. I'm the person behind Growing Minds.</p>
-
-  <p style="font-size:1rem;line-height:1.7;margin:0 0 1.5rem;">I'd love to know honestly how it went — takes about 2 minutes:</p>
-
-  <div style="text-align:center;margin:0 0 2rem;">
-    <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;text-decoration:none;padding:0.9rem 2rem;border-radius:999px;font-size:1rem;font-weight:700;">Share my feedback →</a>
-  </div>
-
-  <p style="font-size:0.95rem;line-height:1.7;color:#6b8f71;margin:0 0 1rem;">If anything was off — a wrong detail, an image that didn't match, anything — I want to know. That's how we get better.</p>
-
-  <p style="font-size:0.95rem;line-height:1.7;margin:0;">Thank you for trusting us with ${childName}'s story.</p>
-  <p style="font-size:0.95rem;margin:0.5rem 0 0;">— The Growing Minds team</p>
-
-  <hr style="border:none;border-top:1px solid #e8f0e9;margin:2rem 0;"/>
-  <p style="font-size:0.75rem;color:#b0c4b5;margin:0;">You're receiving this because you ordered a personalized story at growingminds.io.</p>
-</div>`
-      });
-    });
-
-    console.log(`✅ Preview complete for ${childName} — ${PREVIEW_CHAPS} chapters emailed`);
-    return { success: true, childName, chapters: PREVIEW_CHAPS };
-  }
-);
-
-// ════════════════════════════════════════════
-// UPGRADE — generate remaining chapters + full book
-// ════════════════════════════════════════════
-
-const generateRemainingChapters = inngest.createFunction(
-  { id: "generate-remaining-chapters", retries: 2, timeout: "60m" },
-  { event: "upgrade/completed" },
-  async ({ event, step }) => {
-    const { storyId, childName, customerEmail, shippingAddress } = event.data;
-
-    // Load everything from Redis — preview function stored it all with 7-day TTLs
-    // Fall back to `token:{storyId}` (set by generate-preview.js, 48h TTL) in case
-    // the preview/completed Inngest flow hasn't saved its copy yet
-    const storyToken = await redisRequest("GET", [`storytoken:${storyId}`])
-                    || await redisRequest("GET", [`token:${storyId}`]);
-    if (!storyToken) throw new Error(`No storyToken in Redis for ${storyId} — preview may have expired`);
-
-    const childData = decodeStoryData(storyToken);
-    if (!childData) throw new Error("Could not decode story token");
-
-    const customDetails = await redisRequest("GET", [`customdetails:${storyId}`]);
-    if (customDetails) childData.customDetails = customDetails;
-
-    const tier = getStoryTier(childData.age);
-    const PREVIEW_CHAPS = 3;
-
-    // Reload named characters
-    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
-    const namedCharacters = [childName];
-    if (childData.friend && childData.friend !== "none") {
-      childData.friend.split(/,|\band\b/i).forEach(f => { const t = f.trim(); if (t && !namedCharacters.includes(t)) namedCharacters.push(t); });
-    }
-    if (childData.customDetails) {
-      const nameMatches = childData.customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
-      nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
-    }
-    childData.namedCharacters = namedCharacters;
-
-    // Load stored outline — fall back to regeneration if preview job failed/expired
-    const parsedFacts = await redisRequest("GET", [`facts:${storyId}`]);
-    if (parsedFacts) childData.parsedFacts = parsedFacts;
-
-    const outline = await step.run("ensure-outline", async () => {
-      const outlineRaw = await redisRequest("GET", [`outline:${storyId}`]);
-      if (outlineRaw) {
-        console.log(`Upgrade: loaded outline from Redis for ${storyId}`);
-        return JSON.parse(outlineRaw);
-      }
-
-      // Outline missing — preview/completed may have failed or timed out. Regenerate.
-      console.warn(`Upgrade: outline missing for ${storyId} — regenerating from storyToken`);
-      const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || "";
-      let result = await generateOutline(childData, tier, null, guidance || null);
-
-      const friendNames = [childName];
-      if (childData.friend && childData.friend !== "none") {
-        childData.friend.split(/,|\band\b/i).forEach(f => {
-          const t = f.trim();
-          if (t && !friendNames.includes(t)) friendNames.push(t);
-        });
-      }
-      result = await sanitizeOutline(result, friendNames);
-
-      const facts = await redisRequest("GET", [`facts:${storyId}`]);
-      if (facts && childData.customDetails) {
-        result = await verifyOutlineAgainstFacts(result, facts, childData.customDetails);
-      }
-
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 604800]);
-      console.log(`Upgrade: regenerated outline (${result.length} chapters) for ${storyId}`);
-      return result;
-    });
-
-    if (!outline) throw new Error(`Failed to load or regenerate outline for ${storyId}`);
-
-    console.log(`Upgrade: generating chapters ${PREVIEW_CHAPS + 1}–${tier.chapCount} for ${childName}`);
-
-    // Step 1: Generate remaining chapters in batches of 4
-    const BATCH_SIZE = 4;
-    const startChap = PREVIEW_CHAPS; // 0-indexed: chapters already done are indices 0,1,2
-    const batches = Math.ceil((tier.chapCount - startChap) / BATCH_SIZE);
-
-    for (let b = 0; b < batches; b++) {
-      await step.run(`upgrade-batch-${b + 1}`, async () => {
-        const start = startChap + b * BATCH_SIZE;
-        const end = Math.min(start + BATCH_SIZE, tier.chapCount);
-        console.log(`Upgrade batch ${b + 1}/${batches}: chapters ${start + 1}–${end}`);
-
-        const priorChapters = await getChaptersFromRedis(storyId);
-
-        // Guard against duplicate generation on Inngest retries — if this batch's chapters
-        // are already in Redis (from a previous run), skip rather than appending again.
-        if (priorChapters.length >= end) {
-          console.log(`Upgrade batch ${b + 1} already complete (${priorChapters.length} chapters in Redis, need up to ${end}) — skipping`);
-          return { skipped: true, existing: priorChapters.length };
-        }
-
-        const guidance = await redisRequest("GET", [`guidance:${storyId}`]) || "";
-        const facts = await redisRequest("GET", [`facts:${storyId}`]);
-        if (facts) childData.parsedFacts = facts;
-        const momentsRaw = await redisRequest("GET", [`moments:${storyId}`]);
-        const upgradeMoments = momentsRaw ? JSON.parse(momentsRaw) : [];
-
-        // Load handoff state: for batch 1 this is the snapshot from end of preview chapter 3;
-        // for subsequent batches it's the snapshot from the previous upgrade batch.
-        const handoffRaw = await redisRequest("GET", [`handoff:${storyId}`]).catch(() => null);
-        const handoffState = handoffRaw || null;
-
-        let chapters = await generateChapterBatch(childData, outline, start, end, priorChapters, tier, guidance, upgradeMoments, handoffState);
-        chapters = chapters.map(ch => enforceFullNamesRegex(ch, childData.namedCharacters, childData.parsedFacts));
-        chapters = await Promise.all(chapters.map(ch => correctKindness(ch, childData.namedCharacters)));
-        chapters = await Promise.all(chapters.map(ch => correctFactViolations(ch, childData)));
-
-        // Extract and store handoff for next upgrade batch
-        const allSoFar = [...priorChapters, ...chapters];
-        const newHandoff = await extractChapterHandoff(allSoFar.slice(-2));
-        if (newHandoff) await redisRequest("SET", [`handoff:${storyId}`, newHandoff, "EX", 604800]).catch(() => {});
-
-        // Extend Redis TTL and save (append to existing chapters 1-3)
-        const all = [...priorChapters, ...chapters];
-        await redisRequest("SET", [`story:${storyId}`, JSON.stringify(all), "EX", 604800]);
-        return { saved: chapters.length };
-      });
-    }
-
-    // Step 2: Generate remaining illustrations
-    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
-    const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
-    const hairLengthExpanded =
-      hairLength === 'crew cut'        ? 'very short crew cut, buzzed close to the head'
-      : hairLength === 'regular cut'   ? 'short regular cut, trimmed neatly above the ears'
-      : hairLength === 'past the ears' ? 'medium length, hanging past the ears'
-      : hairLength === 'to the shoulders' ? 'shoulder-length, ends exactly at the shoulders — not shorter'
-      : hairLength === 'long'          ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
-      : hairLength === 'short'         ? 'very short, close-cropped, above the ears'
-      : hairLength === 'medium'        ? 'medium-length, chin to shoulder'
-      : hairLength || '';
-
-    if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
-      const step2 = Math.floor(outline.length / tier.imageCount);
-      const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
-        `${Math.min(i * step2, outline.length - 1)}-0`
-      );
-      if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
-
-      // Compute which keys still need generating inside a step — upgradeKeys must be memoized.
-      // Outside-step Redis checks re-execute on every Inngest replay, causing the array to shrink
-      // between replays and the loop index to drift, silently skipping illustrations.
-      const upgradeKeys = await step.run("compute-upgrade-keys", async () => {
-        const keys = [];
-        for (const key of allImageKeys) {
-          const exists = await redisRequest("GET", [`img:${storyId}:${key}`]);
-          if (!exists) keys.push(key);
-        }
-        console.log(`Upgrade: ${keys.length} illustrations to generate: ${keys.join(', ')}`);
-        return keys;
-      });
-
-      for (let b = 0; b < upgradeKeys.length; b++) {
-        await step.run(`upgrade-illustration-${b + 1}`, async () => {
-          const key = upgradeKeys[b];
-          const ci = parseInt(key.split('-')[0]);
-          const chap = outline[ci];
-          const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
-          if (!coverBlobUrl) throw new Error("Cover not found in Redis");
-
-          const allChapters = await getChaptersFromRedis(storyId);
-          const chapterText = allChapters[ci] || null;
-          const visualScene = chapterText
-            ? await extractScenePrompt(chapterText, name, age, city, region)
-            : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
-
-          const ageNum = parseInt(age);
-          const mainAgeAppearance = getAgeBodyDescription(age);
-          const illustrationStyle = ageNum <= 7 ? `Large expressive facial emotions. Simple, uncluttered composition.` : ageNum <= 10 ? `Expressive character faces with personality and humor.` : `Atmospheric and cinematic.`;
-          const mainCharHairNote = hairStyle
-            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
-            : `${hairLengthExpanded} ${hair}-colored hair`;
-          const sceneStyleGuide = getStyleGuideForAge(age);
-          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
-
-          const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
-          const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
-          await redisRequest("SET", [`img:${storyId}:${key}`, blob.url, "EX", 604800]);
-        });
-      }
-    }
-
-    // Step 3: Build preview PDF (first 10 chapters) and full book PDF
-    const pdfBlobUrl = await step.run("upgrade-create-pdf", async () => {
-      const chapters = await getChaptersFromRedis(storyId);
-      const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      const pdfBase64 = await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
-      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-      const blob = await put(`pdfs/${storyId}/story-part1.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
-      return blob.url;
-    });
-
-    const fullBookUrl = await step.run("upgrade-create-full-book", async () => {
-      const allChapters = await getChaptersFromRedis(storyId);
-      const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      const illustrationsB64 = {};
-      for (const [key, url] of Object.entries(illustrationUrls)) {
-        try {
-          const bytes = await fetchImageBytes(url);
-          illustrationsB64[key] = `data:image/jpeg;base64,${bytes.toString('base64')}`;
-        } catch(e) { console.error(`Full book image ${key} failed: ${e.message}`); }
-      }
-      const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
-      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-      const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
-      // Store URL in Redis so the lulu-jobs test endpoint can retrieve it
-      await redisRequest("SET", [`fullbookurl:${storyId}`, blob.url, "EX", 2592000]); // 30 days
-      return blob.url;
-    });
-
-    // Step 4: Save to Airtable
-    await step.run("upgrade-save-story", async () => {
-      const allChapters = await getChaptersFromRedis(storyId);
-      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, fullBookUrl);
-    });
-
-    // Step 5: Admin notification
-    await step.run("upgrade-notify-admin", async () => {
-      const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]) || null;
-      const chapters = await getChaptersFromRedis(storyId);
-      const previewChapter = chapters && chapters[0] ? chapters[0].text || chapters[0] : null;
-      const token = adminToken(storyId);
-      await sendAdminNotificationEmail(storyId, customerEmail, childName, childData, tier, fullBookUrl, coverImageUrl, previewChapter, token);
-    });
-
-    // Step 6: Wait for admin approval (same as full flow)
-    await step.waitForEvent("upgrade-wait-for-approval", {
-      event: "story/approved",
-      match: "data.storyId",
-      timeout: "2h"
-    });
-
-    // Step 7: Send delivery email
-    await step.run("upgrade-send-email", async () => {
-      const skip = await redisRequest("GET", [`skip-delivery:${storyId}`]);
-      if (skip) {
-        await redisRequest("DEL", [`skip-delivery:${storyId}`]);
-        return;
-      }
-      const pdfBytes = await fetchImageBytes(pdfBlobUrl);
-      const pdfBase64 = pdfBytes.toString('base64');
-      await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
-    });
-
-    // Step 8: Send Lulu approval email to admin
-    await step.run("upgrade-send-lulu-approval", async () => {
-      if (!shippingAddress) { console.log("No shipping address — skipping Lulu approval email"); return; }
-      const token = adminToken(storyId);
-      await sendLuluApprovalEmail(storyId, childName, childData, fullBookUrl, token);
-    });
-
-    // Step 9: Wait for admin to approve Lulu send (up to 7 days — null on timeout = skip)
-    const luluApproval = await step.waitForEvent("upgrade-wait-for-lulu", {
-      event: "lulu/approved",
-      match: "data.storyId",
-      timeout: "7d",
-    });
-
-    // Step 10: Create Lulu print job — only if admin approved (non-fatal — never blocks delivery)
-    await step.run("upgrade-lulu-order", async () => {
-      try {
-        if (!luluApproval) { console.log(`Lulu approval timed out for ${storyId} — skipping print job`); return; }
-        if (!shippingAddress) { console.log("No shipping address — skipping Lulu order"); return; }
-        const { createLuluPrintJob } = require("./lulu");
-
-        // Use remade PDF if available — remake-images may have rebuilt it after original generation
-        const interiorUrl = await redisRequest("GET", [`fullbookurl:${storyId}`]) || fullBookUrl;
-        if (!interiorUrl) throw new Error("No interior PDF URL available");
-
-        // Build a print-ready cover PDF (front + spine + back on one page with bleed)
-        const coverUrl = await buildLuluCoverPdf(storyId, childName, childData, interiorUrl);
-        if (!coverUrl) throw new Error("Cover PDF generation failed");
-
-        const job = await createLuluPrintJob({
-          interiorUrl,
-          coverUrl,
-          shippingDetails: shippingAddress,
-          customerEmail,
-          storyId,
-          childName,
-        });
-
-        // Store the Lulu job ID in Redis for status tracking (both directions)
-        await redisRequest("SET", [`lulu-job:${storyId}`,       String(job.id),  "EX", 2592000]);
-        await redisRequest("SET", [`lulu-job-story:${job.id}`,  storyId,         "EX", 2592000]);
-        console.log(`Lulu print job created: ${job.id} for ${childName} (${storyId})`);
-      } catch(e) {
-        console.error(`Lulu order failed (non-fatal): ${e.message}`);
-      }
-    });
-
-    // Step 9: Cleanup
-    await step.run("upgrade-cleanup", async () => {
-      await deleteChaptersFromRedis(storyId);
-      try {
-        const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
-        if (imgKeys && imgKeys.length > 0) {
-          const urlsToDelete = [];
-          for (const k of imgKeys) {
-            const url = await redisRequest("GET", [k]);
-            const isCover = k === `img:${storyId}:0-0`;
-            if (url && !isCover) urlsToDelete.push(url);
-            await redisRequest("DEL", [k]);
-          }
-          if (urlsToDelete.length > 0) await del(urlsToDelete);
-        }
-      } catch(e) { console.error("Upgrade illustration cleanup error:", e.message); }
-      await redisRequest("DEL", [`outline:${storyId}`]);
-
-      await redisRequest("DEL", [`storytoken:${storyId}`]);
-      await redisRequest("DEL", [`customeremail:${storyId}`]);
-      await redisRequest("DEL", [`childname:${storyId}`]);
-      await redisRequest("DEL", [`customdetails:${storyId}`]);
-      await redisRequest("DEL", [`guidance:${storyId}`]);
-      await redisRequest("DEL", [`facts:${storyId}`]);
-      await redisRequest("DEL", [`preview_paid:${storyId}`]);
-      try { await del([pdfBlobUrl]); } catch(e) {}
-      console.log(`Upgrade cleanup complete for ${storyId}`);
-    });
-
-    console.log(`✅ Upgrade complete for ${childName}`);
-    return { success: true, childName };
-  }
-);
+// ── SERVE ──
+const handler = serve({ client: inngest, functions: [generateStoryOrder] });
+module.exports = handler;
 
 // ════════════════════════════════════════════
 // STORY GENERATION
 // ════════════════════════════════════════════
 
-async function parseCustomDetails(customDetails, heroName) {
-  const prompt = `A parent wrote free-text notes for a personalized children's story. Extract every nickname assignment into a precise structured table.
-
-Parent's notes:
-"${customDetails}"
-
-Hero's name: ${heroName}
-
-Instructions:
-- A "nickname" is any name other than a character's full given name.
-- For EACH nickname, identify exactly WHO speaks it and WHO they are addressing.
-- Nicknames are ONE-DIRECTIONAL. If A calls B "puppy", that does NOT mean B calls A "puppy". They are different people with different nicknames.
-- Include conditional rules (e.g. "he calls her X only when she calls him Y").
-- Do NOT invent or infer any nickname not clearly stated in the text.
-- If the text says "her nickname is X" it means OTHER characters call her X — not that she uses it herself.
-
-After the NICKNAME TABLE, output a FORBIDDEN USAGE section that explicitly states the reverse of every nickname — i.e. what is NOT allowed.
-
-Output ONLY this structured block, nothing else:
-
-NICKNAME TABLE:
-[Speaker] calls [Receiver] → "[nickname]"
-(one line per assignment — repeat for each)
-
-CONDITIONAL NICKNAMES (if any):
-[Speaker] calls [Receiver] → "[nickname]" — ONLY WHEN [exact condition]
-
-FORBIDDEN USAGE (the reverse of every nickname above — explicitly prohibited):
-[Speaker] must NEVER call [Receiver] → "[nickname]" — this nickname belongs to a different speaker
-(one line per forbidden reversal)
-
-DIALOGUE ATTRIBUTION CHECKS:
-For each nickname, state who may and may not say it in dialogue:
-"[nickname]": only [Speaker] may say this. ✗ Wrong if [Receiver] or anyone else says it. Example of a violation: '[Receiver] said, "...[nickname]..."'
-(one line per nickname)
-
-DEFAULT: Any character not listed in the NICKNAME TABLE must use the other character's full name only.`;
-
-  try {
-    const result = await callClaude(prompt, 600);
-    console.log(`Parsed nickname table:\n${result}`);
-    return result.trim();
-  } catch(e) {
-    console.error(`parseCustomDetails failed: ${e.message}`);
-    return null;
-  }
-}
-
-// Deterministic (no LLM) pass: replaces known diminutives with full names unless they're in the approved nickname table.
-// This is the final safety net — it cannot be argued around by LLM creativity.
-// Strategy: for every full name in the map, check if it appears anywhere in the chapter text.
-// If it does, that character is in this story — replace any unapproved diminutive of theirs.
-// This does NOT rely on namedCharacters being populated correctly (e.g. siblings in customDetails).
-function enforceFullNamesRegex(chapterText, namedCharacters, parsedCustomDetails) {
-  if (!chapterText) return chapterText;
-
-  // Extract every approved nickname from the parsed table (lines like: → "Jules")
-  const approvedNicknames = new Set();
-  if (parsedCustomDetails) {
-    for (const m of parsedCustomDetails.matchAll(/→\s*"([^"]+)"/g)) {
-      approvedNicknames.add(m[1].trim());
-    }
-  }
-
-  const diminutiveMap = {
-    'Julianna': ['Jules', 'Juli', 'Julie', 'Anna'],
-    'Julian': ['Jules', 'Juli'],
-    'Benjamin': ['Ben', 'Benny', 'Benji'],
-    'Corbin': ['Cor', 'Corby'],
-    'Holden': ['Hol', 'Holdy'],
-    'Evelyn': ['Evie', 'Eve'],
-    'Elizabeth': ['Liz', 'Beth', 'Lizzy', 'Ellie', 'Eliza'],
-    'Katherine': ['Kat', 'Kate', 'Kathy', 'Katie'],
-    'Alexander': ['Alex', 'Xander'],
-    'Samantha': ['Sam', 'Sammie'],
-    'Charlotte': ['Charlie', 'Lottie'],
-    'Josephine': ['Jo', 'Josie'],
-    'Theodore': ['Theo', 'Teddy'],
-    'Nathaniel': ['Nate', 'Nat'],
-    'William': ['Will', 'Willie', 'Bill'],
-    'Nicholas': ['Nick', 'Nicky'],
-    'Christopher': ['Chris'],
-    'Matthew': ['Matt', 'Matty'],
-    'Rebecca': ['Becca', 'Becky'],
-  };
-
-  let text = chapterText;
-  for (const [fullName, diminutives] of Object.entries(diminutiveMap)) {
-    // Only act if this full name actually appears somewhere in the chapter
-    if (!text.includes(fullName)) continue;
-    for (const dim of diminutives) {
-      if (!approvedNicknames.has(dim)) {
-        text = text.replace(new RegExp(`\\b${dim}\\b`, 'g'), fullName);
-      }
-    }
-  }
-  return text;
-}
-
-async function correctNicknames(chapterText, parsedCustomDetails, fullNames = []) {
-  if (!parsedCustomDetails || !chapterText) return chapterText;
-
-  // Build a specific watch-list of common English diminutives for each full name
-  const diminutiveMap = {
-    'Julianna': ['Jules', 'Juli', 'Julie', 'Anna', 'Juli'],
-    'Julian': ['Jules', 'Juli'],
-    'Benjamin': ['Ben', 'Benny', 'Benji'],
-    'Corbin': ['Cor', 'Corby'],
-    'Holden': ['Hol', 'Holdy'],
-    'Evelyn': ['Evie', 'Eve'],
-    'Elizabeth': ['Liz', 'Beth', 'Lizzy', 'Ellie', 'Eliza'],
-    'Katherine': ['Kat', 'Kate', 'Kathy', 'Katie'],
-    'Alexander': ['Alex', 'Xander'],
-    'Samantha': ['Sam', 'Sammie'],
-    'Charlotte': ['Charlie', 'Lottie'],
-    'Josephine': ['Jo', 'Josie'],
-    'Theodore': ['Theo', 'Teddy'],
-    'Nathaniel': ['Nate', 'Nat'],
-    'William': ['Will', 'Willie', 'Bill'],
-    'Nicholas': ['Nick', 'Nicky'],
-    'Christopher': ['Chris'],
-    'Matthew': ['Matt', 'Matty'],
-    'Rebecca': ['Becca', 'Becky'],
-  };
-
-  const watchLines = fullNames
-    .filter(n => diminutiveMap[n])
-    .map(n => `  - "${n}" → watch for and replace: ${diminutiveMap[n].map(d => `"${d}"`).join(', ')}`)
-    .join('\n');
-
-  const fullNamesLine = fullNames.length > 0
-    ? `\nFULL GIVEN NAMES IN THIS STORY: ${fullNames.join(', ')}\n\nSPECIFIC DIMINUTIVES TO CATCH — these are common English shortenings that must be replaced with the full given name if they appear and are NOT in the NICKNAME TABLE:\n${watchLines || '  (none mapped — still flag any obvious shortening)'}`
-    : "";
-
-  const prompt = `You are a copy editor. The chapter text below may contain nickname errors.
-
-AUTHORITATIVE NICKNAME TABLE:
-${parsedCustomDetails}${fullNamesLine}
-
-RULES:
-1. DIALOGUE ATTRIBUTION: For every line of dialogue containing a nickname, identify the speaker (look for "[Name] said", "said [Name]", "[Name] called", "[Name] whispered", "[Name] replied", etc.). Then check: is that speaker authorized to use that nickname per the NICKNAME TABLE? If not, replace it with the character's full given name.
-2. REVERSED USAGE: If the table says A calls B "[nickname]", then B calling A "[nickname]" is always wrong — even if it seems like a playful echo.
-3. INVENTED DIMINUTIVES: Check the SPECIFIC DIMINUTIVES list above. If any of those words appear in the text for the named character and are NOT listed in the NICKNAME TABLE as approved, replace them with the full given name.
-4. NARRATIVE TEXT: Also check narrator text (e.g. "he called her Jules" is wrong if "Jules" is not in the table).
-5. Do not change anything else — plot, dialogue, punctuation, structure must all remain identical.
-6. If there are no errors, return the text unchanged.
-7. Return the corrected chapter text only. No explanation, no commentary.
-
-CHAPTER TEXT:
-${chapterText}`;
-  try {
-    const corrected = await callClaude(prompt, 3000);
-    return corrected.trim();
-  } catch(e) {
-    console.error(`correctNicknames failed: ${e.message}`);
-    return chapterText;
-  }
-}
-
-// Deterministic pass: removes the most obvious phone/device sentences before the LLM correction runs.
-// Targets sentences containing child-device interaction keywords and strips them entirely,
-// since rewriting requires context the regex can't safely provide.
-function flagPhoneSentences(chapterText) {
-  if (!chapterText) return chapterText;
-  // Patterns that almost always indicate a child using a phone/device
-  const phonePatterns = [
-    /[^.!?]*\b(phone|smartphone|tablet|device)\b[^.!?]*(buzz|ding|ping|ring|vibrat|notif|messag|text|snap|post)[^.!?]*[.!?]/gi,
-    /[^.!?]*(buzz|ding|ping|vibrat)[^.!?]*\b(phone|device|tablet)\b[^.!?]*[.!?]/gi,
-    /[^.!?]*\bmessage from\b[^.!?]*(friend|classmate|\b[A-Z][a-z]+\b)[^.!?]*[.!?]/gi,
-    /[^.!?]*\b(texted?|messaged?|DM'?d?)\b[^.!?]*[.!?]/gi,
-  ];
-  let text = chapterText;
-  for (const pattern of phonePatterns) {
-    text = text.replace(pattern, '');
-  }
-  // Clean up any double spaces or blank lines left behind
-  return text.replace(/\n{3,}/g, '\n\n').replace(/  +/g, ' ').trim();
-}
-
-async function correctPhones(chapterText) {
-  if (!chapterText) return chapterText;
-  const prompt = `You are a children's book editor. Check the chapter text below for a specific type of error.
-
-RULE: No child in this story may send or receive any digital message from another child — on their own device, on a parent's device, or on any screen. This includes: texts, messages, notifications, group chats, or any digital communication between children. It does not matter whose phone it appears on.
-
-The only permitted child-to-child communication is: talking in person, passing a handwritten note, or a parent making a voice call to another parent.
-
-Violations include (but are not limited to):
-- A child's phone buzzing with a message from another child
-- A message from a child appearing on a parent's screen or phone
-- A child reading a text sent by another child
-- Any notification, buzz, or ping connecting one child to another digitally
-
-If you find a violation, rewrite ONLY that passage so the same information is conveyed through an allowed method — e.g. a friend shows up in person, a parent relays a message after a phone call, or a handwritten note is passed. Keep all other plot, dialogue, tone, and structure exactly the same.
-
-If there are no violations, return the text unchanged.
-Return the corrected chapter text only. No explanation.
-
-CHAPTER TEXT:
-${chapterText}`;
-  try {
-    const corrected = await callClaude(prompt, 3000);
-    return corrected.trim();
-  } catch(e) {
-    console.error(`correctPhones failed: ${e.message}`);
-    return chapterText;
-  }
-}
-
-async function correctKindness(chapterText, namedCharacters) {
-  if (!namedCharacters || namedCharacters.length === 0 || !chapterText) return chapterText;
-  const protagonist = namedCharacters[0];
-  const friends = namedCharacters.slice(1);
-  if (friends.length === 0) return chapterText;
-  const friendList = friends.join(', ');
-  const prompt = `You are a children's book editor fixing a specific rule violation.
-
-PROTAGONIST: ${protagonist}
-PROTECTED FRIENDS (real people in ${protagonist}'s life): ${friendList}
-
-CRITICAL CONTEXT: ${friendList} are ${protagonist}'s real-life friends. They must ONLY appear in this story when they are actively, enthusiastically supporting, helping, or encouraging ${protagonist} in whatever ${protagonist} is trying to do. There is no exception.
-
-THE RULE IN ONE SENTENCE: When a protected friend appears, they must be ON ${protagonist}'s side, doing what ${protagonist} is doing, cheering for what ${protagonist} wants.
-
-VIOLATIONS TO FIX — replace the friend's name with "a classmate" or "another kid" in any sentence where a protected friend:
-1. Is involved in conflict, bullying, exclusion, or social cruelty toward anyone
-2. Chooses to do something different from what ${protagonist} wants to do (e.g. building a different thing, joining a different team, pursuing a different idea)
-3. Expresses doubt, hesitation, or lack of enthusiasm about ${protagonist}'s goal or plan
-4. Goes off to do their own thing while ${protagonist} works alone
-5. Sides with someone other than ${protagonist} in any disagreement
-
-Fix every sentence in the passage where the violation occurs — not just the first one.
-
-Do not change anything else. If no violations exist, return the text unchanged.
-Return corrected chapter text only. No explanation.
-
-CHAPTER TEXT:
-${chapterText}`;
-  try {
-    const corrected = await callClaude(prompt, 3000);
-    const result = corrected.trim();
-    // Guard: if the model returned an explanation instead of chapter text, discard it.
-    // Valid chapter text always starts with "Chapter N:" — anything else is a meta-response leak.
-    if (!result.startsWith('Chapter')) {
-      console.warn(`correctKindness returned non-chapter text (meta-response leak) — using original`);
-      return chapterText;
-    }
-    // Guard: if the result is dramatically shorter than the original it was probably truncated
-    if (result.length < chapterText.length * 0.5) {
-      console.warn(`correctKindness result suspiciously short (${result.length} vs ${chapterText.length}) — using original`);
-      return chapterText;
-    }
-    return result;
-  } catch(e) {
-    console.error(`correctKindness failed: ${e.message}`);
-    return chapterText;
-  }
-}
-
-// ── CHAPTER HANDOFF STATE EXTRACTION ──
-// After each batch, Haiku snapshots the actual world state from what was written —
-// exact object positions, invented character names, where the scene ends.
-// This snapshot is injected into the NEXT batch's prompt so the writer can't contradict
-// or reset anything that was established in previous chapters.
-async function extractChapterHandoff(recentChapters) {
-  if (!recentChapters || recentChapters.length === 0) return null;
-
-  // Use up to the last 2 chapters for the snapshot — enough context, not overwhelming
-  const texts = recentChapters.slice(-2).map(ch =>
-    typeof ch === 'object' ? (ch.text || '') : (ch || '')
-  ).filter(Boolean);
-  if (texts.length === 0) return null;
-
-  const recentText = texts.join('\n\n---\n\n');
-
-  const prompt = `You are tracking continuity for a personalized children's story.
-
-RECENT CHAPTER TEXT:
-${recentText}
-
-Extract a brief CONTINUITY SNAPSHOT that the next chapter writer must maintain exactly.
-Only include details that are INVENTED IN THE TEXT ABOVE — not things from the story plan.
-Focus on the things that cause contradictions when forgotten.
-
-Write as concise bullet points covering:
-- LOCATION & TIME: Exactly where and when the last scene ends (e.g. "dinner table, evening")
-- PROTAGONIST STATE: What they are doing and feeling at the end of the final scene
-- OBJECTS: Any invented objects with their exact properties (color, name, who holds them, where they are)
-- INVENTED CHARACTERS: Names and key physical details of any characters introduced in these chapters
-- OPEN THREADS: Any wish, promise, question, or emotional setup the next chapter must follow through on
-
-Be specific. Only state facts that appear in the text above. Do not invent or infer.`;
-
-  try {
-    return await callClaudeHaiku(prompt, 500);
-  } catch(e) {
-    console.error(`extractChapterHandoff failed: ${e.message}`);
-    return null;
-  }
-}
-
-// ── FACT VIOLATION CORRECTION ──
-// Two-pass post-generation correction:
-//   Pass 1 — Haiku runs a CHECKLIST scan: each fact is verified individually.
-//             This is more reliable than a free-form "find contradictions" scan,
-//             because the model can't skip a fact or fail to connect an inference.
-//   Pass 2 — Sonnet makes surgical sentence-level fixes for any failed facts.
-// Runs after correctKindness in every chapter batch.
-async function correctFactViolations(chapterText, childData) {
-  if (!chapterText) return chapterText;
-
-  // Parse the structured facts into individual lines for the checklist.
-  // Also keep the raw customDetails as a fallback reference.
-  const factLines = childData.parsedFacts
-    ? childData.parsedFacts.split('\n').map(l => l.trim()).filter(l => l && /^\d+\./.test(l))
-    : [];
-
-  // Build the profile summary — always available even without custom details
-  const basicProfile = `Name: ${childData.name || ''}, Age: ${childData.age || ''}, Milestone: ${childData.milestone || ''}, City: ${childData.city || ''}, Region: ${childData.region || ''}, Favorite: ${childData.favorite || ''}, Friend: ${childData.friend || 'none'}`;
-
-  // If we have no structured facts, fall back to raw parent text or basic profile
-  const factSource = factLines.length > 0
-    ? factLines.join('\n')
-    : (childData.customDetails || basicProfile);
-  const rawFallback = childData.customDetails
-    ? `\n\nPARENT'S EXACT WORDS (use if a fact above is ambiguous):\n${childData.customDetails}`
-    : `\n\nBASIC PROFILE:\n${basicProfile}`;
-
-  // ── Pass 1: Haiku CHECKLIST scan ──
-  // Go through EACH fact and explicitly verdict it: HONORED or VIOLATED.
-  // This prevents the model from glossing over indirect contradictions
-  // (e.g. "car rolled to the drop-off lane" when the parent said "park a block away and walk").
-  const scanPrompt = `You are a fact-checker for a personalized children's story.
-
-CHILD'S PROFILE (the only source of known facts):
-${factSource}${rawFallback}
-
-CHAPTER TEXT:
-${chapterText}
-
-TASK 1 — FACT VIOLATIONS: For each numbered fact in the profile, write one line:
-[fact number] HONORED — [one phrase confirming how]
-[fact number] VIOLATED — [quote the exact bad sentence] | should be: [corrected sentence]
-Skip VERBATIM REQUIRED facts. Skip facts the chapter simply doesn't mention (not mentioning ≠ violating). Only flag VIOLATED when the chapter actively contradicts the fact.
-
-TASK 2 — INVENTED SPECIFICS: Also scan for sentences that contain a specific physical detail the parent did not provide. Flag any sentence that:
-- Names or describes a specific object attributed to the character (with color, newness, or unique descriptors) that is NOT in the profile — e.g. "her new sparkly backpack", "his red lunchbox", "a unicorn pencil case Mom packed"
-- Describes a specific place, shop, or landmark the character passes or visits that is NOT in the profile — e.g. "they drove past the bakery", "the yellow brick building on the corner"
-Do NOT flag generic items that cannot be wrong: "her bag", "a pencil", "his lunch", "the school", "her classroom". Only flag when the detail is specific enough that the parent could say "that's not right."
-Flag these as: [INVENTED] [quote the exact sentence] | replace with: [generic version that removes the invented specifics]
-
-Output ONLY the verdict lines from both tasks. If nothing needs fixing, output: ALL CLEAR`;
-
-  let checklistResult;
-  try {
-    checklistResult = await callClaudeHaiku(scanPrompt, 1000);
-  } catch(e) {
-    console.error(`correctFactViolations scan failed: ${e.message}`);
-    return chapterText;
-  }
-
-  if (!checklistResult || checklistResult.trim() === 'ALL CLEAR') return chapterText;
-
-  // Extract VIOLATED and INVENTED lines
-  const fixLines = checklistResult
-    .split('\n')
-    .filter(l => l.includes('VIOLATED') || l.includes('[INVENTED]'))
-    .join('\n')
-    .trim();
-
-  if (!fixLines) return chapterText;
-  console.log(`correctFactViolations: issues found — running correction pass:\n${fixLines}`);
-
-  // ── Pass 2: Sonnet surgical correction ──
-  const fixPrompt = `You are a children's book editor fixing specific errors in one chapter.
-
-PARENT-STATED FACTS (ground truth):
-${factSource}${rawFallback}
-
-SENTENCES TO FIX (format: bad sentence | corrected/generic version):
-${fixLines}
-
-ORIGINAL CHAPTER:
-${chapterText}
-
-Rules:
-- Fix ONLY the sentences listed above — replace each bad sentence with the corrected/generic version shown.
-- For VIOLATED sentences: swap the wrong detail for the parent-stated correct one.
-- For INVENTED sentences: replace the specific invented detail with the generic version shown (e.g. "her new sparkly backpack" → "her bag").
-- Change as few words as possible. Preserve all other sentences, dialogue, and pacing exactly.
-- Return the corrected chapter text only. No explanation, no preamble.`;
-
-  try {
-    const corrected = await callClaude(fixPrompt, 3000);
-    const result = corrected.trim();
-    // Guard: valid chapter text starts with "Chapter" — anything else is a meta-response leak
-    if (!result.startsWith('Chapter')) {
-      console.warn(`correctFactViolations correction returned non-chapter text — using original`);
-      return chapterText;
-    }
-    // Guard: if result is dramatically shorter it was probably truncated
-    if (result.length < chapterText.length * 0.5) {
-      console.warn(`correctFactViolations correction suspiciously short (${result.length} vs ${chapterText.length}) — using original`);
-      return chapterText;
-    }
-    return result;
-  } catch(e) {
-    console.error(`correctFactViolations correction failed: ${e.message}`);
-    return chapterText; // fail open
-  }
-}
-
-async function sanitizeOutline(outline, friendNames) {
-  if (!friendNames || friendNames.length === 0) return outline;
-  const prompt = `You are editing a children's book chapter outline. The following characters are the hero's friends and must NEVER be the source of any conflict, unkindness, or negative behavior in any chapter summary:
-
-PROTECTED FRIENDS: ${friendNames.join(', ')}
-
-Read each chapter summary carefully. Rewrite any summary that has ANY of these problems:
-1. A protected friend is doing, saying, or causing anything negative (bullying, mocking, excluding, laughing at someone, being mean)
-2. A protected friend is present in the same sentence or clause as an unkind act, in a way that implies they are involved
-3. The summary uses "they" or "his friends" to describe unkind behavior while protected friends are in the scene
-4. A protected friend chooses to do something different from what the hero wants to do — building a different project, joining a different group, or pursuing their own idea instead of supporting the hero's
-5. A protected friend expresses doubt or lack of enthusiasm about the hero's goal, plan, or idea
-6. A protected friend is shown going off on their own while the hero does something alone
-
-When rewriting: replace the protected friend with "a classmate" or "another kid". Protected friends may only appear when they are actively helping, encouraging, or joining in with exactly what the hero is doing. Keep the same plot beat.
-
-If a summary has no violation, leave it exactly as written.
-
-Return the complete outline as a valid JSON array. Every object must have exactly these three fields: "title", "summary", "imagePrompt". Do not add, remove, or reorder chapters.
-
-OUTLINE:
-${JSON.stringify(outline, null, 2)}`;
-
-  try {
-    const raw = await callClaude(prompt, 6000);
-    const match = raw.match(/\[[\s\S]*\]/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed) && parsed.length === outline.length) {
-        const changed = parsed.filter((c, i) => c.summary !== outline[i].summary).length;
-        console.log(`sanitizeOutline: fixed ${changed} chapter summaries`);
-        return parsed;
-      }
-    }
-    console.warn('sanitizeOutline: could not parse result, using original outline');
-    return outline;
-  } catch(e) {
-    console.error(`sanitizeOutline failed: ${e.message}`);
-    return outline;
-  }
-}
-
-async function parseCustomDetails(customDetails) {
-  if (!customDetails || !customDetails.trim()) return null;
-
-  const prompt = `You are reading notes a parent wrote about their child for a personalized story. Extract every specific fact stated and list them as a numbered checklist. Be exhaustive — every sentence should produce at least one fact.
-
-Include: names and relationships, ages and grades, school names, physical descriptions, personality traits, what the child is excited or nervous about, specific events or timeline details, friendships, hobbies, family details, and anything else that is a concrete stated fact.
-
-CRITICAL — RITUALS AND SEQUENCES: If the parent describes any specific ritual, routine, sequence of actions, counting sequence, or words said aloud (e.g. a goodbye ritual, a bedtime routine, a handshake, a counting game), extract it as a verbatim-required fact. Prefix that fact with "VERBATIM REQUIRED:" so it is clearly flagged. The story MUST reproduce this ritual exactly as described — not paraphrase it, not simplify it, not replace it with something similar.
-
-Do NOT infer or extrapolate. Only list things explicitly stated.
-
-Parent's notes:
-${customDetails}
-
-Return ONLY a numbered list of facts, one per line. Example format:
-1. Benjamin is Julianna's older brother
-2. Benjamin is currently in 1st grade
-3. VERBATIM REQUIRED: Goodbye ritual — three hugs plus one for good measure, three kisses plus one for good measure, rub noses three times plus one for good measure, Dad counts out loud
-No headers, no explanation — just the numbered list.`;
-
-  try {
-    const raw = await callClaudeHaiku(prompt, 800);
-    const facts = raw.trim();
-    console.log(`parseCustomDetails: extracted facts:\n${facts}`);
-    return facts;
-  } catch(e) {
-    console.warn(`parseCustomDetails failed (non-fatal): ${e.message}`);
-    return null;
-  }
-}
-
-async function verifyOutlineAgainstFacts(outline, parsedFacts, customDetails) {
-  if (!parsedFacts || !customDetails) return outline;
-
-  const prompt = `You are a quality checker for a personalized children's book outline. A parent provided specific facts about their child, and the outline must honor every one of them.
-
-STATED FACTS (extracted from parent's notes):
-${parsedFacts}
-
-RAW PARENT NOTES (for reference):
-${customDetails}
-
-OUTLINE TO CHECK:
-${JSON.stringify(outline, null, 2)}
-
-Your task:
-1. Read every fact above
-2. Check whether the outline contradicts or ignores any fact
-3. Rewrite any chapter summary that contradicts a stated fact, or add a note to the most relevant chapter summary to ensure the fact is included
-4. Pay special attention to: grades, school names, relationships, who goes where, what the child already knows or has, timeline details
-
-If a fact is not yet reflected anywhere in the outline, add it to the most relevant chapter's summary.
-If the outline is already fully consistent, return it unchanged.
-
-Return ONLY a valid JSON array with the same structure as the input — same number of chapters, each with "title", "summary", and "imagePrompt". No explanation, no markdown.`;
-
-  try {
-    const raw = await callClaudeOpus(prompt, 6000);
-    const match = raw.match(/\[[\s\S]*\]/);
-    if (match) {
-      const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed) && parsed.length === outline.length) {
-        const changed = parsed.filter((c, i) => c.summary !== outline[i].summary).length;
-        console.log(`verifyOutline: corrected ${changed} chapter summaries against custom facts`);
-        return parsed;
-      }
-    }
-    console.warn('verifyOutline: could not parse result, using original outline');
-    return outline;
-  } catch(e) {
-    console.error(`verifyOutline failed (non-fatal): ${e.message}`);
-    return outline;
-  }
-}
-
-// ── MANDATORY MOMENTS ──────────────────────────────────────────────────────
-// For any fact flagged VERBATIM REQUIRED, pre-write a locked passage before
-// chapter generation begins. The chapter writer receives this passage and must
-// incorporate it — they cannot invent a replacement.
-
-function extractVerbatimFacts(parsedFacts) {
-  if (!parsedFacts) return [];
-  return parsedFacts
-    .split('\n')
-    .filter(line => /VERBATIM REQUIRED:/i.test(line))
-    .map(line => line.replace(/^\d+\.\s*/, '').replace(/VERBATIM REQUIRED:\s*/i, '').trim())
-    .filter(Boolean);
-}
-
-async function generateMandatoryMoments(verbatimFacts, childData, outline) {
-  if (!verbatimFacts || verbatimFacts.length === 0) return [];
-  const { name, age, city, region } = childData;
-  const moments = [];
-
-  const outlineSummary = outline.map((c, i) =>
-    `Chapter ${i + 1}: "${c.title}" — ${c.summary}`
-  ).join('\n');
-
-  for (const fact of verbatimFacts) {
-    try {
-      // 1. Assign to the most relevant chapter
-      const assignPrompt = `A children's story has the following chapter outline:\n\n${outlineSummary}\n\nThis specific fact must appear in exactly one chapter: "${fact}"\n\nWhich chapter number (1–${outline.length}) is the most natural home for this fact? Return ONLY the number — nothing else.`;
-      const chapterNumRaw = await callClaudeHaiku(assignPrompt, 10);
-      const chapterNum = parseInt(chapterNumRaw.trim());
-      const chapterIdx = isNaN(chapterNum) ? 0 : Math.max(0, Math.min(chapterNum - 1, outline.length - 1));
-
-      // 2. Pre-write the locked passage — exact prose that captures the fact
-      const passagePrompt = `You are writing 2–4 sentences of children's story prose that captures the following specific fact EXACTLY as described. Do not paraphrase, simplify, or change any detail. Do not add facts not stated. The passage must be emotionally warm and age-appropriate for a ${age}-year-old.
-
-FACT TO RENDER VERBATIM: ${fact}
-
-CHILD'S NAME: ${name}
-SETTING: Fantasy world inspired by ${name}'s love of ${favorite || 'adventure'}, atmospheric feel of ${region}
-CHAPTER CONTEXT: ${outline[chapterIdx]?.summary || ''}
-
-Write ONLY the 2–4 sentence passage. No explanation, no title, no quotation marks around the whole passage.`;
-
-      const passage = await callClaude(passagePrompt, 300);
-      moments.push({ chapterIdx, fact, passage: passage.trim() });
-      console.log(`Mandatory moment generated for chapter ${chapterIdx + 1}: "${fact.slice(0, 60)}..."`);
-    } catch(e) {
-      console.error(`generateMandatoryMoments failed for fact "${fact.slice(0, 60)}": ${e.message}`);
-    }
-  }
-
-  return moments;
-}
-
-async function verifyMandatoryMoments(chapters, mandatoryMoments, startIdx) {
-  // For each chapter that has a mandatory moment, check key elements are present
-  // Returns list of { chapterIdx, fact, passage, missing: bool }
-  if (!mandatoryMoments || mandatoryMoments.length === 0) return [];
-  const results = [];
-
-  for (const moment of mandatoryMoments) {
-    const localIdx = moment.chapterIdx - startIdx;
-    if (localIdx < 0 || localIdx >= chapters.length) continue;
-    const chapter = chapters[localIdx];
-
-    try {
-      const checkPrompt = `Does the following story chapter contain all the specific details from the fact below? Answer only YES or NO.
-
-FACT: ${moment.fact}
-
-CHAPTER TEXT:
-${chapter.slice(0, 2000)}`;
-      const answer = await callClaudeHaiku(checkPrompt, 5);
-      const missing = !answer.trim().toUpperCase().startsWith('YES');
-      results.push({ ...moment, missing });
-      if (missing) console.warn(`Mandatory moment MISSING in chapter ${moment.chapterIdx + 1}: "${moment.fact.slice(0, 60)}"`);
-    } catch(e) {
-      console.error(`verifyMandatoryMoments check failed: ${e.message}`);
-    }
-  }
-  return results;
-}
-
-async function generateMilestoneGuidance(milestone, age, name) {
-  const ageNum = parseInt(age);
-  const ageStage = ageNum <= 6 ? "a 4–6 year old child (pre-K to Grade 1)"
-    : ageNum <= 9  ? "a 7–9 year old child (early elementary)"
-    : ageNum <= 12 ? "a 10–12 year old child (upper elementary / middle school)"
-    : "a 12–14 year old (middle school / early high school)";
-
-  const prompt = `You are a child development specialist and children's book author.
-
-A personalized story is being written for ${name}, age ${age}, about this milestone: "${milestone}"
-
-Generate 4–6 specific, research-informed strategies that genuinely help ${ageStage} navigate this milestone successfully. These will be woven into a children's story as natural narrative moments — not stated as advice.
-
-For each strategy:
-- Make it concrete and age-appropriate (something a child this age can actually do or feel)
-- Frame it as an experience or realization, not a lesson
-- Keep it positive and achievable
-
-Format as a simple numbered list. Each item should be 1–2 sentences. No headers, no explanations, just the strategies.
-
-Example format (for "starting a new school"):
-1. Focusing on finding just one friendly face rather than trying to fit in with everyone at once makes the first days feel manageable.
-2. Bringing a small familiar object from home can be a quiet comfort during overwhelming moments.
-3. Noticing small wins each day — finding the bathroom, remembering a classmate's name — builds confidence faster than waiting for a big breakthrough.`;
-
-  try {
-    const raw = await callClaudeOpus(prompt, 600);
-    console.log(`Milestone guidance for "${milestone}": ${raw.slice(0, 100)}...`);
-    return raw.trim();
-  } catch(e) {
-    console.error(`generateMilestoneGuidance failed: ${e.message}`);
-    return ""; // Fail gracefully — story generates without guidance
-  }
-}
-
-async function generateOutline(child, tier, storySeed = null, milestoneGuidance = "") {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails, parsedFacts } = child;
+async function generateOutline(child, tier) {
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
-  const companionRoleRule = friend && friend !== "none" ? `- COMPANION ROLE: ${friend} is ${name}'s established companion. Give them an active presence across multiple chapters, not just a background mention — they can supply comic relief, warmth, or encouragement, and their small reactions can mirror or gently contrast with ${name}'s own feelings about the challenge. They still follow the NAMED CHARACTERS rule below (always on ${name}'s team, never a source of conflict) but should feel like a real presence in the story, not a cameo.\n` : "";
-
-  // Build named characters list for outline kindness rule (same logic as chapter batch)
-  const namedCharacters = [name];
-  if (friend && friend !== "none") {
-    friend.split(/,|\band\b/i).forEach(f => {
-      const t = f.trim();
-      if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
-    });
-  }
-  if (customDetails) {
-    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
-    const nameMatches = customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
-    nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
-  }
-  const namedCharactersStr = namedCharacters.join(', ');
-
-  const customBlock = customDetails ? `
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-CRITICAL CUSTOM REQUIREMENTS — READ FIRST
-These override all defaults. Follow exactly.
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-${customDetails}
-NAMES: Use every character's name exactly as given above. Only use a nickname if the custom details above explicitly state one (e.g. "she calls him Benny"). If no nickname is stated, always write the full name — never shorten, abbreviate, or invent a diminutive.
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-${parsedFacts ? `EVERY FACT BELOW WAS EXTRACTED FROM THE PARENT'S NOTES. EVERY SINGLE ONE MUST BE HONOURED IN THIS OUTLINE:
-${parsedFacts}
-` : ""}` : "";
+  const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these must be followed precisely:\n${customDetails}\nIMPORTANT NICKNAME RULE: If a nickname is provided for any character, use ONLY that nickname — never invent a different one, never shorten it, never substitute it with another name. Characters may be referred to by their full name OR a provided nickname, but never a made-up alternative.` : "";
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 
-THIS IS A PORTAL FANTASY — like Narnia, The Wizard of Oz, or Alice in Wonderland. The story follows this exact structure:
-
-PORTAL FANTASY STRUCTURE (mandatory):
-PHASE 1 — REAL WORLD (first 1-2 chapters): ${name} is in their ordinary life. The milestone (${milestone}) is approaching and they have feelings about it. Keep real-world details generic — no invented specifics about their home, school, or possessions. Establish who ${name} is and what they love.
-PHASE 2 — THE PORTAL (1 chapter): Something connected to ${name}'s love of ${favorite} does something impossible — glows, speaks, comes alive, or reveals a hidden passage. ${name} crosses into a completely different world. This is not a dream and not a fantasy version of home — it is another world entirely.
-PHASE 3 — THE OTHER WORLD (middle chapters, majority of the book): ${name} explores and navigates a fantasy world built entirely around ${favorite}. The world has its own name, creatures, landscape, rules, and inhabitants. ${name} faces a MIRROR CHALLENGE — a quest or problem in this world that emotionally mirrors the real milestone (${milestone}), but in pure fantasy terms. Examples: if the milestone is about belonging somewhere new → ${name} must earn a place in a magical community; if it's about welcoming a new sibling → ${name} must protect a vulnerable young creature; if it's about being brave → ${name} must complete a quest that requires courage. The challenge is NEVER the literal milestone — it is the emotional heart of it, expressed in fantasy.
-PHASE 4 — RETURN HOME (final 1-2 chapters): ${name} returns to the real world. They now face the real milestone (${milestone}) with new confidence, understanding, or courage — earned by what they experienced in the other world. The story ends on a note of warm readiness.
-
-THE FANTASY WORLD:
-- Name it. Use the name consistently throughout the outline.
-- Build it from ${name}'s love of ${favorite} — the landscape, creatures, and challenges all feel designed for someone obsessed with ${favorite}.
-- Never reference ${city}, ${region}, any real location, school, or landmark anywhere in the story.
-
-${customBlock}
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-Real milestone: ${milestone} — this is what ${name} returns home to face at the end
+Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
+Milestone/theme: ${milestone}${customLine}
 
-STORY RULES — apply to every chapter summary:
-- ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail in the outline — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the profile or custom details above, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (invented). "They drove to school" ✓ — "they drove past the shops on the corner" ✗ (invented route detail). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). The parent knows every specific detail about their child's life — if it isn't in the profile, don't invent it. Write generically when the specific detail hasn't been provided.
-- STICK TO KNOWN DETAILS: Only reference specific real-world details — teacher names, school names, pet names, sibling names, home layout, routines, hobbies, family traditions — if they are explicitly provided in the child's profile or custom details. For anything not specified, keep it general so it cannot clash with the child's real life. Write "his teacher" not an invented name. Write "a place he loved" not an invented location. If it's not in the profile, leave it vague.
-- CUSTOM DETAILS ARE BINDING: The custom details provided by the parent are the only source of truth for every fact about these characters' lives — their relationships, where they go, what grade they're in, who they know, what they're doing. Do not infer, extrapolate, or invent any fact that isn't explicitly stated. Do not add sequence, timing, or causality that the custom details don't establish. If the custom details say two siblings are starting school this fall, do not write that one started before the other — that sequence isn't stated, so it doesn't exist. Read the custom details like a contract: every stated fact is fixed, every unstated fact is unknown.
-- RITUALS AND SEQUENCES ARE SACRED: If the parent's custom details describe a specific ritual, routine, counting sequence, set of steps, or phrase said out loud — that ritual must appear in the outline's chapter summaries exactly as described. Do NOT replace it with a similar-but-invented routine. Do NOT write "they have a special goodbye" and leave it vague — write the actual ritual steps into the summary. The chapter where the ritual appears must describe it with enough specificity that the chapter writer cannot substitute something else.
-- EXISTING CONNECTIONS ARE FACTS: If the custom details mention that ${name} already knows people at a new school, new place, or new situation — those connections are fixed facts. ${name} is NOT alone. Do not write ${name} as friendless or isolated when the custom details establish that friends, classmates, or known people are already there. The emotional challenge may be nervousness or missing old friends — but never loneliness at a destination where the custom details say people are waiting.
-- NAMED CHARACTERS — STRICT RULE: ${namedCharactersStr} may only appear in a chapter summary when they are actively helping, joining in, or enthusiastically encouraging ${name} in exactly what ${name} is trying to do. Named friends must NEVER: be unkind, exclude, or mock anyone; choose to do a different project, activity, or idea from ${name}; express doubt or hesitation about ${name}'s plan; or go off to do their own thing while ${name} works alone. Any scene involving conflict, social difficulty, or diverging choices must use only ${name} and completely unnamed characters ("a classmate", "some kids"). Named characters exist to be on ${name}'s team — always.
-${companionRoleRule}
-- NO PHONES OR DEVICES: This story world has no smartphones, cell phones, tablets, or personal devices — for anyone, children or adults. Nobody sends or receives texts, messages, or notifications. If characters need to communicate, they talk in person or pass a handwritten note.
-- NO ASSUMED DISABILITIES: Do not give any named character a wheelchair, mobility aid, prosthetic limb, visual impairment, hearing aid, or any other physical disability or adaptive device unless it is explicitly stated in the child's profile or custom details. This applies to ${name} and all named friends.
-- AGE-APPROPRIATE INDEPENDENCE — REAL WORLD SCENES: In real-world chapters (Phase 1 and Phase 4), ${name} must only do what is normal and safe for a real ${age}-year-old, with the level of adult supervision a parent would expect. Do not write ${name} alone and unsupervised in situations where a child that age would normally have an adult present — e.g. a full-day outing alone, wandering unfamiliar places alone, extended time unsupervised — unless the custom details explicitly establish this as normal for this family. When in doubt, keep a parent or known adult present or nearby in real-world scenes.
-- MENTOR/GUIDE CHARACTERS — NO ANONYMOUS STRANGERS: Any character who meaningfully guides, teaches, or helps ${name} — beyond a brief, incidental interaction — must be either (a) a person explicitly established in the child's profile or custom details (parent, sibling, grandparent, teacher, coach, etc.), or (b) a clearly fantastical being belonging to the portal-fantasy world (a magical creature, spirit, talking animal, or other visibly non-human/otherworldly inhabitant). Never introduce an unnamed, ordinary-looking real-world adult human whom ${name} meets alone and comes to trust as a guide — if the story needs a guide figure in the fantasy world, make it visibly magical or non-human, not a realistic stranger.
-
-CONFLICT SOURCE — this is critical: All tension and difficulty comes from the milestone challenge itself — self-doubt, the difficulty of the task, bad luck, time pressure. Named friends never appear in conflict scenes. All conflict involves only ${name} and unnamed characters.
-
-${milestoneGuidance ? `MILESTONE GUIDANCE — weave these approaches naturally into the story arc. ${name} should discover and practice these strategies through experience, not be told about them. They should feel like story moments, not lessons:
-${milestoneGuidance}
-` : ""}EMOTIONAL TONE — CRITICAL:
-${parseInt(age) <= 7
-  ? `${name} is ${age} years old. This book will be read TO or BY ${name}. Its job is to make them feel safe, brave, and understood — not heavy, sad, or overwhelmed.
-EMOTIONAL CEILING: The deepest negative feeling allowed in any chapter summary is a small flutter of nerves or a brief moment of uncertainty. That is the maximum. No chapter may dwell in sadness, loneliness, or doubt — any hard feeling must be brief and immediately followed by comfort, a small win, or forward movement in the same chapter.
-CHAPTER TITLES: Titles must NEVER name a negative emotional state. Banned words and concepts: Lonely, Loneliness, Alone, Sad, Sadness, Doubt, Fear, Scared, Lost, Hard, Dark, Worry, Trouble, Awful, Terrible, Worst. Titles must be warm, curious, or slightly mysterious — they hint at the adventure, not the ache. "A Fluttery Kind of Morning" yes. "Lunchtime Loneliness" never.
-THE CLIMAX IS STILL A CLIMAX — but for this age, the darkest moment is a gentle setback or a moment of "I'm not sure I can" — not devastation, not isolation, not tears that go uncomforted. The breakthrough comes quickly and warmly.`
-  : parseInt(age) <= 9
-  ? `${name} is ${age} years old. Emotions can be real — disappointment, worry, frustration — but they must be clearly passing. Any setback must be followed by visible progress or comfort within the same chapter. Sustained sadness must not carry across more than one chapter. Chapter titles should be evocative, not bleak. The overall emotional current of the book is warm and hopeful.`
-  : `${name} is ${age} years old. Genuine emotional complexity is appropriate — the story can sit with difficulty and let characters feel real, layered emotions across the arc.`}
-
-This is a ${tier.chapCount}-chapter ${tier.label} (~${(tier.chapCount * tier.wordsPerChap).toLocaleString()} words total). Use this narrative structure — these are not suggestions, they are the blueprint:
-
-NARRATIVE BLUEPRINT:
-1. REAL WORLD HOOK: Chapter 1 opens with ${name} in their real life — warm, vivid, immediate. Establish who they are, what they love, and that the milestone (${milestone}) is approaching. Within chapter 1 or 2, establish clearly what ${name} WANTS or FEARS about the milestone — something specific and emotional. This feeling is what the whole story is really about.
-2. THE PORTAL: One chapter is devoted entirely to the magical crossing. Something connected to ${name}'s love of ${favorite} cracks the real world open. The portal moment must feel wondrous and inevitable — like it was always going to happen. ${name} crosses into the other world.
-3. ESCALATING ADVENTURE: In the fantasy world, ${name} tries to navigate the mirror challenge. Each attempt either fails outright or partially works but creates a new complication. The stakes rise. By the midpoint the reader should feel genuine uncertainty about whether ${name} will succeed.
-4. TURNING POINT: One chapter is the moment of choice. ${name} must decide: try again or give up. This is the emotional heart of the story. ${parseInt(age) <= 7 ? "For this age, keep it gentle: a moment of 'I don't think I can' that becomes 'I'll try one more time.'" : "Make the choice feel genuinely hard — the wrong option should be tempting."}
-5. CHARACTER-DRIVEN RESOLUTION: ${name} solves the fantasy world's challenge through their OWN action and choice — not luck, not an adult fixing it. The breakthrough comes because ${name} did something. The reader should feel ${name} earned it.
-6. RETURN AND ECHO: ${name} returns to the real world. The final chapter circles back to the opening — the same milestone, but now ${name} faces it differently. Something from the fantasy world echoes here: a memory, a lesson carried in their chest, a moment of recognition. The reader feels the distance travelled. The final chapter must end on ONE concrete, specific image the reader will remember — not a stated lesson or abstract feeling. Describe an actual object, gesture, or moment (something ${name} holds, wears, sees, or does) rather than summarizing what it means.
-
-Arc structure across ${tier.chapCount} chapters:
-- Real world opening (first ~10%): ${name}'s life, the milestone approaching, who they are
-- The portal (~10%): Magical inciting incident, crossing into the other world
-- Fantasy adventure — rising action (middle ~50%): Mirror challenge, escalating attempts, wonder and danger
-- Turning point (~15%): Highest stakes → hardest choice → breakthrough moment
-- Resolution + return (~15%): Challenge resolved → return home → milestone faced with new confidence
-
-TONAL VARIETY — THIS IS MANDATORY:
-A story where every chapter has the same emotional register is a boring story. You must plan VARIETY across the ${tier.chapCount} chapters. The outline must include:
-- At least 2 COMEDY chapters: something genuinely funny happens — a misunderstanding, an accidental situation, an absurd small disaster, a moment that makes the reader laugh out loud. These are not just "light" chapters — they are specifically funny. Plan the joke. Write it into the summary.
-- At least 2 TRIUMPH chapters: ${name} succeeds at something concrete and visible — completes a task, wins a contest, finishes building or making something, masters a skill — not just an internal realization. ${name} feels genuinely proud and joyful, and the reader celebrates with them. Not a quiet "small win" — a real moment of YES.
-- At least 1 WONDER or DISCOVERY chapter: ${name} encounters something surprising, beautiful, or unexpectedly delightful that has nothing to do with the main challenge — a moment of pure delight.
-- The SETBACK chapter (part of the turning point arc) must feel meaningfully harder than earlier chapters — not just another flutter.
-
-SURPRISE RULE: Every chapter summary must contain at least ONE element that is unexpected — something the reader would not predict from the setup. A character who turns out to be different than expected. A plan that goes sideways in a funny or interesting way. An object that reappears in a new context. A coincidence, a reversal, a discovery. Predictable chapters are forgettable chapters.
-
-BEAT-ORDER VARIETY — THIS IS SEPARATE FROM THE SURPRISE RULE ABOVE: A surprising detail inside a chapter is not enough if every chapter still has the same internal shape (try something → fail → feel bad → get helped → small resolution). Across the escalating-adventure chapters, vary the actual sequence: who or what helps ${name} past a setback — sometimes their own idea, sometimes the companion, sometimes a stranger or creature in the fantasy world, sometimes nobody at all because ${name} works through it alone. Vary whether a setback resolves within the same chapter or carries unresolved into the next one. Vary where each chapter starts — mid-action, right after a failure has already happened, or at the calm moment before an attempt. No two consecutive chapters may share the same beat order.
-
-MOTIF DISCIPLINE: If the story uses a comfort object, gesture, or repeated phrase (e.g. a lucky stone, a hand squeeze, a special word), it may appear in AT MOST 3 chapters across the whole story. More than 3 uses turns a meaningful symbol into a crutch. Plan where those 3 moments fall — make each one earn its place.
-
-LESSON PACING — NO SINGLE SKILL GETS ITS OWN MINI-BOOK: If the milestone guidance above lists multiple distinct strategies, skills, or coping tools, do NOT teach them one after another as an unbroken tutorial sequence (learn skill 1 → learn skill 2 → learn skill 3 → recap all of them). Each individual strategy gets at most 1-2 chapters where it is demonstrated through action. A single lesson, obstacle, or skill-focused thread must not occupy more than 2 consecutive chapters before the story moves to its next beat, complication, or challenge. If several strategies are needed across the book, distribute them across different challenges and chapters rather than stacking them into one long teaching stretch — variety of event matters more than thoroughness of instruction.
-
-CHAPTER ENDINGS: Every chapter summary must include how the chapter ends. Each chapter ending should either: (a) resolve the chapter's small problem with a satisfying beat, OR (b) end on a question or complication that pulls the reader to the next chapter. Chapters must not simply trail off. The last sentence of each summary is the chapter's emotional landing — plan it.
+This is a full ${tier.chapCount}-chapter novel (~24,000 words total). Structure the arc like a proper novel:
+- Chapters 1–5: Introduce ${name} and their world, establish the milestone challenge
+- Chapters 6–15: Rising action, complications, adventures, setbacks
+- Chapters 16–24: Climax builds, highest stakes, darkest moment
+- Chapters 25–30: Resolution, triumph over the milestone, heartwarming ending
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
 Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object must have:
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "summary": 2-3 sentence summary of what happens
-- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration) — describe only cheerful, positive, bright, well-lit moments (e.g. exploring outdoors, building something, celebrating, helping a friend). Always daytime or warmly lit indoor scenes. No nighttime scenes, dark rooms, moonlit windows, or dim lighting. No danger, peril, conflict, or emotionally intense scenes.
+- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration)
 
 No markdown, no explanation, just the JSON array.`;
 
-  const raw = await callClaudeOpus(prompt, 6000);
+  const raw = await callClaude(prompt, 6000);
   try {
     // Strip markdown, find the JSON array
     let cleaned = raw.replace(/```json|```/g, "").trim();
@@ -1962,9 +292,7 @@ async function generateChapter(child, outline, index, tier) {
       ).join('\n')
     : "";
 
-  const prompt = `Write Chapter ${index + 1} of a personalized children's ${tier.label}. Target length: ${tier.wordsPerChap} words. Write the full chapter — do not stop early.
-
-THIS IS A PORTAL FANTASY. ${name} either begins in their real world (early chapters), is crossing into or exploring a fantasy world built around ${name}'s love of ${favorite} (middle chapters), or has returned home (final chapters). Follow the chapter summary exactly. Never reference ${city}, ${region}, any real school, or any real-world landmark in the fantasy world sections.
+  const prompt = `Write Chapter ${index + 1} of a personalized children's ${tier.label}.
 
 Chapter title: "${chap.title}"
 What happens in THIS chapter: ${chap.summary}
@@ -1975,16 +303,18 @@ ${arcContext}
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-Real milestone: ${milestone} — this is what ${name} returns home to face; the fantasy world's challenge mirrors it emotionally
+Setting: ${city}, ${region} — use the city name and regional geography naturally, but never specific street names, addresses, or neighbourhood names.
+Central theme: ${milestone}
 ${isFirst ? "\nThis is the opening chapter — establish the world vividly, introduce the hero with warmth and charm." : ""}
 ${isLast ? "\nThis is the final chapter — resolve the milestone beautifully, end with warmth and hope." : ""}
 
 Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud sentences. Short paragraphs. Rich sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate vocabulary. Mix of action, humor, and emotion." : "Rich vocabulary, complex emotions, vivid scenes. Feels like a real middle-grade novel."}
-Emotional ceiling: ${parseInt(age) <= 7 ? `${name} is ${age} years old. The maximum negative emotion in any passage is a small flutter of nerves or a brief moment of worry — that is the ceiling. Any sad or worried feeling must be quickly met with comfort or a positive shift within the same scene. ${name} may feel a little unsure but NEVER devastated, crushed, or deeply lonely. The chapter's emotional texture must be warm and cozy, even during the hard parts.` : parseInt(age) <= 9 ? `Emotions can be real but must be clearly passing. Hard feelings resolve within the chapter. Overall tone stays warm and hopeful.` : `Full emotional complexity appropriate for this age.`}
+
+LENGTH: Write until the scene reaches a natural story beat — a moment of tension, discovery, emotion, or resolution. Do not pad to fill a word count. Do not cut short before the scene is complete. Minimum ${tier.minWords} words, maximum ${tier.maxWords} words.
 
 CRITICAL: This chapter must follow directly from what came before and lead naturally into the next. Stay true to the established characters, setting, and tone. Do not introduce unrelated premises.
 CHARACTERS: Every person mentioned — siblings, friends, pets, parents — must be portrayed warmly and positively. No eye-rolling, dismissiveness, mockery, or negativity from any character toward another.
-NAMED FRIENDS IN CHAPTERS: If any of ${namedCharactersStr} appear, they must be actively on ${name}'s side — joining in, helping, or cheering for exactly what ${name} is doing. They must NEVER choose a different project or activity, express doubt about ${name}'s plan, or go off to do their own thing. Any character who diverges from ${name}'s goal must be given an unnamed label ("a classmate", "another kid") — never a protected name.
+CHAPTER ENDING: End on a natural beat — a moment of curiosity, warmth, anticipation, or quiet resolution. Never end mid-scene.
 
 FORMAT:
 - First line MUST be exactly: "Chapter ${index + 1}: ${chap.title}"
@@ -1992,34 +322,18 @@ FORMAT:
 - Then the full story text
 - Nothing else`;
 
-  return await callClaudeOpus(prompt, tier.maxTokensPerChap + 200);
+  return await callClaude(prompt, tier.maxTokensPerChap + 200);
 }
 
 // ════════════════════════════════════════════
 // BATCH CHAPTER GENERATION
 // ════════════════════════════════════════════
 
-async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier, milestoneGuidance = "", mandatoryMoments = [], handoffState = null) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, parsedCustomDetails, parsedFacts } = child;
+async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier) {
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion: ${friend}.` : "";
-
-  // Build a list of all named characters from the order (hero + ALL friends + custom details names)
-  const namedCharacters = [name];
-  if (friend && friend !== "none") {
-    friend.split(/,|\band\b/i).forEach(f => {
-      const t = f.trim();
-      if (t && !namedCharacters.includes(t)) namedCharacters.push(t);
-    });
-  }
-  if (customDetails) {
-    // Extract capitalised words that look like names (2+ capital-first words, not common words)
-    const skipWords = new Set(["I","The","A","An","He","She","They","His","Her","Their","When","That","This","If","And","But","So","In","On","At","For","To","Of","My","Our","We","Is","Are","Was","Were","Will","Can","Not","No"]);
-    const nameMatches = customDetails.match(/\b[A-Z][a-z]{1,14}\b/g) || [];
-    nameMatches.forEach(w => { if (!skipWords.has(w) && !namedCharacters.includes(w)) namedCharacters.push(w); });
-  }
-  const namedCharactersStr = namedCharacters.join(', ');
 
   // Full outline for arc awareness
   const arcContext = outline.map((c, i) =>
@@ -2041,151 +355,43 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
 
   const isLastBatch = endIdx >= outline.length;
 
-  // Handoff state — world state extracted from the last batch's actual written text.
-  // Injected as a pinned constraint so the writer can't contradict what was established.
-  const handoffBlock = handoffState ? `
-◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
-WORLD STATE ENTERING CHAPTER ${startIdx + 1}
-These are established facts from what was actually written in previous chapters.
-You MUST continue from this exact state. Do not contradict, reset, or ignore any item below.
-◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
-${handoffState}
-◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
-` : "";
-
-  // Locked passages — pre-written prose for any VERBATIM REQUIRED facts in this batch
-  const batchMoments = (mandatoryMoments || []).filter(m =>
-    m.chapterIdx >= startIdx && m.chapterIdx < endIdx
-  );
-  const lockedBlock = batchMoments.length > 0 ? `
-████████████████████████████████████████
-LOCKED PASSAGES — MANDATORY VERBATIM INCLUSION
-The following passages were pre-written from facts the parent provided. They must appear in the chapter indicated — incorporated naturally into the story flow, but the specific facts and details must not be changed, paraphrased, or replaced. You may add sentences before or after to connect them to the story, but the core content of each passage is fixed.
-████████████████████████████████████████
-${batchMoments.map(m => `CHAPTER ${m.chapterIdx + 1} — include this passage:\n"${m.passage}"`).join('\n\n')}
-████████████████████████████████████████
-` : "";
-
-  const customBlock = customDetails ? `
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-CRITICAL CUSTOM REQUIREMENTS — READ FIRST
-These override all defaults. Follow exactly.
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-${customDetails}
-NAMES: Use every character's name exactly as given above. Only use a nickname if the custom details above explicitly state one (e.g. "she calls him Benny"). If no nickname is stated, always write the full name — never shorten, abbreviate, or invent a diminutive.
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-${parsedFacts ? `CONFIRMED FACTS — every item below is a stated fact from the parent's notes. Every single one must appear correctly in the chapters you write:
-${parsedFacts}
-` : ""}` : "";
-
-  const customReminder = customDetails ? `
-FINAL CHECK before you finish:
-1. Every character's name is written exactly as given — no shortenings or invented diminutives unless the custom details above explicitly state a nickname.
-2. Any ages or grades mentioned for secondary characters are factually consistent — a younger child cannot be in the same grade as an older child.
-3. "Going to school together" means the same school building, not the same classroom or grade.
-Correct any errors before outputting.` : "";
+  const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these MUST be followed exactly in every chapter:\n${customDetails}\nPay special attention to any nicknames — use them EVERY time that character is addressed or referenced. Never use a different name for a character who has been given a nickname.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
 
-THIS IS A PORTAL FANTASY. ${name} either begins in their real world (early chapters), is crossing into or exploring a fantasy world built around ${name}'s love of ${favorite} (middle chapters), or has returned home (final chapters). Follow each chapter summary exactly. Never reference ${city}, ${region}, any real school, or any real-world landmark in the fantasy world sections.
-
-${customBlock}
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
-Real milestone: ${milestone} — this is what ${name} returns home to face; the fantasy world's challenge mirrors it emotionally. Stay consistent with the world established in the outline.
+Setting: ${city}, ${region} — use the city name and regional geography (mountains, rivers, weather, landscape) naturally, but NEVER use specific street names, addresses, or neighbourhood names.
+${customLine}
 ${arcContext}
 ${priorText}
-${handoffBlock}
-${lockedBlock}NOW WRITE these ${endIdx - startIdx} chapters in order:
+
+NOW WRITE these ${endIdx - startIdx} chapters in order:
 ${batchOutline}
 
-${milestoneGuidance ? `MILESTONE APPROACH — these are the real strategies that help children navigate this milestone. Weave them into the story naturally through what ${name} experiences, tries, feels, and discovers. Never state them as advice or lessons — show them happening:
-${milestoneGuidance}
-` : ""}RULES:
+RULES:
 - Write all ${endIdx - startIdx} chapters back to back
-- Each chapter: exactly ${tier.wordsPerChap} words
+- Each chapter: ${tier.minWords}–${tier.maxWords} words, ending on a natural story beat
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
-- ONLY INVENT WHAT CANNOT BE WRONG: Every concrete physical detail you write — an object the character owns or is given, a place they pass, food they eat, clothing they wear, something new they have — must either come directly from the child's profile or custom details, or be so generic it cannot be factually wrong. "She grabbed her bag" ✓ — "she grabbed her new sparkly backpack" ✗ (parent knows if this is real). "They drove to school" ✓ — "they drove past the shops on the corner" ✗ (invented route). "She unpacked her supplies" ✓ — "she unpacked her new unicorn pencil case" ✗ (invented object). The parent will read every sentence. If a specific detail isn't in the profile, write the generic version.
-- CONFLICT SOURCE: All tension comes from the milestone challenge — self-doubt, difficulty, bad luck, external obstacles. Named friends (${namedCharactersStr}) are always supportive. If the chapter outline refers to "a classmate" or "another kid" doing something unkind, write that character as a physically distinct stranger — never give them the name or identity of a named friend, and never place a named friend in the same action. If ${namedCharactersStr.split(', ').join(' or ')} is present in a scene where unkindness occurs, they must be bystanders who react with concern — never the one doing the unkind thing
-- SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. Within a single paragraph, a character's location must be internally consistent — if they are inside, every detail in that paragraph must reflect being inside; if they are outside, every detail must reflect being outside. Never write a sentence where a character is simultaneously inside (e.g. looking through a window) and outside (e.g. "staying outside") in the same breath.
-- NO DANGLING SETUPS: If a sentence creates suspense or anticipation — "he heard something that made his stomach drop", "then she saw it", "something was wrong" — the very next sentence must deliver what that something is. Never use a suspense hook as a transition into unrelated backstory. The payoff must be immediate and in the same scene.
-- NO ASSUMED DISABILITIES: Do not give any named character a wheelchair, mobility aid, prosthetic limb, visual impairment, hearing aid, or any other physical disability or adaptive device unless it is explicitly stated in the child's profile or custom details. This applies to ${name} and all named friends (${namedCharactersStr}).
-- AGE-APPROPRIATE INDEPENDENCE — REAL WORLD SCENES: In real-world scenes, ${name} only does what is normal and safe for a real ${age}-year-old, with the supervision a parent would expect. Do not write ${name} alone and unsupervised somewhere a child that age would normally have an adult present, unless the custom details explicitly establish this as normal for this family. Keep a parent or known adult present or nearby in real-world scenes when in doubt.
-- MENTOR/GUIDE CHARACTERS — NO ANONYMOUS STRANGERS: Any character who meaningfully guides, teaches, or helps ${name} — beyond a brief, incidental interaction — must be either a person already established in the child's profile or custom details (parent, sibling, grandparent, teacher, coach, etc.), or a clearly fantastical being belonging to the portal-fantasy world (magical creature, spirit, talking animal, otherworldly inhabitant). Never write an unnamed, ordinary-looking real-world adult human whom ${name} meets alone and treats as a trustworthy guide. If the outline implies a guide figure without specifying one, make that character visibly magical or non-human rather than a realistic stranger.
-- DIALOGUE COHERENCE: Every line of dialogue must logically follow from the line before it. A reply must make sense as a direct response to what was just said. If a character says two things in one turn — a greeting AND a question, or a nickname AND a statement — the reply must address both, not just one. Never respond only to a nickname trigger and ignore the actual question or statement that followed it. If a family member (sibling, parent) speaks directly to ${name}, ${name} must respond to what they said — never skip past it as if it were unheard.
-- AGE & GRADE LOGIC: Derive school grades strictly from age (age 5 = Kindergarten, age 6–7 = Grade 1–2, etc.). Children of different ages are never in the same grade unless they are twins or custom details say otherwise. "Going to school together" = same school building, not same grade. Never write that a younger child is joining or catching up to an older child's grade. GRADE ADVANCEMENT: If the custom details state current grades and the story is set in the future, ALL characters advance one grade together — if he's in 1st grade now and the story takes place next year, he is in 2nd grade. Never freeze one character's grade while advancing another's. FIRST-DAY PHRASING: If the milestone IS the first day of school, siblings at the same school are also just starting their new grade that same day — write "starting 2nd grade" or "beginning his 2nd grade year", never "already in 2nd grade." "Already in" implies they've been there for a while; on the first day, everyone is starting fresh.
-- PROTAGONIST'S SCHOOL NAME: If a specific school name is provided for ${name} in the profile or custom details, use that exact name every single time the school is mentioned. Never substitute a different school name, never invent an alternative. If the custom details say ${name} is going to "Foothill Elementary", then every reference to ${name}'s school must say "Foothill Elementary" — not "Sunshine Elementary", not "Maple Grove", not any invented name. The protagonist's school name is a fixed fact, not a creative choice.
-- EXISTING CONNECTIONS ARE FACTS: If the custom details state that ${name} already knows people at a new school, new team, new place, or new situation — those people are real and present. ${name} is NOT alone or friendless at that destination. Never write ${name} as having no one when the custom details establish that specific people are already there. The emotional challenge may be nervousness or missing old friends — but the known connections must appear in the story as real, warm presences.
+- SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
-- EMOTIONAL CEILING: ${parseInt(age) <= 7 ? `${name} is ${age} years old. This book will be read TO or BY ${name} — it must make them feel safe and brave, not heavy or sad. The maximum allowed negative emotion in any single passage is a small flutter of nerves, a tiny twinge of worry, or a brief moment of "I hope this works." That is the ceiling. Any sad or worried feeling must be met with immediate comfort, warmth, or a shift toward something positive — within the SAME scene, never left hanging. ${name} may feel a little nervous, a little unsure — but NEVER devastated, crushed, deeply lonely, or overwhelmed by sadness. No passage should make the real child reading this feel worse about their own situation. A moment of sadness is okay; a chapter that marinates in sadness is not. The emotional texture of every chapter must be: cozy, warm, and brave — even during the hard parts.` : parseInt(age) <= 9 ? `Emotions can be real — disappointment, worry, brief sadness — but they must be clearly passing. Any hard emotional moment must be followed within the same chapter by comfort, progress, or a positive turn. Do not let ${name} sit in sadness, self-doubt, or loneliness for extended passages. The overall emotional texture must remain warm and hopeful.` : `${name}'s emotional life can have genuine complexity and depth appropriate for this age.`}
-- CHAPTER PURPOSE: Every chapter must earn its place. Before writing, answer: why does this chapter exist? It must introduce a new problem, a new attempt, new information, or a new emotional shift. A chapter that merely passes time is not acceptable.
-- CHAPTER STRUCTURE: Every chapter has a beginning, middle, and end — even if subtle. Start: something is happening or about to happen. Middle: a complication or development that raises the stakes or deepens the situation. End: a change, a reveal, or a new tension. The reader must feel the chapter move.
-- OPENINGS: Drop the reader directly into action, dialogue, or a vivid moment. Never open a chapter with backstory, weather description, or a character waking up and thinking about the day. The first sentence must create immediate forward motion — something is already in motion when we arrive.
-- CHANGE IS MANDATORY: If nothing changes by the end of a chapter, rewrite it. Change can be external (a plot event, a new obstacle, something gained or lost) or internal (a feeling shifts, a realization lands, a decision is made). Both count. Neither can be skipped.
-- ESCALATION: When ${name} tries something and it doesn't work, the next attempt must be harder, not easier. Things should get more complicated before they get better. A story where the first try works, then the second try works, then the third try works is not a story — it's a list. Make the middle hard.
-- CHARACTER EARNS THE WIN: The resolution of the problem must come from ${name}'s own decision or action. An adult stepping in and fixing it, a lucky accident, or a coincidence that saves the day is a cheat. The reader must feel that ${name} caused the breakthrough — because they chose to try again, because they were kind when it was hard, because they did the thing they were afraid to do.
-- WANT IS THE ENGINE: Keep ${name}'s specific want visible throughout. The reader should always know what ${name} is trying to get or do. When that want is finally met (or meaningfully transformed), the story is over. If the want disappears from the middle chapters, the story loses its engine.
-- EMOTIONAL TRUTH OVER LESSON: Never state the theme, the moral, or what ${name} learned. Show it through what ${name} does at the turning point. A child reading should feel the meaning — not be told it.
-- SHOW WITHOUT TRANSLATING: When a sentence already shows an emotion through a physical detail — fists unclenching, shoulders dropping, a breath slowing, a smile returning, footsteps quickening — do NOT follow it with a sentence explaining what that detail means or restating the feeling in plain language ("Now he felt calm," "She understood then that...", "He knew he could do it"). The physical image IS the emotional beat. Let it stand alone and move the scene forward — do not add a second sentence that translates it into a stated feeling or conclusion.
-- CHAPTER TITLES: Titles should be evocative and slightly mysterious — they should hint at the chapter's emotional core without giving it away. Avoid flat descriptive titles like "The Competition" or "A Hard Day." Prefer titles with personality: a fragment of dialogue, a surprising image, an unexpected phrase that makes the reader curious.
-- ENDINGS — FORWARD PULL: Every chapter ending must pull the reader forward. The hook doesn't need to be dramatic — it can be a question, a surprise, a worry, or a quiet promise of what's coming. What it cannot be is a full stop. The last sentence leans forward. Never wrap the scene up neatly; leave one thread loose.
-- MOMENTUM: Chapters are pacing tools. Some chapters build "just one more…" energy — fast, propulsive, ending on a cliffhanger. Others give the reader a breath — slower, emotional, landing on feeling rather than action. Vary the rhythm deliberately. A string of identical chapter shapes kills momentum.
-- EXECUTE THE CHAPTER'S TONAL JOB: Each chapter has a specific emotional register it must deliver. Read the chapter summary and identify what kind of chapter this is: a COMEDY chapter must be genuinely funny — physical mishaps, misunderstandings, absurd situations, moments that make a child giggle. Do not soften a funny chapter into something merely light. A TRIUMPH chapter must feel like a real win — let ${name} feel big, proud, joyful. Do not undercut the triumph with immediate doubt. A WONDER chapter must feel surprising and delightful. A SETBACK chapter must feel like things genuinely got harder — not just another flutter. Whatever the chapter's job is, do it fully. The biggest mistake is writing every chapter in the same gentle middle register regardless of what the outline calls for.
-${parseInt(age) >= 8 ? `- SENTENCE RHYTHM: Match sentence length to emotional tempo. Action scenes: short, punchy, immediate. Emotional scenes: longer sentences, more detail, more pause. The reader should feel the difference physically — fast chapters read fast, slow chapters breathe.` : ""}
-${parseInt(age) >= 10 ? `- CHARACTER DEPTH: Layer ${name}'s internal life across chapters. Track how their thinking shifts — what they believed at the start that turns out to be wrong, what they're beginning to understand, what they're still not ready to face. Let subtext carry weight: what a character doesn't say, doesn't do, or notices but ignores reveals more than exposition. The chapter becomes a narrative lever — it shapes meaning, not just movement.` : ""}
-${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope. End on a warm, satisfying, conclusive note — no cliffhanger on the last chapter." : ""}
-- SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. All stories must resolve with hope and warmth.
-- STICK TO KNOWN DETAILS: Only use specific real-world details — teacher names, school names, pet names, sibling names, home layout, daily routines, specific hobbies, family traditions — if they are explicitly provided in the child's profile or custom details above. For anything not specified, use general language instead of inventing specifics. Say "his teacher" not "Ms. Johnson". Say "their house" not invented room names. Say "a book she loved" not a specific title. If a detail is not in the profile, keep it vague so it cannot clash with the child's real life.
-- SECONDARY CHARACTERS HAVE NO INVENTED ATTRIBUTES: If the parent provided a companion's name, that name is ALL you know about them. Do not invent their height, build, hair, appearance, personality, catchphrases, backstory, or any other characteristic. If the profile says "friend: Jake", write "Jake" — not "Jake, the tallest kid in class", not "funny Jake", not "Jake who always knew what to say". Use only what is explicitly stated. If you don't know something about a named character, omit the attribute entirely. "Jake ran over" ✓ — "Jake, the tallest friend he had, ran over" ✗. "Emma smiled" ✓ — "Emma, always the brave one, smiled" ✗. Every invented trait about a named character is a fact the parent can contradict. When in doubt, use the name only.
-- CUSTOM DETAILS ARE BINDING: The custom details are the only source of truth for every fact about these characters' lives. Do not infer, extrapolate, or invent anything not explicitly stated. Do not add sequence, timing, or causal relationships that the custom details don't establish. If a fact about a character's situation, history, or timeline isn't written in the custom details, it is unknown — do not fill in the blank. Read the custom details like a legal contract: stated facts are fixed, unstated facts do not exist.
-- FREQUENCY IS EXACT AND NON-TRANSFERABLE: Frequency words are literal and binding. If custom details say something happened "once" or "one time", it happened exactly once — never imply it is recurring, regular, or habitual. If two separate facts share a setting (e.g. "helps with drop-off daily" AND "had lunch in the cafeteria once"), do not merge them into a single recurring event. Each fact stands alone with its own frequency. Never promote a one-time event into a habit. Never borrow the frequency of one fact and attach it to another.
-- RITUALS AND SEQUENCES ARE SACRED — REPRODUCE VERBATIM: If the parent's custom details describe a specific ritual, routine, counting sequence, set of steps, or phrase said out loud — that exact sequence MUST appear in the story written exactly as the parent described it. Do NOT paraphrase it. Do NOT simplify it. Do NOT invent a "similar" or "inspired-by" version. Do NOT replace it with something you think is more charming or creative. Write the exact actions, the exact counts, the exact words. If the parent says "three hugs plus one for good measure, three kisses plus one for good measure, and they rub noses three times plus one for good measure, and Dad counts them out loud" — then that is what happens in the story, in that order, with those counts, with Dad counting. The parent described their real-life ritual because they want their child to open this book and see their actual life reflected back at them. Inventing a different ritual — no matter how good — is a complete failure of the Signature track's purpose. Treat every described ritual as sacred text.
-- NAMED CHARACTERS IN POSITIVE SCENES ONLY: ${namedCharactersStr} may only appear in scenes where they are actively helping, encouraging, or sharing a warm moment with ${name}. They must NEVER appear in any scene involving conflict, difficulty, unkindness, or social tension — not as the cause, not as bystanders, not as observers. When writing any scene that involves struggle, exclusion, or unkind behavior, write as if the named characters do not exist. Use only ${name} and completely unnamed characters ("a classmate", "some kids", "another child") for conflict scenes. The named characters exist in this story only to be supportive — they are not plot devices for conflict.
-- NO PHONES OR DEVICES: This story world has no smartphones, cell phones, tablets, or personal devices — for anyone, children or adults. Nobody sends or receives texts, messages, or notifications. If characters need to communicate, they talk in person or pass a handwritten note.
-${customReminder}
+${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
+- SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
+
 Write all ${endIdx - startIdx} chapters now. Nothing else.`;
 
-  const raw = await callClaudeOpus(prompt, tier.maxTokensPerChap * (endIdx - startIdx) + 500);
+  const raw = await callClaude(prompt, tier.maxTokensPerChap * (endIdx - startIdx) + 500);
 
   // Split the response into individual chapters
   const chapTexts = raw.split(/(?=Chapter \d+:)/g).filter(c => c.trim());
-
-  // If batch came back short, retry each missing chapter individually — never pad with placeholder text
+  
+  // Make sure we got the right number — pad or trim if needed
   while (chapTexts.length < endIdx - startIdx) {
-    const missingNum = startIdx + chapTexts.length + 1;
-    const missingOutline = outline[startIdx + chapTexts.length];
-    console.warn(`Batch returned only ${chapTexts.length}/${endIdx - startIdx} chapters — retrying chapter ${missingNum} individually`);
-
-    try {
-      const retryPrompt = `Write Chapter ${missingNum} of a personalized children's ${tier.label}.
-
-Chapter title: "${missingOutline?.title}"
-Chapter summary: ${missingOutline?.summary}
-
-Write approximately ${tier.wordsPerChap} words. Format your response exactly like this:
-Chapter ${missingNum}: ${missingOutline?.title}
-
-[chapter text here]
-
-Nothing else before or after the chapter.`;
-
-      const retryRaw = await callClaudeOpus(retryPrompt, tier.maxTokensPerChap + 300);
-      const retryText = retryRaw.trim();
-      // Ensure it starts with the chapter header
-      if (retryText.startsWith('Chapter')) {
-        chapTexts.push(retryText);
-      } else {
-        chapTexts.push(`Chapter ${missingNum}: ${missingOutline?.title || 'The Next Adventure'}\n\n${retryText}`);
-      }
-    } catch(e) {
-      console.error(`Individual retry for chapter ${missingNum} failed: ${e.message}`);
-      // Only use placeholder as absolute last resort after retry failure
-      chapTexts.push(`Chapter ${missingNum}: ${missingOutline?.title || 'The Next Adventure'}\n\n[Chapter generation failed — please regenerate this story.]`);
-    }
+    chapTexts.push(`Chapter ${startIdx + chapTexts.length + 1}: The Adventure Continues\n\nThe story continued on...`);
   }
-
+  
   return chapTexts.slice(0, endIdx - startIdx);
 }
 
@@ -2194,7 +400,11 @@ async function generateIllustrations(child, outline, chapters, tier) {
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
-  const styleGuide = getStyleGuideForAge(age);
+  const styleGuide = parseInt(age) <= 5
+    ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
+    : parseInt(age) <= 9
+    ? "vibrant digital children's book illustration, colorful and expressive, slightly stylized, warm lighting"
+    : "detailed digital illustration, cinematic lighting, slightly realistic, like a YA novel cover";
 
   const illustrations = {}; // keyed by "chapterIndex-imageIndex"
 
@@ -2206,11 +416,12 @@ async function generateIllustrations(child, outline, chapters, tier) {
         ? chap.imagePrompt
         : `Another moment from this scene: ${chap.summary}`;
 
-      const prompt = `${styleGuide}. Scene: ${scenePrompt} The main character is ${charDesc}. Setting: fantasy world with landscape atmosphere drawn from ${region}. No text in the image.`;
+      const prompt = `${styleGuide}. Scene: ${scenePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text in the image.`;
 
       try {
         console.log(`Generating image ${key}`);
-        const imageBytes = await callGptImage(prompt);
+        const imageUrl = await callDallE(prompt);
+        const imageBytes = await fetchImageBytes(imageUrl);
         illustrations[key] = imageBytes.toString('base64');
         console.log(`Image ${key} done`);
       } catch(err) {
@@ -2222,241 +433,13 @@ async function generateIllustrations(child, outline, chapters, tier) {
   return illustrations;
 }
 
-async function extractScenePrompt(chapterText, name, age, city, region) {
-  // Strip chapter title line, keep body text only
-  const lines = chapterText.split(/\n+/).filter(l => l.trim());
-  const body = lines.slice(1).join(' ').slice(0, 1500); // Cap at ~1500 chars to keep the call cheap
-
-  const ageNum = parseInt(age);
-
-  // Age-specific instructions for what kind of scene to find and how to describe it
-  const ageGuidance = ageNum <= 7
-    ? `This is for a very young reader (age ${age}). Pick the most literal, action-clear moment — the one where it's most obvious what ${name} is physically doing. Big emotions and clear body language matter most. The illustration must carry part of the story on its own. Describe exactly what is happening: the action, the expression on ${name}'s face, who else is there, and where they are.`
-    : ageNum <= 10
-    ? `This is for a middle-reader (age ${age}). Pick a moment that allows for visual humor, personality, or something the text hints at but doesn't fully describe — a hidden joke, an exaggerated reaction, a telling detail. The illustration should enhance the story, not just repeat it. Describe the scene and include one detail that adds something extra — something funny, surprising, or revealing about ${name}'s character.`
-    : `This is for an older reader (age ${age}). Pick the most emotionally significant or atmospheric moment in the chapter — a scene that captures the mood, the stakes, or the world of the story. The illustration should feel cinematic. Describe the scene focusing on setting, atmosphere, and ${name}'s emotional state as shown through their posture and expression.`;
-
-  const prompt = `You are selecting the single best moment from a children's story chapter to illustrate.
-
-${ageGuidance}
-
-Rules:
-- The moment must be positive, warm, or exciting — no conflict, sadness, or peril
-- Must be well-lit and daytime (or warmly lit indoors)
-- Must feature ${name} doing something specific and concrete
-
-Return ONLY a single sentence describing exactly what to draw. Be specific: name the action, the location, any other characters present, and one expressive detail. Do not mention lighting style or illustration style. Start with "${name}".
-
-Good example (ages 5–7): "${name} beams with pride, arms stretched wide, as a huge tower of colorful blocks stands tall in the living room."
-Good example (ages 7–10): "${name} tries to look calm while their little sibling accidentally sits on the project they worked so hard on, squashing it flat."
-Good example (ages 9–12): "${name} stands alone at the edge of a crowded schoolyard, backpack clutched tight, watching the other kids from a distance — but with the smallest hint of a determined smile."
-
-CHAPTER EXCERPT:
-${body}`;
-
-  try {
-    const result = await callClaude(prompt, 200);
-    const scene = result.trim().replace(/^["']|["']$/g, '');
-    console.log(`Scene extracted (age ${age}) for illustration: ${scene}`);
-    return scene;
-  } catch(e) {
-    console.warn(`extractScenePrompt failed — using fallback: ${e.message}`);
-    return `${name} on an adventure in ${city}`;
-  }
-}
-
-async function callFalInstantCharacterOnce(referenceImageUrl, scenePrompt) {
-  const FAL_KEY = process.env.FAL_KEY;
-  if (!FAL_KEY) throw new Error("FAL_KEY environment variable is not set");
-
-  // Submit to fal.ai queue
-  const submitRes = await fetch('https://queue.fal.run/fal-ai/instant-character', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Key ${FAL_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      image_url: referenceImageUrl,
-      prompt: scenePrompt,
-      size: 'square_hd',
-      scale: 0.8   // slightly below max so background has room to breathe
-    }),
-    signal: AbortSignal.timeout(30000)
-  });
-
-  if (!submitRes.ok) {
-    const err = await submitRes.text();
-    throw new Error(`fal.ai submit error ${submitRes.status}: ${err.slice(0, 200)}`);
-  }
-
-  const { request_id } = await submitRes.json();
-  if (!request_id) throw new Error("fal.ai: no request_id in submit response");
-  console.log(`fal.ai instant-character submitted: ${request_id}`);
-
-  // Poll for completion (up to 6 minutes, every 6 seconds)
-  const statusUrl = `https://queue.fal.run/fal-ai/instant-character/requests/${request_id}/status`;
-  const resultUrl = `https://queue.fal.run/fal-ai/instant-character/requests/${request_id}`;
-  const deadline = Date.now() + 360000;
-
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 6000));
-    const statusRes = await fetch(statusUrl, {
-      headers: { 'Authorization': `Key ${FAL_KEY}` }
-    });
-    const status = await statusRes.json();
-    console.log(`fal.ai status: ${status.status}`);
-
-    if (status.status === 'COMPLETED') {
-      const resultRes = await fetch(resultUrl, {
-        headers: { 'Authorization': `Key ${FAL_KEY}` }
-      });
-      const result = await resultRes.json();
-      const imageUrl = result?.images?.[0]?.url;
-      if (!imageUrl) throw new Error("fal.ai: no image URL in result");
-      console.log(`fal.ai instant-character done: ${imageUrl.slice(0, 60)}`);
-      const imageBytes = await fetchImageBytes(imageUrl);
-      // A real square_hd illustration should be well over 50KB — anything smaller is likely
-      // a black/failed image returned silently by fal.ai (content rejection or model error)
-      if (imageBytes.length < 20000) {
-        throw new Error(`fal.ai returned a suspiciously small image (${imageBytes.length} bytes) — likely a black or failed image`);
-      }
-      return imageBytes;
-    }
-
-    if (status.status === 'FAILED') {
-      throw new Error(`fal.ai generation failed: ${JSON.stringify(status.error || status).slice(0, 200)}`);
-    }
-  }
-
-  throw new Error("fal.ai instant-character timed out after 6 minutes");
-}
-
-async function callFalInstantCharacter(referenceImageUrl, scenePrompt) {
-  try {
-    return await callFalInstantCharacterOnce(referenceImageUrl, scenePrompt);
-  } catch(e) {
-    if (e.message.includes("timed out")) {
-      console.warn("fal.ai timed out on first attempt — resubmitting to queue");
-      return await callFalInstantCharacterOnce(referenceImageUrl, scenePrompt);
-    }
-    if (e.message.includes("suspiciously small") || e.message.includes("black or failed")) {
-      // Retry with a stripped-down prompt — complex prompts occasionally trigger silent rejection
-      const fallbackPrompt = scenePrompt.split('.').slice(0, 3).join('.') + '. Cheerful, bright daytime scene. Bold outlined digital illustration with rich painted colors.';
-      console.warn(`fal.ai returned black image — retrying with simplified prompt: ${fallbackPrompt.slice(0, 120)}`);
-      return await callFalInstantCharacterOnce(referenceImageUrl, fallbackPrompt);
-    }
-    throw e;
-  }
-}
-
-// ════════════════════════════════════════════
-// FAL.AI COVER IMAGE (FLUX Pro 1.1 — text-to-image)
-// ════════════════════════════════════════════
-// The cover has no reference image yet (it IS the reference), so it can't use
-// Instant Character directly. FLUX Pro is the text-to-image sibling model in the
-// same family Instant Character is built on, so generating the cover here — instead
-// of on a completely different renderer (DALL-E 3 / gpt-image-1) — keeps the cover
-// and every interior illustration in the same visual style. Same queue.fal.run
-// submit/poll/result pattern as callFalInstantCharacterOnce above.
-async function callFalCoverImageOnce(prompt, size = "square_hd") {
-  const FAL_KEY = process.env.FAL_KEY;
-  if (!FAL_KEY) throw new Error("FAL_KEY environment variable is not set");
-
-  const submitRes = await fetch('https://queue.fal.run/fal-ai/flux-pro/v1.1', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Key ${FAL_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      prompt,
-      image_size: size,
-      output_format: 'jpeg'
-    }),
-    signal: AbortSignal.timeout(30000)
-  });
-
-  if (!submitRes.ok) {
-    const err = await submitRes.text();
-    throw new Error(`fal.ai cover submit error ${submitRes.status}: ${err.slice(0, 200)}`);
-  }
-
-  const { request_id } = await submitRes.json();
-  if (!request_id) throw new Error("fal.ai cover: no request_id in submit response");
-  console.log(`fal.ai flux-pro cover submitted: ${request_id}`);
-
-  const statusUrl = `https://queue.fal.run/fal-ai/flux-pro/v1.1/requests/${request_id}/status`;
-  const resultUrl = `https://queue.fal.run/fal-ai/flux-pro/v1.1/requests/${request_id}`;
-  const deadline = Date.now() + 180000;
-
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 4000));
-    const statusRes = await fetch(statusUrl, {
-      headers: { 'Authorization': `Key ${FAL_KEY}` }
-    });
-    const status = await statusRes.json();
-    console.log(`fal.ai cover status: ${status.status}`);
-
-    if (status.status === 'COMPLETED') {
-      const resultRes = await fetch(resultUrl, {
-        headers: { 'Authorization': `Key ${FAL_KEY}` }
-      });
-      const result = await resultRes.json();
-      const imageUrl = result?.images?.[0]?.url;
-      if (!imageUrl) throw new Error("fal.ai cover: no image URL in result");
-      console.log(`fal.ai flux-pro cover done: ${imageUrl.slice(0, 60)}`);
-      const imageBytes = await fetchImageBytes(imageUrl);
-      if (imageBytes.length < 20000) {
-        throw new Error(`fal.ai cover returned a suspiciously small image (${imageBytes.length} bytes)`);
-      }
-      return imageBytes;
-    }
-
-    if (status.status === 'FAILED') {
-      throw new Error(`fal.ai cover generation failed: ${JSON.stringify(status.error || status).slice(0, 200)}`);
-    }
-  }
-
-  throw new Error("fal.ai flux-pro cover timed out after 3 minutes");
-}
-
-async function callFalCoverImage(prompt, size = "square_hd") {
-  try {
-    return await callFalCoverImageOnce(prompt, size);
-  } catch(e) {
-    if (e.message.includes("timed out")) {
-      console.warn("fal.ai cover timed out on first attempt — resubmitting to queue");
-      return await callFalCoverImageOnce(prompt, size);
-    }
-    throw e;
-  }
-}
-
-// Cover image — returns raw image Buffer directly.
-// Primary: fal.ai FLUX Pro 1.1, so the cover renders in the same model family as
-// every interior illustration (Instant Character). Previously this called DALL-E 3
-// first — that model was removed from the OpenAI API on 2026-05-12, so it was
-// silently failing and falling back to gpt-image-1 on every single call, and even
-// gpt-image-1 never matched fal.ai's interior style. gpt-image-1 is kept only as a
-// last-resort fallback if fal.ai itself is down.
-async function callCoverImage(prompt, size = "1024x1024") {
-  try {
-    return await callFalCoverImage(prompt, "square_hd");
-  } catch(e) {
-    console.warn(`fal.ai cover failed (${e.message}) — falling back to gpt-image-1`);
-    return callGptImage(prompt, size);
-  }
-}
-
-function callDallE3(prompt, size = "1024x1024") {
+function callDallE(prompt) {
   const payload = JSON.stringify({
     model: "dall-e-3",
     prompt,
     n: 1,
-    size,
-    quality: "standard",
-    response_format: "b64_json"
+    size: "1024x1024",
+    quality: "standard"
   });
 
   return new Promise((resolve, reject) => {
@@ -2480,55 +463,7 @@ function callDallE3(prompt, size = "1024x1024") {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          const b64 = data.data[0].b64_json;
-          if (!b64) return reject(new Error("DALL-E 3: no b64_json in response"));
-          resolve(Buffer.from(b64, "base64"));
-        } catch(e) {
-          reject(new Error("DALL-E 3 parse error: " + body.slice(0, 200)));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => reject(new Error("DALL-E 3 timeout")));
-    req.write(payload);
-    req.end();
-  });
-}
-
-function callGptImage(prompt, size = "1024x1024") {
-  const payload = JSON.stringify({
-    model: "gpt-image-1",
-    prompt,
-    n: 1,
-    size,
-    quality: "medium",
-    output_format: "jpeg"
-  });
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: "api.openai.com",
-      port: 443,
-      path: "/v1/images/generations",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      timeout: 180000
-    };
-
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", () => {
-        try {
-          const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message));
-          const b64 = data.data[0].b64_json;
-          if (!b64) return reject(new Error("DALL-E: no b64_json in response"));
-          resolve(Buffer.from(b64, "base64"));
+          resolve(data.data[0].url);
         } catch(e) {
           reject(new Error("DALL-E parse error: " + body.slice(0, 200)));
         }
@@ -2541,102 +476,46 @@ function callGptImage(prompt, size = "1024x1024") {
   });
 }
 
-// Calls GPT-4o vision to extract a precise character description from the cover image
-async function designCharacters(childData, outline) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, friend, customDetails } = childData;
-  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-  const genderDesc = gender === "girl" ? "girl" : gender === "boy" ? "boy" : "child";
-  const friendLine = friend && friend !== "none" ? `\nCompanion/pet: ${friend}.` : "";
-
-  const imagePrompts = outline.map((c, i) => `Ch${i + 1}: ${c.imagePrompt}`).join('\n');
-
-  const customBlock = customDetails ? `\nCustom details provided by the parent (contains exact physical descriptions for secondary characters — use these as ground truth):\n${customDetails}\n` : "";
-
-  const prompt = `You are designing characters for a children's illustrated book. Your job is to assign consistent physical descriptions to all recurring characters so an illustrator can draw them the same way every time.
-
-Known main character: ${name}, ${age}-year-old ${genderDesc}, ${hairDesc} hair, ${eye} eyes.${friendLine}
-${customBlock}
-Chapter scene descriptions (used to identify all characters):
-${imagePrompts}
-
-Task:
-1. Identify every distinct character who appears in 2 or more chapter scenes (siblings, friends, antagonists, pets, teachers, etc.)
-2. For each recurring character, write a specific, consistent physical description (hair color, hair length, hair texture, eyes, skin, clothing style, distinguishing features). CRITICAL: If the custom details above describe a character's appearance, use those details exactly — do not invent different ones. If the custom details say a character has shoulder-length straight hair, write that. If they say a character is a boy or uses he/him, mark them as male.
-3. Also write the definitive description for ${name} using their known details
-
-Return ONLY a valid JSON object. Keys are character names, values are 1-2 sentence physical descriptions. Each description MUST include: the character's exact age as "X-year-old" (this is mandatory — an illustrator will use this to determine body size and face maturity), gender, hair (color, length, texture), eye color, and a clothing style hint. Example:
-{
-  "${name}": "a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing a teal pinafore dress and white shirt",
-  "Jake": "a stocky 9-year-old boy with short red hair, pale freckled skin, and a green t-shirt",
-  "Mom": "a tall adult woman with shoulder-length dark hair, warm brown eyes, and a floral blouse",
-  "Biscuit": "a fluffy golden retriever with floppy ears and a red collar"
-}
-
-CRITICAL RULES:
-- Every human character description must start with their exact age ("a 7-year-old boy", "an adult woman", "a 35-year-old dad") — never omit this
-- Ages must be accurate: if a sibling is described as older but still in elementary school, they are a child, not a teenager
-- A 7-year-old looks like an actual 7-year-old: round face, small body, clearly a young child — taller than a 5-year-old but nowhere near adult or teenage height
-- Do not round ages up or make children look older than they are
-- Only include characters appearing in multiple scenes. Keep descriptions warm and child-appropriate. No markdown, no explanation — just the JSON.`;
-
-  const raw = await callClaudeOpus(prompt, 800);
-  try {
-    let cleaned = raw.replace(/```json|```/g, "").trim();
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start !== -1 && end !== -1) cleaned = cleaned.slice(start, end + 1);
-    return JSON.parse(cleaned);
-  } catch(e) {
-    console.error("designCharacters parse failed:", e.message);
-    return { [name]: `a ${age}-year-old ${genderDesc} with ${hairDesc} hair and ${eye} eyes, wearing casual everyday clothes` };
-  }
-}
-
-function generateCharacterSheet(imageUrl, childData) {
-  const { name, age, gender } = childData;
-  const payload = JSON.stringify({
-    model: "gpt-4o",
-    max_tokens: 300,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image_url", image_url: { url: imageUrl } },
-        { type: "text", text: `Describe all characters visible in this illustration in precise visual detail, for use as a consistent character reference across multiple illustrations. For each character, include: exact hair color, length, and style; eye color; skin tone; face shape; clothing colors and style; any distinguishing features. Be specific and use the kind of descriptive language an illustrator would use. Write 2-4 sentences total. Do not mention the background or setting. The main character is ${name}, age ${age}. If a companion, pet, or friend is visible, describe them too.` }
-      ]
-    }]
-  });
+function callDallE2Variation(imageBytes) {
+  // Use FormData-style multipart POST for DALL-E 2 variations
+  const FormData = require('form-data');
+  const form = new FormData();
+  // DALL-E 2 requires PNG, resize to 1024x1024
+  form.append('image', imageBytes, { filename: 'cover.png', contentType: 'image/png' });
+  form.append('n', '1');
+  form.append('size', '1024x1024');
 
   return new Promise((resolve, reject) => {
     const options = {
       hostname: "api.openai.com",
       port: 443,
-      path: "/v1/chat/completions",
+      path: "/v1/images/variations",
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
+        ...form.getHeaders(),
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
       },
-      timeout: 30000
+      timeout: 180000
     };
 
     const req = https.request(options, (res) => {
       let body = "";
       res.on("data", chunk => body += chunk);
-      res.on("end", () => {
+      res.on("end", async () => {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          resolve(data.choices[0].message.content.trim());
+          const url = data.data[0].url;
+          const bytes = await fetchImageBytes(url);
+          resolve(bytes);
         } catch(e) {
-          reject(new Error("GPT-4o parse error: " + body.slice(0, 200)));
+          reject(new Error("DALL-E variation parse error: " + body.slice(0, 200)));
         }
       });
     });
     req.on("error", reject);
-    req.on("timeout", () => reject(new Error("GPT-4o timeout")));
-    req.write(payload);
-    req.end();
+    req.on("timeout", () => reject(new Error("DALL-E variation timeout")));
+    form.pipe(req);
   });
 }
 
@@ -2663,218 +542,6 @@ function fetchImageBytes(url) {
 }
 
 // ════════════════════════════════════════════
-// DESIGNED COVER IMAGE (satori + resvg)
-// ════════════════════════════════════════════
-// Composites the DALL-E illustration with title text into a single PNG.
-// Returns a Buffer, or null if rendering fails (email falls back to HTML card).
-
-async function generateDesignedCoverImage(childName, milestone, childData, coverImageBytes) {
-  try {
-    const satori = require('satori');
-    const { Resvg } = require('@resvg/resvg-js');
-
-    const milestoneTitle = getMilestoneTitle(milestone);
-    const base64 = Buffer.from(coverImageBytes).toString('base64');
-    const dataUri = `data:image/jpeg;base64,${base64}`;
-
-    // Fetch Playfair Display Bold 700 from Google Fonts
-    let fontData = null;
-    try {
-      const css = await fetch(
-        'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap',
-        { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' } }
-      ).then(r => r.text());
-      const match = css.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/);
-      if (match) fontData = await fetch(match[1]).then(r => r.arrayBuffer());
-    } catch(fontErr) {
-      console.warn(`Cover font fetch failed: ${fontErr.message}`);
-    }
-
-    if (!fontData) {
-      console.warn('generateDesignedCoverImage: no font available — skipping');
-      return null;
-    }
-
-    const W = 600, H = 840;
-
-    // Helper to build a satori element (plain object, no React needed)
-    const el = (type, style, children) => ({
-      type, key: null,
-      props: { style: { display: 'flex', ...style }, children }
-    });
-
-    const root = el('div', { width: W, height: H, position: 'relative', backgroundColor: '#1a3328' }, [
-      // Full-bleed DALL-E illustration
-      { type: 'img', key: null, props: {
-          src: dataUri,
-          style: { position: 'absolute', top: 0, left: 0, width: W, height: H, objectFit: 'cover' }
-      }},
-      // Dark gradient over the bottom ~55% — transparent at top, near-opaque at bottom
-      el('div', {
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: Math.round(H * 0.58),
-        backgroundImage: 'linear-gradient(to top, rgba(6,15,10,0.97) 0%, rgba(6,15,10,0.88) 25%, rgba(6,15,10,0.55) 60%, rgba(6,15,10,0) 100%)'
-      }),
-      // Text block pinned to bottom-left
-      el('div', { position: 'absolute', bottom: 34, left: 36, right: 36, flexDirection: 'column' }, [
-        // "PREVIEW EDITION" badge
-        el('div', { marginBottom: 16 }, [
-          el('div', {
-            borderWidth: 1, borderStyle: 'solid', borderColor: 'rgba(251,191,36,0.6)',
-            borderRadius: 20, paddingTop: 5, paddingBottom: 5, paddingLeft: 15, paddingRight: 15,
-            fontSize: 17, color: '#fbbf24', fontFamily: 'Playfair', letterSpacing: '0.09em',
-            backgroundColor: 'rgba(251,191,36,0.1)'
-          }, 'PREVIEW EDITION')
-        ]),
-        // Child name: "Benjamin and the"
-        el('div', { fontSize: 50, fontWeight: 700, color: '#ffffff', fontFamily: 'Playfair', lineHeight: 1.15, marginBottom: 4 },
-          `${childName} and the`),
-        // Milestone title in gold
-        el('div', { fontSize: 44, fontWeight: 700, color: '#fbbf24', fontFamily: 'Playfair', lineHeight: 1.2, marginBottom: 20 },
-          milestoneTitle),
-        // Thin mint rule
-        el('div', { width: 48, height: 2, backgroundColor: 'rgba(134,239,172,0.45)', marginBottom: 13 }),
-        // Subtitle
-        el('div', { fontSize: 19, color: 'rgba(196,242,212,0.82)', fontFamily: 'Playfair', letterSpacing: '0.05em' },
-          'A Growing Minds Original Story')
-      ])
-    ]);
-
-    const svg = await satori(root, {
-      width: W, height: H,
-      fonts: [{ name: 'Playfair', data: fontData, weight: 700, style: 'normal' }]
-    });
-
-    const resvg = new Resvg(svg, { background: '#1a3328' });
-    const pngData = resvg.render();
-    return pngData.asPng();
-
-  } catch(e) {
-    console.error(`generateDesignedCoverImage failed: ${e.message}`);
-    return null;
-  }
-}
-
-// ════════════════════════════════════════════
-// LULU COVER PDF BUILDER
-// ════════════════════════════════════════════
-
-// Builds a print-ready cover PDF (front + spine + back on one page, with 0.125" bleed)
-// and uploads it to Vercel Blob. Returns the public URL.
-async function buildLuluCoverPdf(storyId, childName, childData, interiorPdfUrl) {
-  try {
-    const { getCoverDimensions } = require("./lulu");
-    const { PDFDocument: PDoc, rgb: prgb, StandardFonts: SF } = require("pdf-lib");
-
-    // Count interior pages to calculate spine width
-    const interiorBytes = await fetchImageBytes(interiorPdfUrl);
-    const interiorDoc   = await PDoc.load(interiorBytes);
-    const pageCount     = interiorDoc.getPageCount();
-
-    // Ask Lulu for exact cover dimensions (in inches)
-    let dims;
-    try {
-      dims = await getCoverDimensions(pageCount);
-    } catch(e) {
-      console.warn(`getCoverDimensions failed (${e.message}), using formula`);
-      // Fallback formula: spine = pageCount / 444 inches, with 0.125" bleed
-      const spineIn = pageCount / 444;
-      dims = {
-        width:  (5.5 * 2 + spineIn + 0.125 * 2),
-        height: (8.5 + 0.125 * 2),
-        spine_width: spineIn,
-      };
-    }
-
-    // Convert inches to PDF points (72 pts per inch).
-    // Lulu returns total cover width (back bleed + back trim + spine + front trim + front bleed).
-    // For 5.5" trim with 0.125" bleed on each side: spine = totalWidth - (5.5*2 + 0.125*2)
-    const coverWidthIn  = parseFloat(dims.width);
-    const coverHeightIn = parseFloat(dims.height);
-    const spineIn = Math.max(0, coverWidthIn - (5.5 * 2 + 0.125 * 2));
-    const totalW  = Math.round(coverWidthIn  * 72);
-    const totalH  = Math.round(coverHeightIn * 72);
-    const spineW  = Math.round(spineIn * 72);
-    const bleedPt = Math.round(0.125 * 72); // 9 pts
-    const trimW   = Math.round(5.5 * 72);   // 396 pts
-    const trimH   = Math.round(8.5 * 72);   // 612 pts
-
-    const coverDoc = await PDoc.create();
-    const page     = coverDoc.addPage([totalW, totalH]);
-
-    const timesRoman = await coverDoc.embedFont(SF.TimesRoman);
-    const timesBold  = await coverDoc.embedFont(SF.TimesRomanBold);
-    const helvetica  = await coverDoc.embedFont(SF.Helvetica);
-
-    const green  = prgb(0.176, 0.416, 0.310);
-    const gold   = prgb(0.976, 0.780, 0.310);
-    const white  = prgb(1, 1, 1);
-    const darkGreen = prgb(0.06, 0.15, 0.10);
-
-    // ── BACK COVER (left side, x = 0 to bleed+trimW) ──
-    page.drawRectangle({ x: 0, y: 0, width: bleedPt + trimW, height: totalH, color: darkGreen });
-    page.drawText("A Growing Minds Original Story", {
-      x: bleedPt + 24, y: totalH / 2 + 20,
-      font: helvetica, size: 10, color: white,
-    });
-    page.drawText("growingminds.io", {
-      x: bleedPt + 24, y: bleedPt + 20,
-      font: helvetica, size: 9, color: prgb(0.5, 0.8, 0.6),
-    });
-
-    // ── SPINE (middle) ──
-    const spineX = bleedPt + trimW;
-    page.drawRectangle({ x: spineX, y: 0, width: spineW, height: totalH, color: green });
-    if (spineW > 30) {
-      // Draw title text vertically on spine if wide enough
-      page.drawText(`${childName} · Growing Minds`, {
-        x: spineX + spineW / 2 + 6,
-        y: bleedPt + 20,
-        font: timesBold, size: Math.min(9, spineW * 0.4),
-        color: white,
-        rotate: { type: "degrees", angle: 90 },
-      });
-    }
-
-    // ── FRONT COVER (right side) ──
-    const frontX = spineX + spineW;
-    page.drawRectangle({ x: frontX, y: 0, width: trimW + bleedPt, height: totalH, color: darkGreen });
-
-    // Try to embed the DALL-E cover illustration
-    try {
-      const rawCoverUrl = await redisRequest("GET", [`cover:${storyId}`]);
-      if (rawCoverUrl) {
-        const imgBytes = await fetchImageBytes(rawCoverUrl);
-        const img = await coverDoc.embedJpg(imgBytes).catch(() => coverDoc.embedPng(imgBytes));
-        page.drawImage(img, { x: frontX, y: bleedPt + Math.round(trimH * 0.35),
-          width: trimW, height: Math.round(trimH * 0.65) });
-      }
-    } catch(imgErr) { console.warn("Cover image embed failed:", imgErr.message); }
-
-    // Green band at bottom of front cover
-    page.drawRectangle({ x: frontX, y: bleedPt, width: trimW, height: Math.round(trimH * 0.38), color: green });
-
-    const milestoneTitle = getMilestoneTitle(childData.milestone);
-    const mx = frontX + 24;
-    page.drawText(`${childName} and the`, { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 30, font: timesBold, size: 22, color: white });
-    page.drawText(milestoneTitle,          { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 60, font: timesBold, size: 20, color: gold });
-    page.drawText("A Growing Minds Original Story", { x: mx, y: bleedPt + Math.round(trimH * 0.35) - 88, font: helvetica, size: 9, color: prgb(0.8, 0.9, 0.85) });
-    page.drawText(`Written for ${childName}, age ${childData.age}`, { x: mx, y: bleedPt + 42, font: timesBold, size: 11, color: white });
-    page.drawText(`growingminds.io`,         { x: mx, y: bleedPt + 24, font: timesRoman, size: 9, color: prgb(0.8, 0.9, 0.85) });
-
-    const coverPdfBytes = await coverDoc.save();
-    const blob = await put(`covers/${storyId}/lulu-cover.pdf`, coverPdfBytes, {
-      access: "public", contentType: "application/pdf",
-    });
-
-    console.log(`Lulu cover PDF built: ${blob.url} (${pageCount} pages, spine ${spineW}pt)`);
-    return blob.url;
-  } catch(e) {
-    console.error(`buildLuluCoverPdf failed: ${e.message}`);
-    return null;
-  }
-}
-
-// ════════════════════════════════════════════
 // PDF GENERATION
 // ════════════════════════════════════════════
 
@@ -2886,7 +553,7 @@ async function createStoryPDF(child, chapters, illustrations, tier) {
   const helvetica  = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const helBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const pageWidth = 396, pageHeight = 612, margin = 48; // 5.5" × 8.5" — Lulu standard trim
+  const pageWidth = 432, pageHeight = 648, margin = 54;
   const contentW = pageWidth - margin * 2;
   const green = rgb(0.176, 0.416, 0.310);
   const gold  = rgb(0.976, 0.780, 0.310);
@@ -2914,7 +581,7 @@ async function createStoryPDF(child, chapters, illustrations, tier) {
   cover.drawText(getMilestoneTitle(milestone), { x: margin, y: pageHeight * 0.35 - 36, font: timesBold, size: 26, color: gold });
   cover.drawText("A Growing Minds Original Story", { x: margin, y: pageHeight * 0.35 - 72, font: helvetica, size: 10, color: rgb(0.8,0.9,0.85) });
   cover.drawText(`Written for ${name}, age ${age}`, { x: margin, y: pageHeight * 0.18, font: helBold, size: 12, color: rgb(1,1,1) });
-  cover.drawText(`growingminds.io`, { x: margin, y: pageHeight * 0.18 - 18, font: timesRoman, size: 10, color: rgb(0.8,0.9,0.85) });
+  cover.drawText(`${city}, ${region}`, { x: margin, y: pageHeight * 0.18 - 18, font: timesRoman, size: 10, color: rgb(0.8,0.9,0.85) });
   cover.drawText("growingminds.io", { x: margin, y: margin, font: helvetica, size: 9, color: rgb(0.6,0.8,0.7) });
 
   // ── STORY PAGES ──
@@ -3042,43 +709,6 @@ function getMilestoneTitle(milestone) {
   return map[milestone] || "Big Adventure";
 }
 
-// Maps milestone to a dynamic cover scene description — used in cover image prompts.
-// Each scene describes WHAT THE CHARACTER IS DOING and the emotional composition,
-// not just where they're standing.
-function getCoverScene(milestone, name, region) {
-  const m = (milestone || '').toLowerCase();
-
-  if (m.includes('kindergarten'))
-    return `${name} is mid-stride approaching big colorful school doors with a backpack on, looking up at the building with wide eyes full of wonder and nervous excitement. Dynamic three-quarter angle, bright morning light.`;
-  if (m.includes('preschool') || m.includes('daycare'))
-    return `${name} is stepping through a bright classroom doorway, one hand reaching forward, eyes wide with curiosity and excitement. Colorful classroom visible behind, warm welcoming light.`;
-  if (m.includes('read'))
-    return `${name} is sitting in a cozy spot surrounded by open books, holding one up close, eyes wide with discovery — magical letters and stars shimmer off the page around them. Warm golden reading light.`;
-  if (m.includes('tooth'))
-    return `${name} is holding a tiny tooth up triumphantly, mouth open in a huge gap-toothed grin, eyes sparkling with pride. Confetti and sparkles around them.`;
-  if (m.includes('bike'))
-    return `${name} is mid-ride on a bicycle, leaning forward with confidence, hair streaming back, one arm slightly raised in pure joy — clearly riding solo for the first time. Open path ahead, sky behind.`;
-  if (m.includes('middle school'))
-    return `${name} is walking through school hallway doors with purpose, backpack over one shoulder, looking ahead with a mix of nerves and excitement. Morning light streams in behind them.`;
-  if (m.includes('potty') || m.includes('toilet'))
-    return `${name} is standing tall and proud, arms raised in a victory pose, beaming with pride and accomplishment. Bright cheerful setting, celebratory stars around them.`;
-  if (m.includes('friend'))
-    return `${name} is reaching a hand toward another smiling child, both caught in the first moment of connection. Playground setting, warm afternoon light.`;
-  if (m.includes('sport') || m.includes('team') || m.includes('club'))
-    return `${name} is in action mid-play, uniform on, face full of fierce joyful concentration. Dynamic action angle.`;
-  if (m.includes('shar') || m.includes('giv'))
-    return `${name} is holding something out with both hands toward another child, face full of warm pride and generosity. Soft warm light, joyful expression.`;
-  if (m.includes('responsib') || m.includes('helper'))
-    return `${name} is doing their special job — focused, capable, and proud. They look confident and grown-up in a small but meaningful way.`;
-  if (m.includes('feel') || m.includes('frustrat') || m.includes('anxiet'))
-    return `${name} is sitting quietly, taking a deep breath, transitioning from a storm of feelings into calm. Soft warm light, peaceful expression.`;
-  if (m.includes('stand') || m.includes('brave') || m.includes('scary') || m.includes('new'))
-    return `${name} is standing tall with quiet confidence, chin raised, looking ahead with steady determined eyes. Heroic composition, warm backlight.`;
-
-  // Generic fallback — still dynamic, not a portrait
-  return `${name} is mid-stride on an adventure in a vibrant ${region} landscape, looking ahead with excitement and curiosity — hair in motion, world stretching wide ahead of them.`;
-}
-
 // ════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════
@@ -3090,7 +720,7 @@ function getCoverScene(milestone, name, region) {
 async function generatePDF(childName, chapters, child, tier, illustrations = {}) {
   const { milestone, city, region, age } = child;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-  const wordCount = (tier.chapCount * tier.wordsPerChap).toLocaleString();
+  const wordCount = `${(tier.chapCount * tier.minWords).toLocaleString()}–${(tier.chapCount * tier.maxWords).toLocaleString()}`;
 
   const chaptersHtml = chapters.map((chapText, ci) => {
     const lines = chapText.split(/\n+/).filter(l => l.trim());
@@ -3102,9 +732,9 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
     const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
 
-    // Check if this chapter has an illustration — skip 0-0 (that's the cover, already shown)
+    // Check if this chapter has an illustration — use URL directly
     const key = `${ci}-0`;
-    const illustrationHtml = (illustrations[key] && ci > 0)
+    const illustrationHtml = illustrations[key]
       ? `<img src="${illustrations[key]}" />`
       : '';
 
@@ -3149,24 +779,9 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 <html>
 <head>
 <meta charset="utf-8"/>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Lora', Georgia, serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
-  /* 5.5×8.5" digest trim size */
-  @page {
-    size: 5.5in 8.5in;
-    margin: 18mm 18mm 20mm 22mm;
-  }
-  @page :left {
-    size: 5.5in 8.5in;
-    margin: 18mm 22mm 20mm 18mm;
-  }
-  @page :right {
-    size: 5.5in 8.5in;
-    margin: 18mm 18mm 20mm 22mm;
-  }
-  @page :first { size: 5.5in 8.5in; margin: 0; }
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
   /* ── COVER ── */
   .cover {
@@ -3174,27 +789,29 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     background: #1a3a2a;
     position: relative; overflow: hidden;
     page-break-after: always;
+    display: flex; flex-direction: column;
   }
 
-  /* Full bleed illustration — fills entire cover */
+  /* Full bleed illustration takes top 60% */
   .cover-image {
     position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
+    width: 100%; height: 62%;
     object-fit: cover;
   }
 
-  /* Dark gradient from bottom — gives text contrast over the image */
+  /* Gradient that bleeds illustration into bottom panel */
   .cover-gradient {
-    position: absolute; bottom: 0; left: 0;
-    width: 100%; height: 65%;
-    background: linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%);
+    position: absolute; top: 50%; left: 0;
+    width: 100%; height: 20%;
+    background: linear-gradient(to bottom, transparent, #1a3a2a);
   }
 
-  /* Text panel sits over the gradient at the bottom */
+  /* Bottom text panel */
   .cover-panel {
     position: absolute; bottom: 0; left: 0;
-    width: 100%;
-    padding: 28px 48px 36px;
+    width: 100%; height: 45%;
+    background: #1a3a2a;
+    padding: 24px 48px 28px;
     display: flex; flex-direction: column; justify-content: flex-end;
     gap: 0;
   }
@@ -3203,7 +820,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     display: inline-block;
     background: #f9c74f;
     color: #1a1a2e;
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 7.5pt;
     font-weight: 800;
     letter-spacing: .12em;
@@ -3215,7 +832,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-title-line1 {
-    font-family: 'Lora', Georgia, serif;
+    font-family: Georgia, serif;
     font-size: 12pt;
     font-weight: 700;
     color: rgba(255,255,255,0.75);
@@ -3224,7 +841,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-title-main {
-    font-family: 'Lora', Georgia, serif;
+    font-family: Georgia, serif;
     font-size: 28pt;
     font-weight: 900;
     color: #ffffff;
@@ -3239,7 +856,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-meta {
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 8pt;
     color: rgba(255,255,255,0.45);
     line-height: 1.5;
@@ -3247,20 +864,16 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
 
   .cover-publisher {
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 7.5pt;
     color: rgba(255,255,255,0.25);
     letter-spacing: .08em;
     text-transform: uppercase;
   }
 
-  .chapter { padding: 8px 0 40px; page-break-before: always; position: relative; }
-
-  /* Page numbers */
-  @page :left  { @bottom-left  { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
-  @page :right { @bottom-right { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
+  .chapter { padding: 48px 60px 80px; page-break-before: always; position: relative; }
   .chapter-number {
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 8pt;
     font-weight: 800;
     letter-spacing: .18em;
@@ -3269,7 +882,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     margin-bottom: 6px;
   }
   .chapter-title {
-    font-family: 'Lora', Georgia, serif;
+    font-family: ${parseInt(age) <= 9 ? "Georgia, serif" : "Georgia, serif"};
     font-size: ${parseInt(age) <= 5 ? '22pt' : '18pt'};
     color: #1a1a2e;
     margin-bottom: 28px;
@@ -3284,7 +897,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   /* Body text */
   .chapter-body p {
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: ${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'};
     line-height: ${parseInt(age) <= 5 ? '2.2' : '2.0'};
     font-weight: ${parseInt(age) <= 9 ? '600' : '500'};
@@ -3295,7 +908,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   /* Drop cap on first paragraph of each chapter */
   .chapter-body p:first-child::first-letter {
-    font-family: 'Lora', Georgia, serif;
+    font-family: Georgia, serif;
     font-size: 4em;
     font-weight: 900;
     color: #2d6a4f;
@@ -3334,11 +947,11 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     justify-content: space-between;
     align-items: center;
     text-align: center;
-    padding: 36px 0;
+    padding: 60px;
     page-break-after: always;
   }
   .title-page-name {
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 10pt;
     font-weight: 800;
     letter-spacing: .15em;
@@ -3347,7 +960,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     margin-bottom: 1.5rem;
   }
   .title-page-title {
-    font-family: 'Lora', Georgia, serif;
+    font-family: Georgia, serif;
     font-size: 28pt;
     font-weight: 900;
     color: #1a1a2e;
@@ -3358,7 +971,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     width: 60px; height: 2px; background: #e5e7eb; margin: 0 auto 2.5rem;
   }
   .title-page-dedication {
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 11pt;
     font-style: italic;
     color: #6b7280;
@@ -3366,7 +979,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   }
   .title-page-publisher {
     margin-top: 2rem;
-    font-family: 'Lato', Arial, sans-serif;
+    font-family: Arial, sans-serif;
     font-size: 8pt;
     color: #b0b8c1;
     letter-spacing: .06em;
@@ -3384,7 +997,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
       <div class="cover-title-line1">${childName} and the</div>
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${wordCount} words &nbsp;·&nbsp; growingminds.io</div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${wordCount} words</div>
       <div class="cover-publisher">🌱 growingminds.io</div>
     </div>
   </div>
@@ -3397,27 +1010,27 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
         This story was written just for ${childName},<br/>
-        age ${age}.<br/>
+        age ${age}, of ${city}, ${region}.<br/>
         Every adventure in these pages belongs to you.
       </div>
     </div>
-    <div style="font-family:'Lato',Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
+    <div style="font-family:Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">🌱 Growing Minds · growingminds.io · © ${new Date().getFullYear()}</div>
   </div>
 
   <!-- TABLE OF CONTENTS -->
-  <div style="padding:32px 0;page-break-before:always;page-break-after:always;">
-    <div style="font-family:'Lato',Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
-    <div style="font-family:'Lora',Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
+  <div style="padding:50px 60px;page-break-before:always;page-break-after:always;">
+    <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
+    <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
     <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">
-      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">
+      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
         ${tocRowsLeft}
       </table>
-      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">
+      <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;">
         ${tocRowsRight}
       </table>
     </div>
-    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:'Lato',Arial,sans-serif;font-size:8pt;color:#6b7280;">
+    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:Arial,sans-serif;font-size:8pt;color:#6b7280;">
       ✦ Chapters 16–30 are included in your printed hardcover book, arriving in 13–15 business days.
     </div>
   </div>
@@ -3427,11 +1040,12 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 </html>`;
 
   console.log(`HTML size before PDFShift: ${Math.round(html.length / 1024)}KB`);
-  // Page size controlled by CSS @page { size: 5.5in 8.5in } above — use_print:true ensures @page rules are applied
   const payload = JSON.stringify({
     source: html,
     landscape: false,
-    use_print: true,
+    use_print: false,
+    margin: "0",
+    format: "Letter",
     sandbox: false
   });
 
@@ -3472,414 +1086,13 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 }
 
 // ════════════════════════════════════════════
-// FULL 30-CHAPTER PRINT PDF
-// ════════════════════════════════════════════
-
-async function generateFullBookPDF(childName, chapters, child, tier, illustrationsB64 = {}) {
-  const { milestone, city, region, age } = child;
-  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-
-  // Build all chapter HTML blocks
-  const chaptersHtml = chapters.map((chapText, ci) => {
-    const lines = chapText.split(/\n+/).filter(l => l.trim());
-    const fullTitle = lines[0] || `Chapter ${ci + 1}`;
-    const match = fullTitle.match(/^(Chapter \d+):\s*(.+)$/);
-    const chapterNum = match ? match[1] : `Chapter ${ci + 1}`;
-    const chapterTitle = match ? match[2] : fullTitle;
-    const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
-    const key = `${ci}-0`;
-    // illustrationsB64 values are data URIs — embed directly, no network fetch by PDFShift
-    const illustrationHtml = (illustrationsB64[key] && ci > 0)
-      ? `<img src="${illustrationsB64[key]}" />`
-      : '';
-    return `
-      <div class="chapter">
-        <div class="chapter-number">${chapterNum}</div>
-        <div class="chapter-title">${chapterTitle}</div>
-        <div class="chapter-divider"></div>
-        <div class="chapter-body">
-          ${illustrationHtml}
-          ${body}
-        </div>
-        <div class="chapter-end">✦</div>
-      </div>
-    `;
-  }).join('');
-
-  // Full TOC — all 30 chapters active, no grayed-out entries
-  const tocRowsLeft = chapters.slice(0, 15).map((chapText, ci) => {
-    const firstLine = chapText.split(/\n+/)[0] || '';
-    const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
-    const num = match ? match[1] : String(ci + 1);
-    const title = match ? match[2] : firstLine;
-    return `<tr><td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">${num}</td><td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">${title}</td></tr>`;
-  }).join('');
-  const tocRowsRight = chapters.slice(15, 30).map((chapText, ci) => {
-    const firstLine = chapText.split(/\n+/)[0] || '';
-    const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
-    const num = match ? match[1] : String(ci + 16);
-    const title = match ? match[2] : firstLine;
-    return `<tr><td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">${num}</td><td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">${title}</td></tr>`;
-  }).join('');
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@400;700&display=swap" rel="stylesheet"/>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Lora', Georgia, serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
-
-  /* 5.5×8.5" digest trim size */
-  @page { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
-  @page :first { size: 5.5in 8.5in; margin: 0; }
-  @page :left  { size: 5.5in 8.5in; margin: 18mm 22mm 20mm 18mm; }
-  @page :right { size: 5.5in 8.5in; margin: 18mm 18mm 20mm 22mm; }
-  @page :left  { @bottom-left  { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
-  @page :right { @bottom-right { content: counter(page); font-family: 'Lora', Georgia, serif; font-size: 9pt; color: #9ca3af; } }
-
-  /* ── COVER ── */
-  .cover { width:100%; height:100vh; background:#1a3a2a; position:relative; overflow:hidden; page-break-after:always; }
-  .cover-image { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; }
-  .cover-gradient { position:absolute; bottom:0; left:0; width:100%; height:65%; background:linear-gradient(to bottom, transparent 0%, rgba(10,30,20,0.7) 40%, rgba(10,30,20,0.95) 100%); }
-  .cover-panel { position:absolute; bottom:0; left:0; width:100%; padding:28px 48px 36px; display:flex; flex-direction:column; justify-content:flex-end; gap:0; }
-  .cover-badge { display:inline-block; background:#f9c74f; color:#1a1a2e; font-family:'Lato',Arial,sans-serif; font-size:7.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; padding:4px 12px; border-radius:20px; margin-bottom:12px; width:fit-content; }
-  .cover-title-line1 { font-family:'Lora',Georgia,serif; font-size:12pt; font-weight:700; color:rgba(255,255,255,0.75); letter-spacing:.04em; margin-bottom:2px; }
-  .cover-title-main { font-family:'Lora',Georgia,serif; font-size:28pt; font-weight:900; color:#ffffff; line-height:1.1; margin-bottom:12px; }
-  .cover-divider { width:40px; height:2px; background:rgba(255,255,255,0.25); margin-bottom:10px; }
-  .cover-meta { font-family:'Lato',Arial,sans-serif; font-size:8pt; color:rgba(255,255,255,0.45); line-height:1.5; margin-bottom:10px; }
-  .cover-publisher { font-family:'Lato',Arial,sans-serif; font-size:7.5pt; color:rgba(255,255,255,0.25); letter-spacing:.08em; text-transform:uppercase; }
-
-  /* ── CHAPTERS ── */
-  .chapter { padding:8px 0 40px; page-break-before:always; position:relative; }
-  .chapter-number { font-family:'Lato',Arial,sans-serif; font-size:8pt; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:#2d6a4f; margin-bottom:6px; }
-  .chapter-title { font-family:'Lora',Georgia,serif; font-size:${parseInt(age) <= 5 ? '22pt' : '18pt'}; color:#1a1a2e; margin-bottom:28px; line-height:1.2; }
-  .chapter-divider { width:40px; height:3px; background:#2d6a4f; margin-bottom:28px; border-radius:2px; }
-  .chapter-body p { font-family:'Lora',Georgia,serif; font-size:${parseInt(age) <= 5 ? '14pt' : parseInt(age) <= 9 ? '13pt' : '12pt'}; line-height:${parseInt(age) <= 5 ? '2.2' : '2.0'}; font-weight:${parseInt(age) <= 9 ? '400' : '400'}; color:#1a1a2e; margin-bottom:${parseInt(age) <= 5 ? '1.4em' : '1.2em'}; text-align:left; }
-  .chapter-body p:first-child::first-letter { font-family:'Lora',Georgia,serif; font-size:4em; font-weight:900; color:#2d6a4f; float:left; line-height:0.75; margin-right:6px; margin-top:8px; }
-  .chapter-body img { width:100%; max-width:320px; display:block; margin:2rem auto; border-radius:4px; }
-  .chapter-end { text-align:center; color:#abc3b9; font-size:16pt; margin-top:2rem; }
-
-  /* ── TITLE PAGE ── */
-  .title-page { height:100vh; display:flex; flex-direction:column; justify-content:space-between; align-items:center; text-align:center; padding:36px 0; page-break-after:always; }
-  .title-page-name { font-family:'Lato',Arial,sans-serif; font-size:10pt; font-weight:800; letter-spacing:.15em; text-transform:uppercase; color:#2d6a4f; margin-bottom:1.5rem; }
-  .title-page-title { font-family:'Lora',Georgia,serif; font-size:28pt; font-weight:900; color:#1a1a2e; line-height:1.2; margin-bottom:1rem; }
-  .title-page-divider { width:60px; height:2px; background:#e5e7eb; margin:0 auto 2.5rem; }
-  .title-page-dedication { font-family:'Lato',Arial,sans-serif; font-size:11pt; font-style:italic; color:#6b7280; line-height:1.8; }
-</style>
-</head>
-<body>
-
-  <!-- COVER -->
-  <div class="cover">
-    ${illustrationsB64['0-0'] ? `<img class="cover-image" src="${illustrationsB64['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
-    <div class="cover-gradient"></div>
-    <div class="cover-panel">
-      <div class="cover-badge">A Growing Minds Original Story</div>
-      <div class="cover-title-line1">${childName} and the</div>
-      <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
-      <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;&middot;&nbsp; growingminds.io</div>
-      <div class="cover-publisher">growingminds.io</div>
-    </div>
-  </div>
-
-  <!-- TITLE PAGE -->
-  <div class="title-page">
-    <div>
-      <div class="title-page-name">A story written for</div>
-      <div class="title-page-title">${childName} and the ${getMilestoneTitle(milestone)}</div>
-      <div class="title-page-divider"></div>
-      <div class="title-page-dedication">
-        This story was written just for ${childName},<br/>
-        age ${age}.<br/>
-        Every adventure in these pages belongs to you.
-      </div>
-    </div>
-    <div style="font-family:'Lato',Arial,sans-serif;font-size:8pt;color:#b0b8c1;letter-spacing:.06em;margin-top:auto;padding-top:40px;">Growing Minds &middot; growingminds.io &middot; &copy; ${new Date().getFullYear()}</div>
-  </div>
-
-  <!-- TABLE OF CONTENTS (all 30 chapters) -->
-  <div style="padding:32px 0;page-break-before:always;page-break-after:always;">
-    <div style="font-family:'Lato',Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
-    <div style="font-family:'Lora',Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
-    <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 40px;">
-      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">${tocRowsLeft}</table>
-      <table style="width:100%;border-collapse:collapse;font-family:'Lato',Arial,sans-serif;">${tocRowsRight}</table>
-    </div>
-  </div>
-
-  ${chaptersHtml}
-
-</body>
-</html>`;
-
-  console.log(`Full book HTML size: ${Math.round(html.length / 1024)}KB`);
-
-  // Page size controlled by CSS @page { size: 5.5in 8.5in } above — use_print:true ensures @page rules are applied
-  const payload = JSON.stringify({ source: html, landscape: false, use_print: true, sandbox: false });
-
-  return new Promise((resolve, reject) => {
-    const auth = Buffer.from(`api:${process.env.PDFSHIFT_API_KEY}`).toString('base64');
-    const options = {
-      hostname: "api.pdfshift.io",
-      port: 443,
-      path: "/v3/convert/pdf",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "Authorization": `Basic ${auth}`
-      },
-      timeout: 240000  // 4 min — larger doc needs more time
-    };
-    const req = https.request(options, (res) => {
-      const chunks = [];
-      res.on("data", chunk => chunks.push(chunk));
-      res.on("end", () => {
-        if (res.statusCode === 200 || res.statusCode === 201) {
-          const pdfBuffer = Buffer.concat(chunks);
-          console.log(`Full book PDF generated: ${Math.round(pdfBuffer.length / 1024)}KB`);
-          resolve(pdfBuffer.toString("base64"));
-        } else {
-          const body = Buffer.concat(chunks).toString();
-          reject(new Error(`PDFShift full-book error ${res.statusCode}: ${body.slice(0, 200)}`));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => reject(new Error("PDFShift full-book timeout")));
-    req.write(payload);
-    req.end();
-  });
-}
-
-// ════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════
-
-function sanitizeForPdf(text) {
-  if (!text) return '';
-  return text
-    .replace(/—/g, '--')       // em dash
-    .replace(/–/g, '-')        // en dash
-    .replace(/‘|’/g, "'") // curly single quotes
-    .replace(/“|”/g, '"') // curly double quotes
-    .replace(/…/g, '...')      // ellipsis
-    .replace(/ /g, ' ')        // non-breaking space
-    .replace(/•/g, '*')        // bullet
-    .replace(/[^\x00-\xFF]/g, '?'); // anything else outside Latin-1
-}
-
-async function generatePreviewPdf(childName, chapters, childData, coverUrl) {
-  const { milestone, city, region, age } = childData;
-  const pdfDoc = await PDFDocument.create();
-  const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-  const timesBold  = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-  const helvetica  = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helBold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  const pageWidth = 396, pageHeight = 612, margin = 48; // 5.5" × 8.5" — Lulu standard trim
-  const contentW = pageWidth - margin * 2;
-  const green = rgb(0.176, 0.416, 0.310);
-  const gold  = rgb(0.976, 0.780, 0.310);
-  const dark  = rgb(0.1, 0.1, 0.15);
-  const grey  = rgb(0.6, 0.6, 0.6);
-  const cream = rgb(0.998, 0.980, 0.878);
-
-  // ── COVER PAGE ──
-  const cover = pdfDoc.addPage([pageWidth, pageHeight]);
-  if (coverUrl) {
-    try {
-      const coverBytes = await fetchImageBytes(coverUrl);
-      const img = await pdfDoc.embedJpg(coverBytes).catch(() => pdfDoc.embedPng(coverBytes));
-      cover.drawImage(img, { x: 0, y: pageHeight * 0.35, width: pageWidth, height: pageHeight * 0.65 });
-      cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight * 0.40, color: green });
-    } catch(e) {
-      cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
-    }
-  } else {
-    cover.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
-  }
-  cover.drawText(sanitizeForPdf(`${childName} and the`), { x: margin, y: pageHeight * 0.35, font: timesBold, size: 24, color: rgb(1,1,1) });
-  cover.drawText(sanitizeForPdf(getMilestoneTitle(milestone)), { x: margin, y: pageHeight * 0.35 - 32, font: timesBold, size: 24, color: gold });
-  cover.drawText("A Growing Minds Original Story", { x: margin, y: pageHeight * 0.35 - 64, font: helvetica, size: 10, color: rgb(0.8,0.9,0.85) });
-  cover.drawText("Chapters 1-3 Preview", { x: margin, y: pageHeight * 0.20, font: helBold, size: 11, color: gold });
-  cover.drawText(sanitizeForPdf(`Written for ${childName}, age ${age}`), { x: margin, y: pageHeight * 0.20 - 18, font: timesRoman, size: 10, color: rgb(1,1,1) });
-  cover.drawText(`growingminds.io`, { x: margin, y: pageHeight * 0.20 - 36, font: timesRoman, size: 9, color: rgb(0.8,0.9,0.85) });
-  cover.drawText("growingminds.io", { x: margin, y: margin, font: helvetica, size: 9, color: rgb(0.6,0.8,0.7) });
-
-  // ── STORY PAGES ──
-  let page = null, cursorY = 0, pageNum = 1;
-  const fontSize = 13, topY = pageHeight - margin, bottomY = margin + 30;
-  const charsPerBodyLine = 62, charsPerTitleLine = 52;
-
-  function wrapText(text, charsPerLine) {
-    const words = text.split(" ");
-    const lines = [];
-    let line = "";
-    for (const w of words) {
-      const test = line ? line + " " + w : w;
-      if (test.length > charsPerLine && line) { lines.push(line); line = w; }
-      else line = test;
-    }
-    if (line) lines.push(line);
-    return lines;
-  }
-
-  function newPage() {
-    page = pdfDoc.addPage([pageWidth, pageHeight]);
-    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: cream });
-    cursorY = topY;
-  }
-
-  function addPageNum() {
-    page.drawText(`${pageNum++}`, { x: pageWidth / 2 - 5, y: margin - 15, font: timesRoman, size: 10, color: grey });
-  }
-
-  function drawWrappedText(text, font, size, color, charsPerLine) {
-    const lh = size * 1.6;
-    const lines = wrapText(sanitizeForPdf(text), charsPerLine || charsPerBodyLine);
-    for (const l of lines) {
-      if (cursorY < bottomY) { addPageNum(); newPage(); }
-      page.drawText(l, { x: margin, y: cursorY, font, size, color });
-      cursorY -= lh;
-    }
-  }
-
-  newPage();
-  const previewChaps = (chapters || []).slice(0, 3);
-
-  for (let ci = 0; ci < previewChaps.length; ci++) {
-    const chapRaw = previewChaps[ci];
-    const chapText = typeof chapRaw === 'object' ? (chapRaw.text || '') : (chapRaw || '');
-    const chapLines = chapText.split(/\n+/).filter(l => l.trim());
-
-    // Chapter heading
-    if (chapLines.length > 0) {
-      cursorY -= 20;
-      if (cursorY < bottomY + 80) { addPageNum(); newPage(); }
-      page.drawRectangle({ x: margin, y: cursorY + 6, width: contentW, height: 2, color: green });
-      cursorY -= 14;
-      drawWrappedText(chapLines[0], timesBold, 15, green, charsPerTitleLine);
-      cursorY -= 8;
-    }
-
-    // Body paragraphs
-    for (const line of chapLines.slice(1)) {
-      cursorY -= 4;
-      drawWrappedText(line, timesRoman, fontSize, dark, charsPerBodyLine);
-    }
-    cursorY -= 16;
-  }
-
-  // "To be continued" page
-  addPageNum();
-  const tbc = pdfDoc.addPage([pageWidth, pageHeight]);
-  tbc.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: green });
-  const moreChaps = parseInt(age) <= 5 ? 12 : parseInt(age) <= 9 ? 17 : 27;
-  tbc.drawText("The story continues...", { x: margin, y: pageHeight * 0.60, font: timesBold, size: 20, color: rgb(1,1,1) });
-  tbc.drawText(sanitizeForPdf(`${childName} has ${moreChaps} more chapters waiting.`), { x: margin, y: pageHeight * 0.60 - 36, font: timesRoman, size: 12, color: rgb(0.8,0.9,0.85) });
-  tbc.drawText("Get the full personalized hardcover book at:", { x: margin, y: pageHeight * 0.60 - 60, font: helvetica, size: 11, color: rgb(0.8,0.9,0.85) });
-  tbc.drawText("growingminds.io", { x: margin, y: pageHeight * 0.60 - 84, font: helBold, size: 16, color: gold });
-
-  const pdfBytes = await pdfDoc.save();
-  return Buffer.from(pdfBytes).toString('base64');
-}
-
-async function sendPreviewEmail(email, childName, chapters, coverUrl, storyId, childData, upgradeUrl, isDesignedCover = false) {
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { milestone } = childData;
-  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-
-  // Build PDF attachment — throw on failure so it surfaces in Inngest as a step error
-  const pdfBase64 = await generatePreviewPdf(childName, chapters, childData, coverUrl);
-  const pdfAttachment = { filename: `${childName}-story-preview.pdf`, content: pdfBase64 };
-
-  const milestoneTitle = getMilestoneTitle(milestone);
-
-  // If we have the designed cover (text baked in as a real PNG), show it as a plain image.
-  // If only the raw DALL-E image is available, fall back to the HTML card layout.
-  const coverBlock = !coverUrl ? '' : isDesignedCover
-    ? `<div style="text-align:center;margin:2rem 0 1.5rem;">
-        <img src="${coverUrl}" alt="${childName}'s story cover" width="280" style="width:280px;max-width:280px;border-radius:10px;box-shadow:0 6px 28px rgba(0,0,0,.22);display:block;margin:0 auto;" />
-      </div>`
-    : `<div style="text-align:center;margin:2rem 0 1.5rem;">
-        <div style="display:inline-block;width:200px;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.25);">
-          <div style="height:125px;overflow:hidden;background:#1a3328;line-height:0;font-size:0;">
-            <img src="${coverUrl}" alt="" width="200" style="width:200px;height:auto;display:block;border:0;margin:0;padding:0;" />
-          </div>
-          <div style="background:#2d6a4f;padding:14px 16px 13px;text-align:left;">
-            <div style="color:#ffffff;font-family:'Lora',Georgia,serif;font-size:12px;font-weight:700;line-height:1.35;">${childName} and the</div>
-            <div style="color:#fbbf24;font-family:'Lora',Georgia,serif;font-size:12px;font-weight:700;line-height:1.35;">${milestoneTitle}</div>
-            <div style="color:rgba(134,239,172,0.9);font-family:'Lato',Arial,sans-serif;font-size:8px;letter-spacing:.04em;margin-top:6px;">A Growing Minds Original Story</div>
-            <div style="color:rgba(255,255,255,0.55);font-family:'Lato',Arial,sans-serif;font-size:7px;margin-top:7px;">Chapters 1–3 Preview · Written for ${childName}</div>
-          </div>
-        </div>
-      </div>`;
-
-  const moreChaps = parseInt(childData.age) <= 5 ? 12 : parseInt(childData.age) <= 9 ? 17 : 27;
-
-  const cliffhanger = `<div style="background:#fefce8;border:2px solid #fde047;border-radius:12px;padding:1.25rem 1.5rem;margin:2rem 0;text-align:center;">
-    <p style="font-size:1rem;font-weight:700;color:#854d0e;margin:0 0 .4rem;">🌟 The story is just getting started…</p>
-    <p style="font-size:.9rem;color:#92400e;margin:0;">There are ${moreChaps} more chapters waiting for ${childName}. Get the complete personalized hardcover book, printed and shipped to your door.</p>
-  </div>`;
-
-  const ctaButton = `<div style="text-align:center;margin:1.5rem 0 2rem;">
-    <a href="${upgradeUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:1.05rem;letter-spacing:.01em;box-shadow:0 3px 10px rgba(45,106,79,.3);">
-      ✨ Get the Full Book — $32
-    </a>
-    <p style="font-size:.8rem;color:#6b7280;margin:.6rem 0 0;">Your $2.99 preview has already been credited toward the $35 total.</p>
-  </div>`;
-
-  const emailPayload = {
-    from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-    to: email,
-    bcc: "purchase@growingminds.io",
-    subject: `📖 ${childName}'s story preview is attached!`,
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a2e;">
-        <div style="background:#2d6a4f;padding:1.75rem 2rem;text-align:center;border-radius:12px 12px 0 0;">
-          <p style="color:#86efac;font-size:.75rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;margin:0 0 .3rem;">Growing Minds</p>
-          <h1 style="color:white;font-size:1.4rem;margin:0;font-family:'Lora',Georgia,serif;">${storyTitle}</h1>
-        </div>
-        <div style="background:#fefae0;padding:1.5rem 2rem 2rem;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-          <p style="font-size:1rem;color:#374151;margin:.5rem 0 1rem;">Hi! The first 3 chapters of ${childName}'s personalized story are attached as a PDF — open it up and read together tonight! 📖</p>
-
-          ${coverBlock}
-          ${cliffhanger}
-          ${ctaButton}
-
-          <div style="border-top:1px solid #e5e7eb;margin-top:2rem;padding-top:1rem;">
-            <div style="background:white;border:1px solid #d1fae5;border-radius:8px;padding:.75rem 1rem;text-align:center;margin-bottom:1rem;">
-              <div style="font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.25rem;">Your Story ID</div>
-              <div style="font-family:monospace;font-size:.95rem;font-weight:700;color:#14532d;">${storyId}</div>
-              <p style="font-size:.75rem;color:#4b7c5a;margin:.3rem 0 0;">Keep this — use it if you order a sequel or a story for a sibling.</p>
-            </div>
-            <p style="color:#6b7280;font-size:.8rem;text-align:center;margin:0;">Questions? <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
-          </div>
-        </div>
-      </div>
-    `
-  };
-
-  if (pdfAttachment) emailPayload.attachments = [pdfAttachment];
-
-  try {
-    await resend.emails.send(emailPayload);
-    console.log(`Preview email sent to ${email} for ${childName} (${storyId})${pdfAttachment ? ' with PDF' : ' (no PDF)'}`);
-  } catch(e) {
-    console.error(`Preview email failed: ${e.message}`);
-    throw e;
-  }
-}
 
 async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, storyId) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { milestone, city, region } = child;
-  const wordCount = (tier.chapCount * tier.wordsPerChap).toLocaleString();
+  const wordCount = `${(tier.chapCount * tier.minWords).toLocaleString()}–${(tier.chapCount * tier.maxWords).toLocaleString()}`;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
 
   await resend.emails.send({
@@ -3911,193 +1124,13 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
   });
 }
 
-async function sendAdminNotificationEmail(storyId, customerEmail, childName, child, tier, fullBookUrl = null, coverImageUrl = null, previewChapter = null, token = '') {
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { age, city, region, milestone, gender } = child;
-  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-  const airtableUrl = `https://airtable.com/${process.env.AIRTABLE_BASE_ID || ''}`;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
-
-  const fullBookButton = fullBookUrl
-    ? `<a href="${fullBookUrl}" style="display:inline-block;background:#1a3a2a;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">Download Full Book PDF</a>`
-    : `<span style="color:#9ca3af;font-size:.8rem;">Full book PDF not available — check Inngest logs.</span>`;
-
-  const coverBlock = coverImageUrl ? `
-    <div style="margin-bottom:1.5rem;">
-      <p style="font-weight:700;color:#6b7280;font-size:.85rem;margin:0 0 8px;">COVER IMAGE</p>
-      <a href="${coverImageUrl}" target="_blank">
-        <img src="${coverImageUrl}" alt="Cover illustration" style="width:100%;max-width:320px;border-radius:6px;display:block;margin-bottom:6px;" />
-      </a>
-    </div>` : '';
-
-  // First ~400 words of chapter 1 for quick spot-check
-  const previewSnippet = previewChapter
-    ? (() => {
-        const words = previewChapter.split(/\s+/).slice(0, 400).join(' ');
-        return `<div style="margin:1.5rem 0;padding:1rem 1.25rem;background:#f9fafb;border-left:3px solid #2d6a4f;border-radius:0 6px 6px 0;">
-          <p style="font-weight:700;color:#6b7280;font-size:.8rem;margin:0 0 8px;">CHAPTER 1 PREVIEW</p>
-          <p style="font-family:'Lora',Georgia,serif;font-size:.9rem;line-height:1.7;color:#1a1a2e;margin:0;">${words}${previewChapter.split(/\s+/).length > 400 ? '…' : ''}</p>
-        </div>`;
-      })()
-    : '';
-
-  const approveUrl  = `${baseUrl}/api/approve?storyId=${storyId}&token=${token}`;
-  const regenUrl    = `${baseUrl}/api/regenerate?storyId=${storyId}&token=${token}`;
-  const cancelUrl   = `${baseUrl}/api/cancel?storyId=${storyId}&token=${token}`;
-
-  const actionButtons = `
-    <div style="margin:1.5rem 0;padding:1.25rem;background:#fefce8;border:1px solid #fde047;border-radius:8px;">
-      <p style="font-weight:700;color:#854d0e;font-size:.9rem;margin:0 0 4px;">⏳ Story will auto-send in 2 hours</p>
-      <p style="color:#92400e;font-size:.8rem;margin:0 0 1rem;">Review the chapter preview and cover above. Click below to act now.</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">✓ Send Now</a>
-        <a href="${regenUrl}" style="display:inline-block;background:#b45309;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">↺ Regenerate</a>
-        <a href="${cancelUrl}" style="display:inline-block;background:#6b7280;color:white;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">✕ Cancel</a>
-      </div>
-    </div>`;
-
-  try {
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-      to: "hello@growingminds.io",
-      subject: `⏳ Review before sending: ${storyTitle}`,
-      html: `
-        <div style="font-family:sans-serif;max-width:580px;margin:0 auto;color:#1a1a2e;">
-          <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:10px 10px 0 0;">
-            <h2 style="color:white;margin:0;font-size:1.2rem;">New Story Ready — Review Required</h2>
-          </div>
-          <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
-            <table style="border-collapse:collapse;width:100%;margin-bottom:1rem;">
-              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;width:130px;font-size:.85rem;">STORY</td><td style="padding:8px 4px;font-weight:700;">${storyTitle}</td></tr>
-              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td><td style="padding:8px 4px;">${childName}, age ${age} · ${gender || 'child'}</td></tr>
-              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">LOCATION</td><td style="padding:8px 4px;">${city}, ${region}</td></tr>
-              <tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CUSTOMER</td><td style="padding:8px 4px;"><a href="mailto:${customerEmail}" style="color:#2d6a4f;">${customerEmail}</a></td></tr>
-              <tr><td style="padding:8px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">STORY ID</td><td style="padding:8px 4px;font-family:monospace;font-size:.85rem;">${storyId}</td></tr>
-            </table>
-            ${actionButtons}
-            ${coverBlock}
-            ${previewSnippet}
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:1.5rem;">
-              <a href="${airtableUrl}" style="display:inline-block;background:#2d6a4f;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:.9rem;">View in Airtable</a>
-              ${fullBookButton}
-            </div>
-          </div>
-        </div>
-      `
-    });
-    console.log(`Admin notification sent for ${childName} (${storyId})`);
-  } catch(e) {
-    console.error(`Admin notification failed: ${e.message}`);
-  }
-}
-
-async function sendLuluApprovalEmail(storyId, childName, childData, fullBookUrl, token) {
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://growingminds.io';
-  const { milestone, age, city, region } = childData;
-  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-
-  const approveUrl = `${baseUrl}/api/approve-lulu?storyId=${encodeURIComponent(storyId)}&token=${token}`;
-  const remakeUrl  = `${baseUrl}/api/remake-images?storyId=${encodeURIComponent(storyId)}&token=${token}`;
-
-  const coverImageUrl = await redisRequest("GET", [`cover:${storyId}`]).catch(() => null);
-
-  const coverBlock = coverImageUrl ? `
-    <div style="margin-bottom:1.5rem;">
-      <a href="${coverImageUrl}" target="_blank">
-        <img src="${coverImageUrl}" alt="Cover" style="width:100%;max-width:260px;border-radius:6px;display:block;" />
-      </a>
-    </div>` : '';
-
-  try {
-    await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-      to: "hello@growingminds.io",
-      subject: `📦 Ready to print: ${storyTitle}`,
-      html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
-          <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:10px 10px 0 0;">
-            <h2 style="color:white;margin:0;font-size:1.1rem;">Ready to Send to Lulu</h2>
-          </div>
-          <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 2rem;">
-            <table style="border-collapse:collapse;width:100%;margin-bottom:1.25rem;">
-              <tr style="border-bottom:1px solid #f3f4f6;">
-                <td style="padding:7px 4px;font-weight:700;color:#6b7280;width:110px;font-size:.85rem;">STORY</td>
-                <td style="padding:7px 4px;font-weight:700;">${storyTitle}</td>
-              </tr>
-              <tr>
-                <td style="padding:7px 4px;font-weight:700;color:#6b7280;font-size:.85rem;">CHILD</td>
-                <td style="padding:7px 4px;">${childName}, age ${age} · ${city}, ${region}</td>
-              </tr>
-            </table>
-            ${coverBlock}
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:1.25rem;margin-bottom:1rem;">
-              <p style="font-weight:700;color:#166534;font-size:.9rem;margin:0 0 12px;">Choose an action:</p>
-              <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:white;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">📦 Send to Lulu</a>
-                <a href="${remakeUrl}" style="display:inline-block;background:#b45309;color:white;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:700;font-size:.9rem;">🔄 Remake Images</a>
-              </div>
-            </div>
-            ${fullBookUrl ? `<p style="margin:.5rem 0 0;font-size:.85rem;color:#6b7280;"><a href="${fullBookUrl}" style="color:#2d6a4f;">View full-book PDF</a></p>` : ''}
-            <p style="margin:1rem 0 0;font-size:.8rem;color:#9ca3af;">This link is valid for 7 days. If no action is taken, the print job will be skipped automatically.</p>
-          </div>
-        </div>
-      `
-    });
-    console.log(`Lulu approval email sent for ${childName} (${storyId})`);
-  } catch(e) {
-    console.error(`Lulu approval email failed: ${e.message}`);
-  }
-}
-
 // ════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════
 
-function callClaudeHaiku(prompt, maxTokens) {
+function callClaude(prompt, maxTokens) {
   const payload = JSON.stringify({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content: prompt }]
-  });
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: "api.anthropic.com",
-      port: 443,
-      path: "/v1/messages",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
-      },
-      timeout: 60000
-    };
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", () => {
-        try {
-          const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message));
-          resolve(data.content[0].text.trim());
-        } catch(e) {
-          reject(new Error("Haiku parse error: " + body.slice(0, 200)));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => reject(new Error("Haiku timeout")));
-    req.write(payload);
-    req.end();
-  });
-}
-
-function callClaudeOnce(prompt, maxTokens) {
-  const payload = JSON.stringify({
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-4-20250514",
     max_tokens: maxTokens,
     messages: [{ role: "user", content: prompt }]
   });
@@ -4123,7 +1156,7 @@ function callClaudeOnce(prompt, maxTokens) {
       res.on("end", () => {
         try {
           const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message, { cause: data.error.type }));
+          if (data.error) return reject(new Error(data.error.message));
           resolve(data.content[0].text.trim());
         } catch(e) {
           reject(new Error("Claude parse error: " + body.slice(0, 200)));
@@ -4135,84 +1168,6 @@ function callClaudeOnce(prompt, maxTokens) {
     req.write(payload);
     req.end();
   });
-}
-
-async function callClaude(prompt, maxTokens, attempt = 0) {
-  const MAX_RETRIES = 4;
-  // Exponential backoff delays in ms: 30s, 60s, 120s, 240s
-  const BACKOFF = [30000, 60000, 120000, 240000];
-  try {
-    return await callClaudeOnce(prompt, maxTokens);
-  } catch(e) {
-    const isOverloaded = e.message.toLowerCase().includes("overload") || e.message.toLowerCase().includes("529");
-    if (isOverloaded && attempt < MAX_RETRIES) {
-      const delay = BACKOFF[attempt];
-      console.warn(`Claude overloaded (attempt ${attempt + 1}/${MAX_RETRIES}) — retrying in ${delay / 1000}s`);
-      await new Promise(res => setTimeout(res, delay));
-      return callClaude(prompt, maxTokens, attempt + 1);
-    }
-    throw e;
-  }
-}
-
-// ── OPUS — used for all creative writing calls ──
-function callClaudeOpusOnce(prompt, maxTokens) {
-  const payload = JSON.stringify({
-    model: "claude-opus-4-6",
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content: prompt }]
-  });
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: "api.anthropic.com",
-      port: 443,
-      path: "/v1/messages",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
-      },
-      timeout: 300000  // 5 min — Opus is slower on long outputs
-    };
-
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", () => {
-        try {
-          const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message, { cause: data.error.type }));
-          resolve(data.content[0].text.trim());
-        } catch(e) {
-          reject(new Error("Claude Opus parse error: " + body.slice(0, 200)));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => reject(new Error("Claude Opus timeout")));
-    req.write(payload);
-    req.end();
-  });
-}
-
-async function callClaudeOpus(prompt, maxTokens, attempt = 0) {
-  const MAX_RETRIES = 4;
-  const BACKOFF = [30000, 60000, 120000, 240000];
-  try {
-    return await callClaudeOpusOnce(prompt, maxTokens);
-  } catch(e) {
-    const isOverloaded = e.message.toLowerCase().includes("overload") || e.message.toLowerCase().includes("529");
-    if (isOverloaded && attempt < MAX_RETRIES) {
-      const delay = BACKOFF[attempt];
-      console.warn(`Claude Opus overloaded (attempt ${attempt + 1}/${MAX_RETRIES}) — retrying in ${delay / 1000}s`);
-      await new Promise(res => setTimeout(res, delay));
-      return callClaudeOpus(prompt, maxTokens, attempt + 1);
-    }
-    throw e;
-  }
 }
 
 // ════════════════════════════════════════════
@@ -4307,7 +1262,7 @@ function decodeStoryData(token) {
   catch { return null; }
 }
 
-async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters, fullBookUrl = null) {
+async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters) {
   const baseId = process.env.AIRTABLE_BASE_ID;
   const token  = process.env.AIRTABLE_TOKEN;
   if (!baseId || !token) { console.log("No Airtable credentials — skipping story save"); return; }
@@ -4316,19 +1271,19 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
   const fullStory = chapters.join('\n\n---\n\n');
   const wordCount = fullStory.split(/\s+/).length;
 
-  const fields = {
-    "Story ID":   storyId,
-    "Child Age":  parseInt(age) || 0,
-    "Milestone":  milestone || "",
-    "City":       `${city}, ${region}`,
-    "Full Story": fullStory.slice(0, 100000), // Airtable long text limit — first ~20 chapters
-    "Word Count": wordCount,
-    "Created At": new Date().toISOString().split("T")[0]
-  };
-  // Full book PDF URL — complete 30-chapter print-ready file
-  if (fullBookUrl) fields["Story PDF"] = fullBookUrl;
-
-  const payload = JSON.stringify({ records: [{ fields }] });
+  const payload = JSON.stringify({
+    records: [{
+      fields: {
+        "Story ID":   storyId,
+        "Child Age":  parseInt(age) || 0,
+        "Milestone":  milestone || "",
+        "City":       `${city}, ${region}`,
+        "Full Story": fullStory.slice(0, 100000), // Airtable long text limit
+        "Word Count": wordCount,
+        "Created At": new Date().toISOString().split("T")[0]
+      }
+    }]
+  });
 
   return new Promise((resolve, reject) => {
     const options = {
@@ -4356,137 +1311,3 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
     req.end();
   });
 }
-
-// ════════════════════════════════════════════
-// REMAKE IMAGES — re-generates all illustrations for a story, then sends a fresh Lulu approval email
-// Triggered by images/remake event from api/remake-images.js
-// The original generateRemainingChapters run keeps waiting for lulu/approved — it will receive
-// it when the admin clicks "Send to Lulu" on the new approval email.
-// ════════════════════════════════════════════
-const remakeStoryImages = inngest.createFunction(
-  { id: "remake-story-images", retries: 1, timeout: "45m" },
-  { event: "images/remake" },
-  async ({ event, step }) => {
-    const { storyId } = event.data;
-
-    // Load story data from Redis
-    const storyToken = await redisRequest("GET", [`storytoken:${storyId}`]);
-    if (!storyToken) throw new Error(`No storyToken in Redis for ${storyId} — may have expired`);
-
-    const childData = decodeStoryData(storyToken);
-    if (!childData) throw new Error("Could not decode story token");
-
-    const customDetails = await redisRequest("GET", [`customdetails:${storyId}`]);
-    if (customDetails) childData.customDetails = customDetails;
-
-    const childName = await redisRequest("GET", [`childname:${storyId}`]) || childData.name;
-    const customerEmail = await redisRequest("GET", [`customeremail:${storyId}`]);
-
-    const tier = getStoryTier(childData.age);
-    const { name, age, hair, hairLength, hairStyle, eye, gender, city, region } = childData;
-
-    const hairLengthExpanded =
-      hairLength === 'crew cut'           ? 'very short crew cut, buzzed close to the head'
-      : hairLength === 'regular cut'      ? 'short regular cut, trimmed neatly above the ears'
-      : hairLength === 'past the ears'    ? 'medium length, hanging past the ears'
-      : hairLength === 'to the shoulders' ? 'shoulder-length, ends exactly at the shoulders — not shorter'
-      : hairLength === 'long'             ? 'very long, falling to mid-back — clearly below the shoulder blades, NOT shoulder-length'
-      : hairLength === 'short'            ? 'very short, close-cropped, above the ears'
-      : hairLength === 'medium'           ? 'medium-length, chin to shoulder'
-      : hairLength || '';
-
-    // Step 1: Clear existing non-cover illustrations
-    await step.run("remake-clear-illustrations", async () => {
-      const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
-      if (imgKeys && imgKeys.length > 0) {
-        const urlsToDelete = [];
-        for (const k of imgKeys) {
-          if (k === `img:${storyId}:0-0`) continue; // keep cover image
-          const url = await redisRequest("GET", [k]);
-          if (url) urlsToDelete.push(url);
-          await redisRequest("DEL", [k]);
-        }
-        if (urlsToDelete.length > 0) await del(urlsToDelete);
-        console.log(`Remake: cleared ${imgKeys.length - 1} illustrations for ${storyId}`);
-      }
-    });
-
-    // Step 2: Load outline (needed for scene prompts)
-    const outlineRaw = await redisRequest("GET", [`outline:${storyId}`]);
-    const outline = outlineRaw ? JSON.parse(outlineRaw) : [];
-    if (!outline.length) throw new Error(`Outline missing from Redis for ${storyId} — cannot remake images`);
-
-    // Steps 3..N: Re-generate all illustrations
-    if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
-      const step2 = Math.floor(outline.length / tier.imageCount);
-      const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
-        `${Math.min(i * step2, outline.length - 1)}-0`
-      );
-      if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
-
-      for (let b = 0; b < allImageKeys.length; b++) {
-        await step.run(`remake-illustration-${b + 1}`, async () => {
-          const key = allImageKeys[b];
-          const ci = parseInt(key.split('-')[0]);
-          const chap = outline[ci];
-          const coverBlobUrl = await redisRequest("GET", [`cover:${storyId}`]);
-          if (!coverBlobUrl) throw new Error("Cover not found in Redis");
-
-          const allChapters = await getChaptersFromRedis(storyId);
-          const chapterText = allChapters[ci] || null;
-          const visualScene = chapterText
-            ? await extractScenePrompt(chapterText, name, age, city, region)
-            : (chap?.imagePrompt || `${name} on an adventure in ${city}`);
-
-          const ageNum = parseInt(age);
-          const mainAgeAppearance = getAgeBodyDescription(age);
-          const illustrationStyle =
-            ageNum <= 7  ? `Large expressive facial emotions. Simple, uncluttered composition.` :
-            ageNum <= 10 ? `Expressive character faces with personality and humor.` :
-                           `Atmospheric and cinematic.`;
-          const mainCharHairNote = hairStyle
-            ? `${hairStyle} ${hairLengthExpanded} ${hair}-colored hair${hairStyle.toLowerCase().includes('wavy') || hairStyle.toLowerCase().includes('curly') ? ` — visibly ${hairStyle}, NOT straight` : ''}`
-            : `${hairLengthExpanded} ${hair}-colored hair`;
-          const sceneStyleGuide = getStyleGuideForAge(age);
-          const scenePrompt = `${sceneStyleGuide} Scene: ${visualScene} Setting: fantasy world inspired by a love of ${childData.favorite || favorite || 'adventure'}, with landscape atmosphere drawn from ${region}. CRITICAL AGE: The main character is ${age} years old — must look like ${mainAgeAppearance}. Main character has ${mainCharHairNote}. ${illustrationStyle} IMPORTANT: The main character is the ONLY person in this illustration — no other people, no secondary characters, no adults, no children in the background. No text anywhere.`;
-
-          const imageBytes = await callFalInstantCharacter(coverBlobUrl, scenePrompt);
-          const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, { access: 'public', contentType: 'image/jpeg' });
-          await redisRequest("SET", [`img:${storyId}:${key}`, blob.url, "EX", 604800]);
-        });
-      }
-    }
-
-    // Rebuild full-book PDF with new illustrations
-    const newFullBookUrl = await step.run("remake-rebuild-pdf", async () => {
-      const allChapters = await getChaptersFromRedis(storyId);
-      const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      const illustrationsB64 = {};
-      for (const [key, url] of Object.entries(illustrationUrls)) {
-        try {
-          const bytes = await fetchImageBytes(url);
-          illustrationsB64[key] = `data:image/jpeg;base64,${bytes.toString('base64')}`;
-        } catch(e) { console.error(`Remake PDF image ${key} failed: ${e.message}`); }
-      }
-      const pdfBase64 = await generateFullBookPDF(childName, allChapters, childData, tier, illustrationsB64);
-      const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-      const blob = await put(`pdfs/${storyId}/full-book.pdf`, pdfBuffer, { access: 'public', contentType: 'application/pdf' });
-      await redisRequest("SET", [`fullbookurl:${storyId}`, blob.url, "EX", 2592000]);
-      console.log(`Remake: rebuilt full-book PDF for ${childName} (${storyId})`);
-      return blob.url;
-    });
-
-    // Send a fresh Lulu approval email — the original run is still waiting for lulu/approved
-    await step.run("remake-send-lulu-approval", async () => {
-      const token = adminToken(storyId);
-      await sendLuluApprovalEmail(storyId, childName, childData, newFullBookUrl, token);
-    });
-
-    console.log(`✅ Remake complete for ${childName} (${storyId})`);
-    return { success: true, storyId, childName };
-  }
-);
-
-// ── SERVE — must be after all function definitions ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, generateRemainingChapters, remakeStoryImages] });
-module.exports = handler;
