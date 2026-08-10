@@ -90,14 +90,38 @@ const generateStoryOrder = inngest.createFunction(
           const keys = allImageKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-          const { name, age, hair, hairLength, hairStyle, eye, city, region } = childData;
+          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre } = childData;
           const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
           const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+
+          // Genre-specific illustration style
+          const genreVisual = {
+            'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
+            'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
+            'Friendly Dragons': 'bright colorful dragon, friendly fantasy world',
+            'Animal Kingdom': 'beatrix potter style, cozy anthropomorphic animals',
+            'Cozy Magic': 'studio ghibli inspired, warm town setting, everyday magic',
+            'Unicorns & Magic': 'rainbow meadows, sparkle and shimmer, magical creatures',
+            'Wizard Academy': 'magical boarding school, gothic architecture, warm torch light',
+            'Dragon Rider': 'epic mountain vistas, dragon in flight, sweeping skies',
+            'Enchanted Quest': 'classic fantasy landscape, portal worlds, magical kingdoms',
+            'Superhero Origin': 'dynamic comic book style, action poses, bright colors',
+            'Mystery & Magic': 'atmospheric fog, mysterious glowing clues, enchanted detective',
+            'Space & Stars': 'nebula backgrounds, alien worlds, bioluminescent colors',
+            'Underwater Kingdom': 'bioluminescent ocean, coral castles, flowing water light',
+            'Epic Fantasy': 'sweeping epic landscape, dramatic lighting, ancient world',
+            'Dark Magic': 'moody atmospheric, forbidden library, mysterious shadows',
+            'Sci-Fi Adventure': 'futuristic world, neon lights, sleek technology',
+            'Superhero Chronicles': 'cinematic comic style, dramatic skies, hero silhouette',
+            'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
+            'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
+          }[genre] || 'whimsical fantasy illustration, warm colors';
+
           const styleGuide = parseInt(age) <= 5
-            ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
+            ? `soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, ${genreVisual}`
             : parseInt(age) <= 9
-            ? "vibrant digital children's book illustration, colorful and expressive, slightly stylized, warm lighting"
-            : "detailed digital illustration, cinematic lighting, slightly realistic, like a YA novel cover";
+            ? `vibrant digital children's book illustration, colorful and expressive, ${genreVisual}`
+            : `detailed digital illustration, cinematic lighting, ${genreVisual}`;
 
           const result = {};
 
@@ -214,10 +238,11 @@ module.exports = handler;
 // ════════════════════════════════════════════
 
 async function generateOutline(child, tier) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, genre, genreStyle } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
+  const genreLine = genre ? `\nSTORY GENRE & STYLE: ${genre} — ${genreStyle}` : '';
   const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these must be followed precisely:\n${customDetails}\nIMPORTANT NICKNAME RULE: If a nickname is provided for any character, use ONLY that nickname — never invent a different one, never shorten it, never substitute it with another name. Characters may be referred to by their full name OR a provided nickname, but never a made-up alternative.` : "";
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
@@ -225,9 +250,9 @@ async function generateOutline(child, tier) {
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
-Milestone/theme: ${milestone}${customLine}
+Milestone/theme: ${milestone}${genreLine}${customLine}
 
-This is a full ${tier.chapCount}-chapter novel (~24,000 words total). Structure the arc like a proper novel:
+This is a full ${tier.chapCount}-chapter novel. Structure the arc like a proper novel in the ${genre || 'fantasy'} genre:
 - Chapters 1–5: Introduce ${name} and their world, establish the milestone challenge
 - Chapters 6–15: Rising action, complications, adventures, setbacks
 - Chapters 16–24: Climax builds, highest stakes, darkest moment
@@ -273,10 +298,11 @@ No markdown, no explanation, just the JSON array.`;
 }
 
 async function generateChapter(child, outline, index, tier) {
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
+  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, genre, genreStyle } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
+  const genreLine = genre ? `\nSTORY GENRE & STYLE: ${genre} — ${genreStyle}` : '';
   const isFirst = index === 0;
   const isLast = index === outline.length - 1;
   const chap = outline[index];
@@ -305,6 +331,7 @@ Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Setting: ${city}, ${region} — use the city name and regional geography naturally, but never specific street names, addresses, or neighbourhood names.
 Central theme: ${milestone}
+Genre & style: ${genre || 'fantasy adventure'} — ${genreStyle || 'imaginative and engaging'}
 ${isFirst ? "\nThis is the opening chapter — establish the world vividly, introduce the hero with warmth and charm." : ""}
 ${isLast ? "\nThis is the final chapter — resolve the milestone beautifully, end with warmth and hope." : ""}
 
