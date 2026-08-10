@@ -780,6 +780,17 @@
 <script>
   const TOTAL_STEPS = 6;
 
+  // ── STATE ──
+  const state = {
+    step: 1,
+    name: '', age: '', gender: '',
+    hair: '', hairLength: '', hairStyle: '', eye: '',
+    trait: '', fav: '', friend: '',
+    genre: '', genreStyle: '',
+    city: '', region: '',
+    email: '', milestone: '', priorStoryId: '', customDetails: ''
+  };
+
   const genres = {
     '3-5': [
       { icon: '🧙', val: 'Magic & Wizards', style: 'Warm and lyrical, gentle spells with big consequences, cozy and safe — in the style of classic British illustrated cottage magic' },
