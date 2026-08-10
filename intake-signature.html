@@ -714,4 +714,143 @@ function buildSummary(){
     {label:(state.milestoneIcon||'⭐')+' Milestone',panel:0,rows:[{q:'Milestone',a:state.milestoneLabel||'—'},...getMilestoneAnswers()]},
     {label:'👧 About '+(name!=='—'?name:'your child'),panel:1,rows:[{q:'Name',a:name+(nick?` (${nick})`:'')} ,{q:'Age',a:age},{q:'Gender',a:gender},{q:'Ethnicity',a:ethnicity},{q:'Personality',a:document.getElementById('childPersonality')?.value||''},{q:'Interests',a:document.getElementById('childInterests')?.value||''},{q:'Strengths',a:document.getElementById('childStrengths')?.value||''},{q:'Hair',a:[state.hair,state.hairLength,state.hairStyle].filter(Boolean).join(', ')},{q:'Eyes',a:state.eye},{q:'Story style',a:state.genre},{q:'Hometown',a:[document.getElementById('childCity')?.value,document.getElementById('childRegion')?.value].filter(Boolean).join(', ')}]},
     {label:'👨‍👩‍👧 The people',panel:6,rows:[{q:'Family',a:document.getElementById('familyInfo')?.value||''},{q:'Friends',a:document.getElementById('friendsInfo')?.value||''},{q:'Others',a:document.getElementById('othersInfo')?.value||''},{q:'Illustration details',a:collectIllusData()||''}]},
-    {label:'📌 Get it right',panel:7,rows:[{q:'What they can\'t do yet',a:document.getElementById('cantDoYet')?.value||''},{q:'Their real feelings',a:document.getElementById('realFeelings')?.value||''},{q:
+    {label:'📌 Get it right',panel:7,rows:[{q:'What they can\'t do yet',a:document.getElementById('cantDoYet')?.value||''},{q:'Their real feelings',a:document.getElementById('realFeelings')?.value||''},{q:'Things they\'d correct',a:document.getElementById('wouldCorrect')?.value||''},{q:'What you want them to feel',a:document.getElementById('wantToFeel')?.value||''},{q:'Anything else',a:document.getElementById('anythingElse')?.value||''}]}
+  ];
+  document.getElementById('summaryContent').innerHTML=sections.map(s=>`
+    <div class="summary-card">
+      <div class="summary-section-label">${s.label}<button class="summary-edit-btn" onclick="goTo(${s.panel})">✏️ Edit</button></div>
+      ${s.rows.map(r=>`<div class="summary-row"><div class="summary-q">${r.q}</div><div class="summary-a ${!r.a?'empty':''}">${r.a||'Not provided'}</div></div>`).join('')}
+    </div>
+  `).join('');
+}
+
+function getMilestoneAnswers(){
+  if(!state.milestone)return[];
+  const config=MILESTONE_QUESTIONS[state.milestone];
+  if(!config)return[];
+  return config.questions.map((q,i)=>({q:q.label,a:document.getElementById(`mq_${i}`)?.value||''}));
+}
+
+async function submitIntlWaitlist(){
+  const email=document.getElementById('intlEmail').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){document.getElementById('intlEmail').style.borderColor='#dc2626';return;}
+  try{await fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});}catch(e){}
+  document.getElementById('intlForm').style.display='none';
+  document.getElementById('intlThanks').style.display='block';
+}
+
+fetch('https://ipapi.co/json/').then(r=>r.json()).then(d=>{if(d.country_code&&d.country_code!=='US')document.getElementById('intlModal').style.display='flex';}).catch(()=>{});
+
+async function submitForm(){
+  const name=(document.getElementById('childName')?.value||'').trim();
+  const age=(document.getElementById('childAge')?.value||'');
+  const gender=(document.getElementById('childGender')?.value||'');
+  const email=(document.getElementById('parentEmail')?.value||'').trim();
+  const city=(document.getElementById('childCity')?.value||'').trim();
+  const region=(document.getElementById('childRegion')?.value||'').trim();
+  const personality=(document.getElementById('childPersonality')?.value||'').trim();
+  const interests=(document.getElementById('childInterests')?.value||'').trim();
+  const nickname=(document.getElementById('childNickname')?.value||'').trim();
+  const priorStoryId=(document.getElementById('priorStoryId')?.value||'').trim();
+  const ethnicityVal=document.getElementById('childEthnicity')?.value||'';
+  const ethnicityOther=(document.getElementById('ethnicityOther')?.value||'').trim();
+  const ethnicity=ethnicityVal==='other'?(ethnicityOther||''):ethnicityVal;
+  if(!name||!age||!email||!personality||!interests){alert('Please go back and fill in all required fields.');return;}
+  if(!document.getElementById('consentCheckbox')?.checked){alert('Please confirm you are a parent or guardian and agree to the Privacy Policy and Terms of Service.');return;}
+  document.getElementById('loadingTitle').textContent=`Writing ${name}'s story opening…`;
+  document.getElementById('loadingSub').textContent=`Our storyteller is weaving a one-of-a-kind adventure just for ${name}. This usually takes about 20 seconds.`;
+  document.getElementById('loadingOverlay').classList.add('show');
+  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:state.milestoneLabel,child_age:age,form_type:'signature'});
+  const mqConfig=state.milestone?MILESTONE_QUESTIONS[state.milestone]:null;
+  const parts=[];
+  const storyAvoid=(document.getElementById('storyAvoid')?.value||'').trim();
+  const wantFeel2=(document.getElementById('wantToFeel')?.value||'').trim();
+  if(storyAvoid||wantFeel2){parts.push('=== STORY CONSTRAINTS ===');if(storyAvoid)parts.push(`FORBIDDEN: ${storyAvoid}`);if(wantFeel2)parts.push(`REQUIRED OUTCOME: ${wantFeel2}`);}
+  if(mqConfig){parts.push(`=== MILESTONE: ${state.milestoneLabel} ===`);mqConfig.questions.forEach((q,i)=>{const val=(document.getElementById(`mq_${i}`)?.value||'').trim();if(val)parts.push(`${q.label}: ${val}`);});}
+  const family=(document.getElementById('familyInfo')?.value||'').trim();
+  const friends=(document.getElementById('friendsInfo')?.value||'').trim();
+  const others=(document.getElementById('othersInfo')?.value||'').trim();
+  const illusData=collectIllusData();
+  if(family||friends||others||illusData){parts.push('\n=== THE PEOPLE ===');if(family)parts.push(`Family: ${family}`);if(friends)parts.push(`Friends: ${friends}`);if(others)parts.push(`Others: ${others}`);if(illusData)parts.push(illusData);}
+  const strengths=(document.getElementById('childStrengths')?.value||'').trim();
+  const cantDo=(document.getElementById('cantDoYet')?.value||'').trim();
+  const realFeel=(document.getElementById('realFeelings')?.value||'').trim();
+  const wouldCorr=(document.getElementById('wouldCorrect')?.value||'').trim();
+  const wantFeel=(document.getElementById('wantToFeel')?.value||'').trim();
+  const extra=(document.getElementById('anythingElse')?.value||'').trim();
+  if(strengths||nickname){parts.push(`\n=== ABOUT ${name.toUpperCase()} ===`);if(strengths)parts.push(`Great at: ${strengths}`);if(nickname)parts.push(`Nickname: ${nickname}`);}
+  if(cantDo||realFeel||wouldCorr||extra){parts.push('\n=== THINGS THE STORY MUST GET RIGHT ===');if(cantDo)parts.push(`Can't do yet: ${cantDo}`);if(realFeel)parts.push(`Real feelings: ${realFeel}`);if(wouldCorr)parts.push(`Would correct: ${wouldCorr}`);if(extra)parts.push(`Additional: ${extra}`);}
+  const customDetails=parts.join('\n');
+  let milestoneStr=state.milestoneLabel||'';
+  if(mqConfig){const details=mqConfig.questions.slice(0,3).map((q,i)=>(document.getElementById(`mq_${i}`)?.value||'').trim()).filter(Boolean).join('. ');if(details)milestoneStr=`${milestoneStr}. ${details}`;}
+  const payload={name,age,gender,ethnicity,hair:state.hair||'',hairLength:state.hairLength||'',hairStyle:state.hairStyle||'',eye:state.eye||'',trait:personality,favorite:interests,friend:family||'none',city,region,milestone:milestoneStr,email,priorStoryId,customDetails,genre:state.genre||'',genreStyle:state.genreStyle||''};
+  try{
+    const response=await fetch('/api/generate-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.error||'Story generation failed');}
+    const data=await response.json();
+    sessionStorage.setItem('storyPreview',JSON.stringify({preview:data.preview,storyToken:data.storyToken,storyId:data.storyId,childName:data.childName,customerEmail:email,customDetails:data.customDetails||customDetails,childData:payload}));
+    localStorage.setItem('gm_last_story_id',data.storyId);
+    localStorage.setItem('gm_last_child_name',data.childName);
+    if(typeof gtag!=='undefined')gtag('event','preview_generated',{story_id:data.storyId,form_type:'signature'});
+    window.location.href='story-preview.html';
+  }catch(err){
+    console.error(err);
+    document.getElementById('loadingOverlay').classList.remove('show');
+    document.getElementById('errorMessage').textContent=err.message||'We couldn\'t generate the preview. Please try again.';
+    document.getElementById('errorOverlay').classList.add('show');
+  }
+}
+
+function addIllusCard(addBtn){
+  const cards=addBtn.previousElementSibling;
+  const card=document.createElement('div');
+  card.className='illus-card';
+  card.innerHTML=`<div class="illus-card-row"><input class="illus-name" type="text" placeholder="Name" maxlength="30"><input class="illus-age" type="number" placeholder="Age" min="0" max="99"><select class="illus-gender"><option value="">Gender</option><option value="girl">Girl</option><option value="boy">Boy</option><option value="nonbinary">Non-binary</option></select><button type="button" class="illus-remove" onclick="this.closest('.illus-card').remove()" title="Remove">✕</button></div><input class="illus-appearance" type="text" placeholder="Appearance note e.g. red hair, glasses (optional)" maxlength="120">`;
+  cards.appendChild(card);
+  card.querySelector('.illus-name').focus();
+}
+
+function collectIllusData(){
+  const sections=document.querySelectorAll('.illus-details');
+  const lines=[];
+  sections.forEach(section=>{
+    const label=section.dataset.section;
+    const cards=section.querySelectorAll('.illus-card');
+    const entries=[];
+    cards.forEach(card=>{
+      const name=card.querySelector('.illus-name').value.trim();
+      if(!name)return;
+      const age=card.querySelector('.illus-age').value.trim();
+      const gender=card.querySelector('.illus-gender').value;
+      const look=card.querySelector('.illus-appearance').value.trim();
+      let desc=name;
+      if(age)desc+=`, ${age} years old`;
+      if(gender)desc+=`, ${gender}`;
+      if(look)desc+=`, ${look}`;
+      entries.push(desc);
+    });
+    if(entries.length)lines.push(`Illustration details — ${label}: ${entries.join('; ')}`);
+  });
+  return lines.join('\n');
+}
+
+function initCharCounters(root){
+  const scope=root||document;
+  scope.querySelectorAll('textarea[maxlength]').forEach(ta=>{
+    if(ta.nextElementSibling?.classList.contains('char-count'))return;
+    const max=parseInt(ta.getAttribute('maxlength'));
+    const counter=document.createElement('div');
+    counter.className='char-count';
+    counter.textContent=`0 / ${max}`;
+    ta.parentNode.insertBefore(counter,ta.nextSibling);
+    ta.addEventListener('input',()=>{counter.textContent=`${ta.value.length} / ${max}`;});
+  });
+}
+
+renderSidebar();
+renderProgress();
+initCharCounters();
+document.querySelectorAll('.illus-details').forEach(section=>{addIllusCard(section.querySelector('.illus-add-btn'));});
+</script>
+</body>
+</html>
