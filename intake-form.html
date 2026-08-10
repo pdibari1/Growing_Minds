@@ -165,16 +165,16 @@
       list-style: none;
       margin-bottom: .8rem;
       grid-column: 1 / 3;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: .2rem .5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .2rem;
     }
 
     .choice-features li {
       font-size: .82rem;
       font-weight: 700;
       color: var(--text);
-      padding: .2rem 0;
+      padding: .15rem 0;
       display: flex;
       align-items: center;
       gap: .4rem;
@@ -262,25 +262,9 @@
 
   <div class="choices">
 
-    <!-- SIGNATURE -->
-    <a class="choice-card featured" href="intake-signature.html">
-      <div class="choice-badge">Most personal</div>
-      <div class="choice-icon">✍️</div>
-      <div class="choice-title">Signature</div>
-      <div class="choice-desc">Tell us everything about your child — their world, the people in it, what makes them uniquely them. The result is a story that sounds like it could only ever be about them.</div>
-      <ul class="choice-features">
-        <li>Deep milestone questions</li>
-        <li>Family & friends in the story</li>
-        <li>Full illustration character details</li>
-        <li>Story constraints & lesson</li>
-      </ul>
-      <div class="choice-time">⏱ Takes about 10–15 minutes</div>
-      <div class="btn-choice primary">Start Signature →</div>
-    </a>
-
     <!-- EXPRESS -->
-    <a class="choice-card" href="intake-express.html">
-      <div class="choice-badge light">Quick & easy</div>
+    <a class="choice-card featured" href="intake-express.html">
+      <div class="choice-badge">Quick & easy</div>
       <div class="choice-icon">⚡</div>
       <div class="choice-title">Express</div>
       <div class="choice-desc">The essentials only — name, age, personality, and milestone. Fast to fill out, still beautifully personalized.</div>
@@ -291,7 +275,23 @@
         <li>Ready in under 5 minutes</li>
       </ul>
       <div class="choice-time">⏱ Takes about 3–5 minutes</div>
-      <div class="btn-choice secondary">Start Express →</div>
+      <div class="btn-choice primary">Start Express →</div>
+    </a>
+
+    <!-- SIGNATURE -->
+    <a class="choice-card" href="intake-signature.html">
+      <div class="choice-badge light">Most personal</div>
+      <div class="choice-icon">✍️</div>
+      <div class="choice-title">Signature</div>
+      <div class="choice-desc">Tell us everything about your child — their world, the people in it, what makes them uniquely them. The result is a story that sounds like it could only ever be about them.</div>
+      <ul class="choice-features">
+        <li>Deep milestone questions</li>
+        <li>Family & friends in the story</li>
+        <li>Full illustration character details</li>
+        <li>Story constraints & lesson</li>
+      </ul>
+      <div class="choice-time">⏱ Takes about 10–15 minutes</div>
+      <div class="btn-choice secondary">Start Signature →</div>
     </a>
 
   </div>
