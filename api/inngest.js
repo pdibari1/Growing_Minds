@@ -229,8 +229,96 @@ const generateStoryOrder = inngest.createFunction(
   }
 );
 
+// ── PREVIEW CHAPTERS ($2.99 flow) ──
+const generatePreviewChapters = inngest.createFunction(
+  { id: "generate-preview-chapters", retries: 2, timeout: "45m" },
+  { event: "story/preview.purchased" },
+  async ({ event, step }) => {
+    const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
+
+    const childData = decodeStoryData(storyToken);
+    if (!childData) throw new Error("Could not decode story token");
+    if (customDetails) childData.customDetails = customDetails;
+
+    const age = parseInt(childData.age);
+    const tier = getStoryTier(childData.age);
+
+    // Generate outline
+    const outline = await step.run("generate-preview-outline", async () => {
+      const result = await generateOutline(childData, tier);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
+      return result;
+    });
+
+    // Generate first 3 chapters only
+    const chapters = await step.run("generate-preview-batch", async () => {
+      const priorChapters = [];
+      const newChapters = await generateChapterBatch(childData, outline, 0, 3, priorChapters, tier);
+      await saveChaptersToRedis(storyId, [], newChapters);
+      return newChapters;
+    });
+
+    // Generate PDF of 3 chapters
+    const pdfBase64 = await step.run("create-preview-pdf", async () => {
+      const illustrationUrls = await getIllustrationsFromRedis(storyId);
+      const illustrations = {};
+      for (const [key, url] of Object.entries(illustrationUrls)) {
+        try {
+          const imgBytes = await fetchImageBytes(url);
+          illustrations[key] = imgBytes.toString('base64');
+        } catch(e) {
+          console.error(`Failed to fetch image ${key}: ${e.message}`);
+        }
+      }
+      return await generatePDF(childName, chapters, childData, tier, illustrations);
+    });
+
+    // Send email with PDF
+    await step.run("send-preview-email", async () => {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const storyTitle = `${childName} and the ${getMilestoneTitle(childData.milestone)}`;
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+        to: customerEmail,
+        bcc: "purchase@growingminds.io",
+        subject: `📖 Here are ${childName}'s first 3 chapters!`,
+        attachments: [{ filename: `${childName}-preview.pdf`, content: pdfBase64 }],
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+            <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+              <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
+            </div>
+            <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+              <h2 style="color:#2d6a4f;">${storyTitle}</h2>
+              <p>The first 3 chapters of ${childName}'s story are attached — enjoy a taste of the adventure!</p>
+              <p style="margin-top:1rem;color:#6b7280;font-size:.9rem;">Ready for the full 30-chapter story? Order the complete hardcover book and it will be printed and shipped to your door.</p>
+              <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1.5rem;text-align:center;">
+                <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
+                <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
+                <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID when ordering the full book!</p>
+              </div>
+              <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+            </div>
+          </div>
+        `
+      });
+      console.log(`Preview email sent to ${customerEmail}`);
+    });
+
+    // Cleanup
+    await step.run("cleanup-preview", async () => {
+      await deleteChaptersFromRedis(storyId);
+      await redisRequest("DEL", [`outline:${storyId}`]);
+      await redisRequest("DEL", [`token:${storyId}`]);
+      console.log(`Cleaned up preview Redis for ${storyId}`);
+    });
+
+    return { success: true, childName, chapters: 3 };
+  }
+);
+
 // ── SERVE ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder] });
+const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters] });
 module.exports = handler;
 
 // ════════════════════════════════════════════
@@ -1157,7 +1245,7 @@ async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, story
 
 function callClaude(prompt, maxTokens) {
   const payload = JSON.stringify({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: maxTokens,
     messages: [{ role: "user", content: prompt }]
   });
