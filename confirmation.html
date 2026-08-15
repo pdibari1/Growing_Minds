@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Growing Minds — Order Confirmed! 🎉</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
@@ -303,9 +304,9 @@
     <div class="confetti-ring"></div>
     <div class="confetti-ring"></div>
     <div class="celebration-inner">
-      <div class="check-circle" id="confirm-icon">🎉</div>
-      <h1 id="confirm-title">You're all set! 🎉</h1>
-      <p id="confirm-subtitle">Their story is being written right now.</p>
+      <div class="check-circle">🎉</div>
+      <h1>You're all set! 🎉</h1>
+      <p id="confirm-subtitle">Their story is being written right now. Check your email for the PDF download link — it's on its way!</p>
     </div>
   </div>
 
@@ -317,46 +318,28 @@
       <div class="next-steps-title">📬 What happens next</div>
 
       <div class="step-row">
-        <div class="step-icon-wrap">✍️</div>
+        <div class="step-icon-wrap">📄</div>
         <div class="step-content">
-          <div class="step-title">Your story is being written</div>
-          <div class="step-desc">Our storyteller is personalizing every detail — your child's name, personality, milestone, and all the people they love are being woven into a one-of-a-kind adventure.</div>
-          <div class="step-timing">⚡ Happening right now</div>
+          <div class="step-title">PDF arriving in your inbox</div>
+          <div class="step-desc">We're generating the full story right now and will email you a download link as soon as it's ready. Check your spam folder if you don't see it.</div>
+          <div class="step-timing">⚡ Within the next few minutes</div>
         </div>
       </div>
 
-      <div class="step-row" id="step-preview" style="display:none;">
-        <div class="step-icon-wrap">📖</div>
-        <div class="step-content">
-          <div class="step-title">3 chapters arriving in your inbox</div>
-          <div class="step-desc">Your child's opening chapters are being written right now — with their name, personality, and world woven in. Check your email in a few minutes.</div>
-          <div class="step-timing">📬 Coming in a few minutes</div>
-        </div>
-      </div>
-
-      <div class="step-row" id="step-upgrade-cta" style="display:none;">
-        <div class="step-icon-wrap">✨</div>
-        <div class="step-content">
-          <div class="step-title">Love it? Get the full book</div>
-          <div class="step-desc">Your email will include a button to upgrade for $32 more — unlock every chapter and we'll print and ship your hardcover book. Your $2.99 is already credited.</div>
-          <div class="step-timing">💛 No pressure, decide after reading</div>
-        </div>
-      </div>
-
-      <div class="step-row" id="step-book" style="display:none;">
+      <div class="step-row">
         <div class="step-icon-wrap">📦</div>
         <div class="step-content">
-          <div class="step-title">Printed hardcover book on its way</div>
-          <div class="step-desc">Once your story is complete it will be sent to our print partner, who will produce and ship your beautifully bound hardcover book directly to your door.</div>
+          <div class="step-title">Printed book on its way</div>
+          <div class="step-desc">Your beautifully printed softcover book has been sent to our print partner. It will be produced and shipped directly to the address you provided.</div>
           <div class="step-timing">📮 13–15 business days</div>
         </div>
       </div>
 
-      <div class="step-row" id="step-read">
+      <div class="step-row">
         <div class="step-icon-wrap">🌟</div>
         <div class="step-content">
-          <div class="step-title">Read it together</div>
-          <div class="step-desc">Find a cozy spot and read it to your child for the first time. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
+          <div class="step-title">Read it together tonight</div>
+          <div class="step-desc">Once you have the PDF, read it to your child before bed. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
           <div class="step-timing">💛 The best part</div>
         </div>
       </div>
@@ -369,17 +352,21 @@
         <span class="label">Story for</span>
         <span class="value" id="summary-name">Your child</span>
       </div>
-      <div class="order-row" id="summary-item-row">
-        <span class="label" id="summary-item-label">Preview — First 3 Chapters</span>
-        <span class="value" id="summary-item-value">✓ Included</span>
+      <div class="order-row">
+        <span class="label">First Half — by Email</span>
+        <span class="value">✓ In your inbox within 30 min</span>
       </div>
-      <div class="order-row" id="summary-shipping-row" style="display:none;">
+      <div class="order-row">
+        <span class="label">Printed Hardcover Book</span>
+        <span class="value">✓ Included</span>
+      </div>
+      <div class="order-row">
         <span class="label">Shipping</span>
         <span class="value">✓ Free</span>
       </div>
       <div class="order-total">
         <span class="label">Total paid</span>
-        <span class="value" id="summary-total">$2.99</span>
+        <span class="value">$35.00</span>
       </div>
     </div>
 
@@ -399,7 +386,7 @@
         <a href="https://www.facebook.com/sharer/sharer.php?u=https://growingminds.io" target="_blank" class="share-btn">
           📘 Share on Facebook
         </a>
-        <a href="https://twitter.com/intent/tweet?text=Just+got+a+personalized+story+book+for+my+child+from+%40growingminds_io+%F0%9F%8C%B1+Every+detail+is+about+them+%E2%80%94+check+it+out%21+growingminds.io" target="_blank" class="share-btn">
+        <a href="https://twitter.com/intent/tweet?text=Just+got+a+personalized+story+book+for+my+child+from+%40growingminds+%F0%9F%8C%B1+Every+detail+is+about+them+%E2%80%94+check+it+out%21+growingminds.io" target="_blank" class="share-btn">
           🐦 Share on X
         </a>
         <button class="share-btn" onclick="copyLink()">🔗 Copy Link</button>
@@ -418,11 +405,11 @@
   <!-- FOOTER -->
   <footer>
     <div class="footer-logo">🌱 Growing Minds</div>
-    <p>Questions? Email us at <a href="mailto:hello@growingminds.io">hello@growingminds.io</a></p>
+    <p>Questions? Email us at <a href="/cdn-cgi/l/email-protection#4f272a2323200f283d20382621282226212b3c612620"><span class="__cf_email__" data-cfemail="b1d9d4dddddef1d6c3dec6d8dfd6dcd8dfd5c29fd8de">[email&#160;protected]</span></a></p>
     <p style="margin-top:.5rem; font-size:.75rem;">© 2026 Growing Minds LLC. All rights reserved. · <a href="/privacy-policy" style="color:inherit;">Privacy Policy</a> · <a href="/terms" style="color:inherit;">Terms of Service</a></p>
   </footer>
 
-  <script>
+  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
     // ── PERSONALIZE FROM SESSION OR URL ──
     const params = new URLSearchParams(window.location.search);
     const urlStoryId = params.get('sid');
@@ -433,34 +420,16 @@
     const childName = urlChildName || (parsed ? parsed.childName : localStorage.getItem('gm_last_child_name'));
     const storyId = urlStoryId || (parsed ? parsed.storyId : localStorage.getItem('gm_last_story_id'));
 
-    const type = params.get('type'); // 'preview' | null (upgrade or full)
-    const isPreview = type === 'preview';
-
-    if (isPreview) {
-      // Preview confirmation
-      document.getElementById('confirm-title').textContent = 'Check your inbox! 📬';
-      document.getElementById('confirm-subtitle').textContent =
-        childName ? `${childName}'s first 3 chapters are being written right now — check your email in a few minutes.`
-                  : 'The first 3 chapters are being written right now — check your email in a few minutes.';
-      document.getElementById('step-preview').style.display = '';
-      document.getElementById('step-upgrade-cta').style.display = '';
-      document.getElementById('summary-item-label').textContent = 'Preview — First 3 Chapters';
-      document.getElementById('summary-total').textContent = '$2.99';
-      if (typeof gtag !== 'undefined') gtag('event', 'purchase', { currency: 'USD', value: 2.99, transaction_id: Date.now().toString() });
-    } else {
-      // Upgrade or full book confirmation
-      document.getElementById('confirm-subtitle').textContent =
-        childName ? `${childName}'s complete story is being written. Your hardcover book ships within 13–15 business days.`
-                  : 'The complete story is being written. Your hardcover book ships within 13–15 business days.';
-      document.getElementById('step-book').style.display = '';
-      document.getElementById('summary-item-label').textContent = 'Personalized Hardcover Book';
-      document.getElementById('summary-shipping-row').style.display = '';
-      document.getElementById('summary-total').textContent = '$35.00';
-      if (typeof gtag !== 'undefined') gtag('event', 'purchase', { currency: 'USD', value: 35, transaction_id: Date.now().toString() });
-    }
-
     if (childName) {
+      document.getElementById('confirm-subtitle').textContent =
+        `${childName}'s story is being written right now. The first half of their story will be in your inbox within 30 minutes. The complete hardcover book ships within 13–15 business days.`;
       document.getElementById('summary-name').textContent = childName;
+
+      // GA4 - purchase complete
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'purchase', { currency: 'USD', value: 35, transaction_id: Date.now().toString() });
+      }
+
       sessionStorage.removeItem('storyPreview');
     }
 

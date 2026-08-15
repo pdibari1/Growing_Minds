@@ -4,34 +4,105 @@
   "buildCommand": "echo 'No build step required'",
   "outputDirectory": ".",
   "functions": {
-    "api/webhook.js":        { "maxDuration": 30 },
-    "api/inngest.js":        { "maxDuration": 800 },
-    "api/generate-preview.js": { "maxDuration": 30 },
-    "api/create-checkout.js":          { "maxDuration": 30 },
-    "api/create-preview-checkout.js":  { "maxDuration": 30 },
-    "api/create-upgrade-checkout.js":  { "maxDuration": 30 },
-    "api/capture-email.js":            { "maxDuration": 10 },
-    "api/approve.js":          { "maxDuration": 15 },
-    "api/regenerate.js":       { "maxDuration": 15 },
-    "api/cancel.js":           { "maxDuration": 15 },
-    "api/survey.js":           { "maxDuration": 15 },
-    "api/survey-results.js":   { "maxDuration": 15 },
-    "api/waitlist.js":         { "maxDuration": 10 },
-    "api/lulu-webhook.js":     { "maxDuration": 15 }
+    "api/webhook.js": {
+      "maxDuration": 30
+    },
+    "api/inngest.js": {
+      "maxDuration": 800
+    },
+    "api/generate-preview.js": {
+      "maxDuration": 30
+    },
+    "api/create-checkout.js": {
+      "maxDuration": 30
+    },
+    "api/create-preview-checkout.js": {
+      "maxDuration": 30
+    },
+    "api/create-upgrade-checkout.js": {
+      "maxDuration": 30
+    },
+    "api/capture-email.js": {
+      "maxDuration": 10
+    },
+    "api/approve.js": {
+      "maxDuration": 15
+    },
+    "api/regenerate.js": {
+      "maxDuration": 15
+    },
+    "api/cancel.js": {
+      "maxDuration": 15
+    },
+    "api/survey.js": {
+      "maxDuration": 15
+    },
+    "api/survey-results.js": {
+      "maxDuration": 15
+    },
+    "api/waitlist.js": {
+      "maxDuration": 10
+    },
+    "api/lulu-webhook.js": {
+      "maxDuration": 15
+    }
   },
   "rewrites": [
-    { "source": "/confirmation", "destination": "/confirmation.html" },
-    { "source": "/story-preview", "destination": "/story-preview.html" },
-    { "source": "/upgrade",      "destination": "/upgrade.html" },
-    { "source": "/intake-form",  "destination": "/intake-form.html" },
-    { "source": "/privacy-policy", "destination": "/privacy-policy.html" },
-    { "source": "/terms", "destination": "/terms.html" },
-    { "source": "/intake-express", "destination": "/intake-express.html" },
-    { "source": "/intake-signature", "destination": "/intake-signature.html" },
-    { "source": "/test", "destination": "/test.html" },
-    { "source": "/test2", "destination": "/test2.html" },
-    { "source": "/survey", "destination": "/survey.html" },
-    { "source": "/survey-results", "destination": "/survey-results.html" },
-    { "source": "/returns",        "destination": "/returns.html" }
+    {
+      "source": "/confirmation",
+      "destination": "/confirmation.html"
+    },
+    {
+      "source": "/story-preview",
+      "destination": "/story-preview.html"
+    },
+    {
+      "source": "/upgrade",
+      "destination": "/upgrade.html"
+    },
+    {
+      "source": "/intake-form",
+      "destination": "/intake-form.html"
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/privacy-policy.html"
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms.html"
+    },
+    {
+      "source": "/intake-express",
+      "destination": "/intake-express.html"
+    },
+    {
+      "source": "/intake-signature",
+      "destination": "/intake-signature.html"
+    },
+    {
+      "source": "/test",
+      "destination": "/test.html"
+    },
+    {
+      "source": "/test2",
+      "destination": "/test2.html"
+    },
+    {
+      "source": "/survey",
+      "destination": "/survey.html"
+    },
+    {
+      "source": "/survey-results",
+      "destination": "/survey-results.html"
+    },
+    {
+      "source": "/returns",
+      "destination": "/returns.html"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/favicon.svg"
+    }
   ]
 }

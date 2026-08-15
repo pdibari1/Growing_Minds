@@ -12,10 +12,11 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  // Basic content safety check on free-text fields
-  const flaggedWords = ['fuck', 'shit', 'bitch', 'ass', 'damn', 'hell', 'sex', 'porn', 'kill', 'murder', 'suicide', 'drug', 'cocaine', 'meth', 'weed', 'nude', 'naked'];
+  // Basic content safety check on free-text fields — whole word match only
+  const flaggedWords = ['fuck', 'shit', 'bitch', 'damn', 'hell', 'sex', 'porn', 'kill', 'murder', 'suicide', 'cocaine', 'meth', 'nude', 'naked'];
   const allFreeText = `${name} ${trait} ${favorite} ${friend || ''} ${customDetails || ''}`.toLowerCase();
-  if (flaggedWords.some(w => allFreeText.includes(w))) {
+  const wordBoundary = new RegExp(`\\b(${flaggedWords.join('|')})\\b`);
+  if (wordBoundary.test(allFreeText)) {
     return res.status(400).json({ error: "Your submission contains inappropriate content. Please review your entries and try again." });
   }
 
@@ -64,6 +65,15 @@ INSTRUCTIONS:
     const storyToken = Buffer.from(JSON.stringify({
       name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
+
+    // Save storyToken to Redis so webhook can retrieve it after Stripe payment
+    try {
+      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/set/token:${storyId}/${encodeURIComponent(storyToken)}?EX=86400`, {
+        headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` }
+      });
+    } catch(e) {
+      console.error("Redis token save error:", e.message);
+    }
 
     return res.status(200).json({ preview: previewText, storyToken, storyId, childName: name, customerEmail: email, customDetails: customDetails || '' });
 

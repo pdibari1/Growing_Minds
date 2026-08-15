@@ -427,6 +427,8 @@ Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud sentences. Shor
 
 LENGTH: Write until the scene reaches a natural story beat — a moment of tension, discovery, emotion, or resolution. Do not pad to fill a word count. Do not cut short before the scene is complete. Minimum ${tier.minWords} words, maximum ${tier.maxWords} words.
 
+CRITICAL WRITING RULE: Never explain what a character is feeling. Show it through physical detail, action, and dialogue only. Wrong: "Benjamin felt angry." Right: "Benjamin's ears went hot. His fists clenched at his sides. He didn't say anything — he just walked away." The reader will understand. Trust them.
+
 CRITICAL: This chapter must follow directly from what came before and lead naturally into the next. Stay true to the established characters, setting, and tone. Do not introduce unrelated premises.
 CHARACTERS: Every person mentioned — siblings, friends, pets, parents — must be portrayed warmly and positively. No eye-rolling, dismissiveness, mockery, or negativity from any character toward another.
 CHAPTER ENDING: End on a natural beat — a moment of curiosity, warmth, anticipation, or quiet resolution. Never end mid-scene.
@@ -487,6 +489,7 @@ ${batchOutline}
 RULES:
 - Write all ${endIdx - startIdx} chapters back to back
 - Each chapter: ${tier.minWords}–${tier.maxWords} words, ending on a natural story beat
+- CRITICAL WRITING RULE: Never explain what a character is feeling. Show it through physical detail, action, and dialogue only. Wrong: "Benjamin felt angry." Right: "Benjamin's ears went hot. His fists clenched. He walked away without saying anything." Trust the reader to understand.
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
