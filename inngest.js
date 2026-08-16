@@ -1116,6 +1116,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
       <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${wordCount} words</div>
+      <div class="cover-publisher">🌱 growingminds.io</div>
     </div>
   </div>
 
@@ -1162,7 +1163,8 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     landscape: false,
     use_print: false,
     margin: "0",
-    format: "Letter",
+    width: "5.5in",
+    height: "8.5in",
     sandbox: false
   });
 
