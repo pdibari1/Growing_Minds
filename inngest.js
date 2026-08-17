@@ -297,6 +297,12 @@ const generatePreviewChapters = inngest.createFunction(
                 <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
                 <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID when ordering the full book!</p>
               </div>
+
+              <div style="text-align:center;margin-top:1.5rem;">
+                <a href="https://www.growingminds.io/story-preview.html" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full 30-Chapter Book — $35 →</a>
+                <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is credited toward the full price</p>
+              </div>
+
               <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
             </div>
           </div>
@@ -1163,8 +1169,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     landscape: false,
     use_print: false,
     margin: "0",
-    width: "5.5in",
-    height: "8.5in",
+    format: "Letter",
     sandbox: false
   });
 
