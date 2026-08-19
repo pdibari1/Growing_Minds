@@ -68,8 +68,13 @@ INSTRUCTIONS:
 
     // Save storyToken to Redis so webhook can retrieve it after Stripe payment
     try {
-      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/set/token:${storyId}/${encodeURIComponent(storyToken)}?EX=86400`, {
-        headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` }
+      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/pipeline`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([["SET", `token:${storyId}`, storyToken, "EX", 86400]])
       });
     } catch(e) {
       console.error("Redis token save error:", e.message);
