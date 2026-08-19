@@ -1441,8 +1441,12 @@ async function getIllustrationsFromRedis(storyId) {
 }
 
 function decodeStoryData(token) {
-  try { return JSON.parse(Buffer.from(token, "base64url").toString("utf-8")); }
-  catch { return null; }
+  try {
+    // Strip surrounding quotes if Redis returned them
+    let t = token;
+    if (t && t.startsWith('"') && t.endsWith('"')) t = t.slice(1, -1);
+    return JSON.parse(Buffer.from(t, "base64url").toString("utf-8"));
+  } catch { return null; }
 }
 
 async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters) {
