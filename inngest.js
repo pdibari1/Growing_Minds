@@ -258,6 +258,53 @@ const generatePreviewChapters = inngest.createFunction(
       return newChapters;
     });
 
+    // Generate cover illustration
+    await step.run("generate-preview-cover", async () => {
+      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre } = childData;
+      const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+      const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+      const genreVisual = {
+        'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
+        'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
+        'Friendly Dragons': 'bright colorful dragon, friendly fantasy world',
+        'Animal Kingdom': 'cozy anthropomorphic animals, warm illustrated style',
+        'Cozy Magic': 'studio ghibli inspired, warm town setting, everyday magic',
+        'Unicorns & Magic': 'rainbow meadows, sparkle and shimmer, magical creatures',
+        'Wizard Academy': 'magical boarding school, gothic architecture, warm torch light',
+        'Dragon Rider': 'epic mountain vistas, dragon in flight, sweeping skies',
+        'Enchanted Quest': 'classic fantasy landscape, portal worlds, magical kingdoms',
+        'Superhero Origin': 'dynamic comic book style, action poses, bright colors',
+        'Mystery & Magic': 'atmospheric fog, mysterious glowing clues',
+        'Space & Stars': 'nebula backgrounds, alien worlds, bioluminescent colors',
+        'Underwater Kingdom': 'bioluminescent ocean, coral castles, flowing water light',
+        'Epic Fantasy': 'sweeping epic landscape, dramatic lighting, ancient world',
+        'Dark Magic': 'moody atmospheric, forbidden library, mysterious shadows',
+        'Sci-Fi Adventure': 'futuristic world, neon lights, sleek technology',
+        'Superhero Chronicles': 'cinematic comic style, dramatic skies, hero silhouette',
+        'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
+        'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
+      }[genre] || 'whimsical fantasy illustration, warm colors';
+      const styleGuide = parseInt(age) <= 5
+        ? `soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, ${genreVisual}`
+        : parseInt(age) <= 9
+        ? `vibrant digital children's book illustration, colorful and expressive, ${genreVisual}`
+        : `detailed digital illustration, cinematic lighting, ${genreVisual}`;
+      const chap = outline[0] || { imagePrompt: `${name} on an adventure in ${city}` };
+      const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
+      try {
+        const imageUrl = await callDallE(prompt);
+        const imageBytes = await fetchImageBytes(imageUrl);
+        const blob = await put(`illustrations/${storyId}/0-0.jpg`, imageBytes, {
+          access: 'public',
+          contentType: 'image/jpeg'
+        });
+        await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
+        console.log(`Preview cover uploaded: ${blob.url.slice(0, 60)}`);
+      } catch(e) {
+        console.error(`Preview cover failed: ${e.message}`);
+      }
+    });
+
     // Generate PDF of 3 chapters
     const pdfBase64 = await step.run("create-preview-pdf", async () => {
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
@@ -292,7 +339,13 @@ const generatePreviewChapters = inngest.createFunction(
               <h2 style="color:#2d6a4f;">${storyTitle}</h2>
               <p>The first 3 chapters of ${childName}'s story are attached — enjoy a taste of the adventure!</p>
               <p style="margin-top:1rem;color:#6b7280;font-size:.9rem;">Ready for the full 30-chapter story? Order the complete hardcover book and it will be printed and shipped to your door.</p>
-              <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1.5rem;text-align:center;">
+
+              <div style="text-align:center;margin:1.5rem 0;">
+                <a href="https://www.growingminds.io/story-preview.html" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full 30-Chapter Book — $35 →</a>
+                <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is credited toward the full price</p>
+              </div>
+
+              <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:center;">
                 <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
                 <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
                 <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID when ordering the full book!</p>
@@ -308,6 +361,18 @@ const generatePreviewChapters = inngest.createFunction(
     // Cleanup
     await step.run("cleanup-preview", async () => {
       await deleteChaptersFromRedis(storyId);
+      try {
+        const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
+        if (imgKeys && imgKeys.length > 0) {
+          const urls = [];
+          for (const k of imgKeys) {
+            const url = await redisRequest("GET", [k]);
+            if (url) urls.push(url);
+            await redisRequest("DEL", [k]);
+          }
+          if (urls.length > 0) await del(urls);
+        }
+      } catch(e) { console.error("Preview illus cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
       await redisRequest("DEL", [`token:${storyId}`]);
       console.log(`Cleaned up preview Redis for ${storyId}`);
