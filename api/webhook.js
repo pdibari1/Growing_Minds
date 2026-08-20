@@ -64,7 +64,12 @@ async function getTokenFromRedis(storyId) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          resolve(parsed.result || null);
+          let result = parsed.result || null;
+          if (result && result.startsWith('"') && result.endsWith('"')) {
+            result = result.slice(1, -1);
+          }
+          console.log(`Token for ${storyId}: ${result ? `found (${result.length} chars)` : 'NOT FOUND'}`);
+          resolve(result);
         } catch(e) { resolve(null); }
       });
     });
