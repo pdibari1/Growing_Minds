@@ -25,7 +25,7 @@ const generateStoryOrder = inngest.createFunction(
   { event: "order/completed" },
   async ({ event, step }) => {
     const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
-    const childData = decodeStoryData(storyToken);
+    console.log(`Token type: ${typeof storyToken}, length: ${storyToken?.length}, first10: ${storyToken?.slice(0,10)}`); const childData = decodeStoryData(storyToken);
     if (!childData) throw new Error("Could not decode story token");
     // Merge customDetails from event (not stored in token to keep it short)
     if (customDetails) childData.customDetails = customDetails;
@@ -236,7 +236,7 @@ const generatePreviewChapters = inngest.createFunction(
   async ({ event, step }) => {
     const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
 
-    const childData = decodeStoryData(storyToken);
+    console.log(`Token type: ${typeof storyToken}, length: ${storyToken?.length}, first10: ${storyToken?.slice(0,10)}`); const childData = decodeStoryData(storyToken);
     if (!childData) throw new Error("Could not decode story token");
     if (customDetails) childData.customDetails = customDetails;
 
