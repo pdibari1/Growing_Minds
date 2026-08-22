@@ -37,9 +37,9 @@ module.exports = async function handler(req, res) {
   const isPreview = payment_type === 'preview';
   const eventName = isPreview ? 'story/preview.purchased' : 'order/completed';
 
-  console.log(`${isPreview ? 'Preview' : 'Full'} order received for ${childName} — sending to Inngest`);
+  console.log(`Raw token first 20: ${storyToken?.slice(0,20)}`); console.log(`${isPreview ? 'Preview' : 'Full'} order received for ${childName} — sending to Inngest`);
 
-  await sendInngestEvent({
+  if (!storyToken) { console.error(`FATAL: No storyToken for ${storyId}`); return res.status(200).json({ received: true }); } await sendInngestEvent({
     name: eventName,
     data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
   });
