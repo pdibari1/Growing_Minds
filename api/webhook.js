@@ -64,7 +64,7 @@ async function getTokenFromRedis(storyId) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          let result = parsed.result || null; if (Array.isArray(result)) result = result[0] || null;
+          let result = parsed.result || null; console.log('Redis raw result type:', typeof result, 'isArray:', Array.isArray(result), 'val:', JSON.stringify(result)?.slice(0,50)); if (Array.isArray(result)) result = result[0] || null;
           if (result && result.startsWith('"') && result.endsWith('"')) {
             result = result.slice(1, -1);
           }
