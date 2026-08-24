@@ -374,7 +374,7 @@ const generatePreviewChapters = inngest.createFunction(
         }
       } catch(e) { console.error("Preview illus cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
-      await redisRequest("DEL", [`token:${storyId}`]);
+      // token kept for upgrade flow
       console.log(`Cleaned up preview Redis for ${storyId}`);
     });
 
@@ -618,7 +618,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
 
 function callDallE(prompt) {
   const payload = JSON.stringify({
-    model: "dall-e-3",
+    model: "gpt-image-1",
     prompt,
     n: 1,
     size: "1024x1024",
