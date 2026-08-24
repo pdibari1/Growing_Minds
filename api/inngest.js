@@ -139,8 +139,7 @@ const generateStoryOrder = inngest.createFunction(
               if (key === '0-0' || !coverUrl) {
                 // Generate cover with DALL-E 3
                 const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
-                const imageUrl = await callDallE(prompt);
-                imageBytes = await fetchImageBytes(imageUrl);
+                const imageBytes = await callDallE(prompt);
                 console.log(`Image ${key} generated with DALL-E 3`);
               } else {
                 // Use DALL-E 2 variation based on cover image for character consistency
@@ -292,8 +291,7 @@ const generatePreviewChapters = inngest.createFunction(
       const chap = outline[0] || { imagePrompt: `${name} on an adventure in ${city}` };
       const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
       try {
-        const imageUrl = await callDallE(prompt);
-        const imageBytes = await fetchImageBytes(imageUrl);
+        const imageBytes = await callDallE(prompt);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, imageBytes, {
           access: 'public',
           contentType: 'image/jpeg'
@@ -603,8 +601,7 @@ async function generateIllustrations(child, outline, chapters, tier) {
 
       try {
         console.log(`Generating image ${key}`);
-        const imageUrl = await callDallE(prompt);
-        const imageBytes = await fetchImageBytes(imageUrl);
+        const imageBytes = await callDallE(prompt);
         illustrations[key] = imageBytes.toString('base64');
         console.log(`Image ${key} done`);
       } catch(err) {
@@ -646,7 +643,7 @@ function callDallE(prompt) {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          resolve(data.data[0].url);
+          const b64 = data.data[0].b64_json; if (b64) { resolve(Buffer.from(b64, "base64")); } else { resolve(data.data[0].url); }
         } catch(e) {
           reject(new Error("DALL-E parse error: " + body.slice(0, 200)));
         }
