@@ -139,7 +139,8 @@ const generateStoryOrder = inngest.createFunction(
               if (key === '0-0' || !coverUrl) {
                 // Generate cover with DALL-E 3
                 const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
-                const imageBytes = await callDallE(prompt);
+                const imageUrl = await callDallE(prompt);
+                imageBytes = await fetchImageBytes(imageUrl);
                 console.log(`Image ${key} generated with DALL-E 3`);
               } else {
                 // Use DALL-E 2 variation based on cover image for character consistency
@@ -291,7 +292,8 @@ const generatePreviewChapters = inngest.createFunction(
       const chap = outline[0] || { imagePrompt: `${name} on an adventure in ${city}` };
       const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
       try {
-        const imageBytes = await callDallE(prompt);
+        const imageUrl = await callDallE(prompt);
+        const imageBytes = await fetchImageBytes(imageUrl);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, imageBytes, {
           access: 'public',
           contentType: 'image/jpeg'
@@ -372,7 +374,7 @@ const generatePreviewChapters = inngest.createFunction(
         }
       } catch(e) { console.error("Preview illus cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
-      // token kept for upgrade flow
+      await redisRequest("DEL", [`token:${storyId}`]);
       console.log(`Cleaned up preview Redis for ${storyId}`);
     });
 
@@ -601,7 +603,8 @@ async function generateIllustrations(child, outline, chapters, tier) {
 
       try {
         console.log(`Generating image ${key}`);
-        const imageBytes = await callDallE(prompt);
+        const imageUrl = await callDallE(prompt);
+        const imageBytes = await fetchImageBytes(imageUrl);
         illustrations[key] = imageBytes.toString('base64');
         console.log(`Image ${key} done`);
       } catch(err) {
@@ -615,11 +618,11 @@ async function generateIllustrations(child, outline, chapters, tier) {
 
 function callDallE(prompt) {
   const payload = JSON.stringify({
-    model: "gpt-image-1",
+    model: "dall-e-3",
     prompt,
     n: 1,
     size: "1024x1024",
-    quality: "medium"
+    quality: "standard"
   });
 
   return new Promise((resolve, reject) => {
@@ -643,7 +646,7 @@ function callDallE(prompt) {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          const b64 = data.data[0].b64_json; if (b64) { resolve(Buffer.from(b64, "base64")); } else { resolve(data.data[0].url); }
+          resolve(data.data[0].url);
         } catch(e) {
           reject(new Error("DALL-E parse error: " + body.slice(0, 200)));
         }
@@ -915,7 +918,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     // Check if this chapter has an illustration — use URL directly
     const key = `${ci}-0`;
     const illustrationHtml = illustrations[key]
-      ? `<img src="data:image/jpeg;base64,${illustrations[key]}" />`
+      ? `<img src="${illustrations[key]}" />`
       : '';
 
     return `
@@ -1170,7 +1173,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   <!-- COVER -->
   <div class="cover">
-    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/jpeg;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
+    ${illustrations['0-0'] ? `<img class="cover-image" src="${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>
