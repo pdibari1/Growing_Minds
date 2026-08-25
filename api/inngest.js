@@ -915,7 +915,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     // Check if this chapter has an illustration — use URL directly
     const key = `${ci}-0`;
     const illustrationHtml = illustrations[key]
-      ? `<img src="${illustrations[key]}" />`
+      ? `<img src="data:image/jpeg;base64,${illustrations[key]}" />`
       : '';
 
     return `
@@ -1170,7 +1170,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   <!-- COVER -->
   <div class="cover">
-    ${illustrations['0-0'] ? `<img class="cover-image" src="${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
+    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/jpeg;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>
