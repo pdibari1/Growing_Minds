@@ -66,8 +66,8 @@ INSTRUCTIONS:
       name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
 
-    // Generate and cache outline so all flows use the same story
-    try {
+    // Generate and cache outline async (fire and forget — don't block response)
+    (async () => { try {
       const genderPronoun2 = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
       const hairDesc2 = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const friendLine2 = friend && friend !== "none" ? `Companion: ${friend}.` : "";
@@ -80,7 +80,7 @@ INSTRUCTIONS:
       const outline = JSON.parse(raw);
       await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/set/outline:${storyId}/${encodeURIComponent(JSON.stringify(outline))}?EX=604800`, { headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } });
       console.log(`Saved outline to Redis for ${storyId}`);
-    } catch(e) { console.error("Outline cache error:", e.message); }
+    } catch(e) { console.error("Outline cache error:", e.message); } })();
 
     // Save storyToken to Redis so webhook can retrieve it after Stripe payment
     try {
