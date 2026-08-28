@@ -35,6 +35,17 @@ const generateStoryOrder = inngest.createFunction(
 
     // Step 1: Generate chapter outline — save to Redis immediately
     const outline = await step.run("generate-outline", async () => {
+      // Use cached outline from generate-preview if available (same story as $2.99 preview)
+      const cached = await redisRequest("GET", [`outline:${storyId}`]);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log(`Using cached outline for ${storyId} (${parsed.length} chapters)`);
+            return parsed;
+          }
+        } catch(e) {}
+      }
       const result = await generateOutline(childData, tier);
       await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);

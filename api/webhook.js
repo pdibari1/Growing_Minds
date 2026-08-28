@@ -37,9 +37,9 @@ module.exports = async function handler(req, res) {
   const isPreview = payment_type === 'preview';
   const eventName = isPreview ? 'story/preview.purchased' : 'order/completed';
 
-  console.log(`${isPreview ? 'Preview' : 'Full'} order received for ${childName} — sending to Inngest`);
+  console.log(`Raw token first 20: ${storyToken?.slice(0,20)}`); console.log(`${isPreview ? 'Preview' : 'Full'} order received for ${childName} — sending to Inngest`);
 
-  await sendInngestEvent({
+  if (!storyToken) { console.error(`FATAL: No storyToken for ${storyId}`); return res.status(200).json({ received: true }); } await sendInngestEvent({
     name: eventName,
     data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
   });
@@ -64,7 +64,12 @@ async function getTokenFromRedis(storyId) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(body);
-          resolve(parsed.result || null);
+          let result = parsed.result || null; console.log('Redis raw result type:', typeof result, 'isArray:', Array.isArray(result), 'val:', JSON.stringify(result)?.slice(0,50)); if (Array.isArray(result)) result = result[0] || null;
+          if (result && result.startsWith('"') && result.endsWith('"')) {
+            result = result.slice(1, -1);
+          }
+          console.log(`Token for ${storyId}: ${result ? `found (${result.length} chars)` : 'NOT FOUND'}`);
+          resolve(result);
         } catch(e) { resolve(null); }
       });
     });

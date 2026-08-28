@@ -66,18 +66,34 @@ INSTRUCTIONS:
       name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
 
+    // Generate and cache outline async (fire and forget — don't block response)
+    (async () => { try {
+      const genderPronoun2 = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
+      const hairDesc2 = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+      const friendLine2 = friend && friend !== "none" ? `Companion: ${friend}.` : "";
+      const genreLine = genre ? `\nSTORY GENRE & STYLE: ${genre} — ${genreStyle}` : '';
+      const outlinePrompt = `Create a 30-chapter outline. Hero: ${name}, age ${age}. Personality: ${trait}. Loves: ${favorite}. ${friendLine2} Hometown: ${city}, ${region}. Milestone: ${milestone}${genreLine}. Return ONLY a JSON array of 30 objects: [{"title":"...","summary":"...","imagePrompt":"..."}]`;
+      const outlineMsg = await client.messages.create({ model: "claude-haiku-4-5", max_tokens: 4000, messages: [{ role: "user", content: outlinePrompt }] });
+      let raw = outlineMsg.content[0].text.trim();
+      const s = raw.indexOf("["), e2 = raw.lastIndexOf("]");
+      if (s !== -1 && e2 !== -1) raw = raw.slice(s, e2 + 1);
+      const outline = JSON.parse(raw);
+      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/set/outline:${storyId}/${encodeURIComponent(JSON.stringify(outline))}?EX=604800`, { headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } });
+      console.log(`Saved outline to Redis for ${storyId}`);
+    } catch(e) { console.error("Outline cache error:", e.message); } })();
+
     // Save storyToken to Redis so webhook can retrieve it after Stripe payment
     try {
-      const redisUrl = `${process.env.UPSTASH_REDIS_REST_URL}/set/token:${storyId}`;
-      await fetch(redisUrl, {
+      const redisResp = await fetch(`${process.env.UPSTASH_REDIS_REST_URL}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify([storyToken, 'EX', 86400])
+        body: JSON.stringify(['SET', `token:${storyId}`, storyToken, 'EX', 86400])
       });
-      console.log(`Saved storyToken to Redis for ${storyId}`);
+      const redisData = await redisResp.json();
+      console.log(`Saved storyToken to Redis for ${storyId}: ${JSON.stringify(redisData)}`);
     } catch(e) {
       console.error("Redis token save error:", e.message);
     }
