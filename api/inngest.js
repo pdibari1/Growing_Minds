@@ -1033,25 +1033,24 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     display: flex; flex-direction: column;
   }
 
-  /* Full bleed illustration takes top 60% */
+  /* Full bleed illustration covers the entire cover page */
   .cover-image {
     position: absolute; top: 0; left: 0;
-    width: 100%; height: 62%;
+    width: 100%; height: 100%;
     object-fit: cover;
   }
 
-  /* Gradient that bleeds illustration into bottom panel */
+  /* Dark scrim behind the title block so text stays readable over the artwork */
   .cover-gradient {
-    position: absolute; top: 50%; left: 0;
-    width: 100%; height: 20%;
-    background: linear-gradient(to bottom, transparent, #1a3a2a);
+    position: absolute; bottom: 0; left: 0;
+    width: 100%; height: 58%;
+    background: linear-gradient(to bottom, transparent, rgba(8,18,13,0.5) 45%, rgba(8,18,13,0.92) 100%);
   }
 
-  /* Bottom text panel */
+  /* Text panel — sits over the image + scrim, no background of its own */
   .cover-panel {
     position: absolute; bottom: 0; left: 0;
-    width: 100%; height: 45%;
-    background: #1a3a2a;
+    width: 100%;
     padding: 24px 48px 28px;
     display: flex; flex-direction: column; justify-content: flex-end;
     gap: 0;
@@ -1076,9 +1075,10 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     font-family: Georgia, serif;
     font-size: 12pt;
     font-weight: 700;
-    color: rgba(255,255,255,0.75);
+    color: rgba(255,255,255,0.85);
     letter-spacing: .04em;
     margin-bottom: 2px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.6);
   }
 
   .cover-title-main {
@@ -1088,6 +1088,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     color: #ffffff;
     line-height: 1.1;
     margin-bottom: 12px;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.65);
   }
 
   .cover-divider {
@@ -1231,7 +1232,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   <!-- COVER -->
   <div class="cover">
-    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/jpeg;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:62%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
+    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/jpeg;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>
