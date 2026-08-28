@@ -295,11 +295,12 @@ const generatePreviewChapters = inngest.createFunction(
         'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
         'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
       }[genre] || 'whimsical fantasy illustration, warm colors';
+      const baseStyle = "Pixar-style 3D character illustration, glossy rendered look, large expressive eyes, warm vibrant saturated colors, soft cinematic lighting, smooth polished shading, high production quality, heartwarming and whimsical";
       const styleGuide = parseInt(age) <= 5
-        ? `soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, ${genreVisual}`
+        ? `${baseStyle}, gentle and soft, ${genreVisual}`
         : parseInt(age) <= 9
-        ? `vibrant digital children's book illustration, colorful and expressive, ${genreVisual}`
-        : `detailed digital illustration, cinematic lighting, ${genreVisual}`;
+        ? `${baseStyle}, dynamic and colorful, ${genreVisual}`
+        : `${baseStyle}, detailed and cinematic, ${genreVisual}`;
       const chap = outline[0] || { imagePrompt: `${name} on an adventure in ${city}` };
       const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
       try {
