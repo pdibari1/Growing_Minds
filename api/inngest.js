@@ -961,8 +961,9 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
 
     // Check if this chapter has an illustration — use URL directly
+    // Skip chapter 0: its image (key "0-0") is already shown full-bleed as the cover
     const key = `${ci}-0`;
-    const illustrationHtml = illustrations[key]
+    const illustrationHtml = (ci > 0 && illustrations[key])
       ? `<img src="data:image/jpeg;base64,${illustrations[key]}" />`
       : '';
 
