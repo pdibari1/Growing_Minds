@@ -295,13 +295,13 @@ const generatePreviewChapters = inngest.createFunction(
         'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
         'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
       }[genre] || 'whimsical fantasy illustration, warm colors';
-      const baseStyle = "Pixar-style 3D character illustration, glossy rendered look, large expressive eyes, warm vibrant saturated colors, soft cinematic lighting, smooth polished shading, high production quality, heartwarming and whimsical";
+      const baseStyle = "Heroic storybook character illustration, Pixar-style 3D glossy render, high production quality. Character is charismatic, confident, and adventurous — the hero of the frame, not a passive subject presented to the viewer. Face: large expressive eyes with a confident, purposeful gaze and directional focus — avoid perfectly round, startled, or vacant eyes. Expressive eyebrows, lively confident expression (curious, determined, delighted, or mischievous rather than merely cute or shy). Pose: dynamic and open — shoulders back, chest forward, caught mid-action or mid-discovery, strong recognizable silhouette. Composition: character-forward cinematic framing, child occupying a strong portion of the frame from a dynamic angle — never a centered, static portrait. Lighting: warm cinematic illumination with luminous rim light and dimensional contrast that makes the character feel important. Avoid: passive standing portraits, timid smiles, head tilted down, hands hanging awkwardly, generic cute-kid aesthetic, stiff centered compositions.";
       const styleGuide = parseInt(age) <= 5
-        ? `${baseStyle}, gentle and soft, ${genreVisual}`
+        ? `${baseStyle} Softer and gentler energy for a younger reader. ${genreVisual}`
         : parseInt(age) <= 9
-        ? `${baseStyle}, dynamic and colorful, ${genreVisual}`
-        : `${baseStyle}, detailed and cinematic, ${genreVisual}`;
-      const chap = outline[0] || { imagePrompt: `${name} on an adventure in ${city}` };
+        ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
+        : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
+      const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
       const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
       try {
         const imageBytes = await callImageGenPreview(prompt);
@@ -427,7 +427,7 @@ You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object must have:
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "summary": 2-3 sentence summary of what happens
-- "imagePrompt": a 1-sentence description of the key visual moment in this chapter (for illustration)
+- "imagePrompt": a 1-sentence description of the key visual moment in this chapter, written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer
 
 No markdown, no explanation, just the JSON array.`;
 
