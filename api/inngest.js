@@ -292,8 +292,7 @@ const generatePreviewChapters = inngest.createFunction(
       const chap = outline[0] || { imagePrompt: `${name} on an adventure in ${city}` };
       const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
       try {
-        const imageUrl = await callDallE(prompt);
-        const imageBytes = await fetchImageBytes(imageUrl);
+        const imageBytes = await callImageGenPreview(prompt);
         const blob = await put(`illustrations/${storyId}/0-0.jpg`, imageBytes, {
           access: 'public',
           contentType: 'image/jpeg'
@@ -699,6 +698,52 @@ function callDallE2Variation(imageBytes) {
     req.on("error", reject);
     req.on("timeout", () => reject(new Error("DALL-E variation timeout")));
     form.pipe(req);
+  });
+}
+
+// gpt-image-1 replaced dall-e-3 (retired May 12, 2026) and returns base64 image data directly, no URL.
+// Used only by the $2.99 preview cover step for now — full-order illustration flow is being redesigned separately.
+function callImageGenPreview(prompt) {
+  const payload = JSON.stringify({
+    model: "gpt-image-1",
+    prompt,
+    n: 1,
+    size: "1024x1024",
+    quality: "high",
+    output_format: "jpeg"
+  });
+
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.openai.com",
+      port: 443,
+      path: "/v1/images/generations",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      timeout: 180000
+    };
+
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.error) return reject(new Error(data.error.message));
+          resolve(Buffer.from(data.data[0].b64_json, "base64"));
+        } catch(e) {
+          reject(new Error("Image generation parse error: " + body.slice(0, 200)));
+        }
+      });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("Image generation timeout")));
+    req.write(payload);
+    req.end();
   });
 }
 
