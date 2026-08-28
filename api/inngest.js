@@ -1022,6 +1022,12 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 <meta charset="utf-8"/>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* Lulu print spec for pod_package_id 0550X0850... (5.5x8.5in trim, perfect bound):
+     page = trim + 0.125in bleed on all sides (needed for the full-bleed cover page below).
+     Content padding = bleed(0.125in) + 0.5in safety margin + gutter allowance for a
+     151-400pp book (this 30-chapter book lands there), applied uniformly on both left/right
+     since a single-flow HTML render can't alternate recto/verso gutter sides. */
+  @page { size: 5.75in 8.75in; margin: 0; }
   body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
 
   /* ── COVER ── */
@@ -1052,7 +1058,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     position: absolute; bottom: 0; left: 0;
     width: 100%; height: 45%;
     background: #1a3a2a;
-    padding: 24px 48px 28px;
+    padding: 60px 108px 48px;
     display: flex; flex-direction: column; justify-content: flex-end;
     gap: 0;
   }
@@ -1112,7 +1118,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     text-transform: uppercase;
   }
 
-  .chapter { padding: 48px 60px 80px; page-break-before: always; position: relative; }
+  .chapter { padding: 60px 108px; page-break-before: always; position: relative; }
   .chapter-number {
     font-family: Arial, sans-serif;
     font-size: 8pt;
@@ -1188,7 +1194,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     justify-content: space-between;
     align-items: center;
     text-align: center;
-    padding: 60px;
+    padding: 60px 108px;
     page-break-after: always;
   }
   .title-page-name {
@@ -1259,7 +1265,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   </div>
 
   <!-- TABLE OF CONTENTS -->
-  <div style="padding:50px 60px;page-break-before:always;page-break-after:always;">
+  <div style="padding:60px 108px;page-break-before:always;page-break-after:always;">
     <div style="font-family:Arial,sans-serif;font-size:7pt;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#2d6a4f;margin-bottom:8px;">Contents</div>
     <div style="font-family:Georgia,serif;font-size:20pt;font-weight:900;color:#1a1a2e;margin-bottom:16px;">Table of Contents</div>
     <div style="width:36px;height:2px;background:#2d6a4f;margin-bottom:24px;border-radius:2px;"></div>
@@ -1286,7 +1292,9 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     landscape: false,
     use_print: false,
     margin: "0",
-    format: "Letter",
+    // Must match Lulu's required page size for pod_package_id 0550X0850... : 5.5x8.5in
+    // trim + 0.125in bleed on all sides = 5.75x8.75in. (Was "Letter" — wrong trim size.)
+    format: "5.75inx8.75in",
     sandbox: false
   });
 
