@@ -1556,11 +1556,17 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
       let body = "";
       res.on("data", chunk => body += chunk);
       res.on("end", () => {
-        console.log(`Airtable Stories ${res.statusCode}: ${body.slice(0, 80)}`);
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log(`Airtable Stories ${res.statusCode}: ${body.slice(0, 80)}`);
+        } else {
+          // Non-blocking: training-data save failure shouldn't stop order fulfillment/cleanup,
+          // but must be a visible error, not a silent log line, so it can actually be noticed.
+          console.error(`Airtable Stories FAILED ${res.statusCode}: ${body.slice(0, 200)}`);
+        }
         resolve();
       });
     });
-    req.on("error", reject);
+    req.on("error", (e) => { console.error(`Airtable Stories request error: ${e.message}`); resolve(); });
     req.write(payload);
     req.end();
   });
