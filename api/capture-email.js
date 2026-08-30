@@ -47,8 +47,11 @@ function saveToAirtable(email, childName, childAge, priorStoryId) {
       let body = "";
       res.on("data", chunk => body += chunk);
       res.on("end", () => {
-        console.log(`Airtable ${res.statusCode}: ${body.slice(0, 80)}`);
-        resolve();
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve();
+        } else {
+          reject(new Error(`Airtable ${res.statusCode}: ${body.slice(0, 200)}`));
+        }
       });
     });
     req.on("error", reject);
