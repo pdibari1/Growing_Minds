@@ -431,7 +431,9 @@ Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object
 
 No markdown, no explanation, just the JSON array.`;
 
-  const raw = await callClaude(prompt, 6000);
+  // 6000 was too tight for 30 chapters with the fuller imagePrompt descriptions —
+  // caused mid-string JSON truncation, silently falling back to generic chapters.
+  const raw = await callClaude(prompt, 12000);
   try {
     // Strip markdown, find the JSON array
     let cleaned = raw.replace(/```json|```/g, "").trim();
