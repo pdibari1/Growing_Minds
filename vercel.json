@@ -45,6 +45,9 @@
     },
     "api/lulu-webhook.js": {
       "maxDuration": 15
+    },
+    "api/test-character-image.js": {
+      "maxDuration": 120
     }
   },
   "rewrites": [
