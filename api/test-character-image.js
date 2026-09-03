@@ -84,7 +84,11 @@ function callGeminiImage(parts) {
     const options = {
       hostname: "generativelanguage.googleapis.com",
       port: 443,
-      path: "/v1beta/models/gemini-2.5-flash-image:generateContent",
+      // Nano Banana Pro — Google's positioning is "professional asset production,
+      // complex instructions, up to 4K" — the right tier for character-consistency
+      // work, not the cheaper Flash/Lite variants. No free tier for any image model;
+      // billing must be enabled on the Google Cloud project behind GEMINI_API_KEY.
+      path: "/v1beta/models/gemini-3-pro-image:generateContent",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
