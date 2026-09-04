@@ -204,7 +204,7 @@ const generateStoryOrder = inngest.createFunction(
     }
 
     // Step 4: Generate PDF with first 10 chapters only (stays under PDFShift 2MB limit)
-    const pdfBase64 = await step.run("create-pdf-v3", async () => {
+    const pdfUrl = await step.run("create-pdf-v3", async () => {
       console.log(`STARTING PDF GENERATION v3`);
       const chapters = await getChaptersFromRedis(storyId);
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
@@ -213,12 +213,21 @@ const generateStoryOrder = inngest.createFunction(
       // so the HTML payload we send stays small regardless of image resolution. Inlining
       // base64 here previously ballooned the payload with a single 4K illustration and
       // crashed/timed out the function mid-step.
-      return await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
+      const pdfBase64 = await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
+      // Inngest caps a step's return value at 4MB — a PDF with illustrations easily
+      // exceeds that, so upload it to Blob and return only the URL.
+      const blob = await put(`pdfs/${storyId}/delivery.pdf`, Buffer.from(pdfBase64, 'base64'), {
+        access: 'public',
+        contentType: 'application/pdf'
+      });
+      console.log(`PDF v3 uploaded to Blob: ${blob.url}`);
+      return blob.url;
     });
     // Step 5: Send email with PDF of first 10 chapters
     await step.run("send-email", async () => {
       console.log(`Sending email to ${customerEmail}`);
       try {
+        const pdfBase64 = (await fetchImageBytes(pdfUrl)).toString('base64');
         await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
       } catch (e) {
         // Alert, then rethrow so Inngest's built-in retries still apply — an alerting
@@ -255,6 +264,9 @@ const generateStoryOrder = inngest.createFunction(
           if (urls.length > 0) await del(urls);
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
+      try {
+        await del(pdfUrl);
+      } catch(e) { console.error("PDF blob cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
@@ -348,10 +360,17 @@ const generatePreviewChapters = inngest.createFunction(
     });
 
     // Generate PDF of 3 chapters
-    const pdfBase64 = await step.run("create-preview-pdf", async () => {
+    const pdfUrl = await step.run("create-preview-pdf", async () => {
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
       // Blob URLs straight through — see the create-pdf-v3 comment above.
-      return await generatePDF(childName, chapters, childData, tier, illustrationUrls);
+      const pdfBase64 = await generatePDF(childName, chapters, childData, tier, illustrationUrls);
+      // Inngest caps a step's return value at 4MB — upload to Blob and return only the URL.
+      const blob = await put(`pdfs/${storyId}/preview.pdf`, Buffer.from(pdfBase64, 'base64'), {
+        access: 'public',
+        contentType: 'application/pdf'
+      });
+      console.log(`Preview PDF uploaded to Blob: ${blob.url}`);
+      return blob.url;
     });
 
     // Send email with PDF
@@ -359,6 +378,7 @@ const generatePreviewChapters = inngest.createFunction(
       const resend = new Resend(process.env.RESEND_API_KEY);
       const storyTitle = `${childName} and the ${getMilestoneTitle(childData.milestone)}`;
       try {
+        const pdfBase64 = (await fetchImageBytes(pdfUrl)).toString('base64');
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
         to: customerEmail,
@@ -417,6 +437,9 @@ const generatePreviewChapters = inngest.createFunction(
           if (urls.length > 0) await del(urls);
         }
       } catch(e) { console.error("Preview illus cleanup error:", e.message); }
+      try {
+        await del(pdfUrl);
+      } catch(e) { console.error("Preview PDF blob cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
       await redisRequest("DEL", [`token:${storyId}`]);
       console.log(`Cleaned up preview Redis for ${storyId}`);
