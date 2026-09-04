@@ -101,9 +101,15 @@ const generateStoryOrder = inngest.createFunction(
           const keys = allImageKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre } = childData;
+          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
           const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
           const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+
+          // Only the primary character (and any secondary character with an explicit
+          // physical description) gets drawn as a specific, identifiable individual —
+          // other named people in the story (friends, siblings, classmates) may be real
+          // people, so they must never get an invented likeness.
+          const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${customDetails ? `\n\nPhysical descriptions to honor if provided for anyone besides ${name}: ${customDetails}` : ''}`;
 
           // Genre-specific illustration style
           const genreVisual = {
@@ -147,7 +153,7 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
-            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
+            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
 
             try {
               let imageBytes;
@@ -307,9 +313,13 @@ const generatePreviewChapters = inngest.createFunction(
 
     // Generate cover illustration
     await step.run("generate-preview-cover", async () => {
-      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre } = childData;
+      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+      // Only the primary character (and any secondary character with an explicit
+      // physical description) gets drawn as a specific, identifiable individual —
+      // see the same policy in the full-order illustration step for why.
+      const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${customDetails ? `\n\nPhysical descriptions to honor if provided for anyone besides ${name}: ${customDetails}` : ''}`;
       const genreVisual = {
         'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
         'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
@@ -338,7 +348,7 @@ const generatePreviewChapters = inngest.createFunction(
         ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
         : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
       const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
-      const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
+      const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
       try {
         const gen = await callGeminiImage(
           [{ text: `${prompt}\n\nCharacter reference sheet — full body, front-facing, clear view of face and outfit.` }],
