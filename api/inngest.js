@@ -21,7 +21,21 @@ function getStoryTier(age) {
 
 // ── MAIN INNGEST FUNCTION ──
 const generateStoryOrder = inngest.createFunction(
-  { id: "generate-story-order", retries: 2, timeout: "60m" },
+  {
+    id: "generate-story-order",
+    retries: 2,
+    timeout: "60m",
+    // Catch-all safety net: fires once a run exhausts its retries and fails for good,
+    // no matter which step or line caused it — so a failure mode nobody specifically
+    // wrote an alert for still gets one, instead of only showing up in Vercel logs.
+    onFailure: async ({ event, error }) => {
+      const orig = event.data.event?.data || {};
+      await sendAlertEmail(
+        `Full order FAILED — ${orig.childName || 'unknown'} (${orig.storyId || 'unknown'})`,
+        `generate-story-order failed permanently after exhausting retries.\n\nstoryId: ${orig.storyId}\nchildName: ${orig.childName}\ncustomerEmail: ${orig.customerEmail}\n\nError: ${error?.name}: ${error?.message}`
+      );
+    }
+  },
   { event: "order/completed" },
   async ({ event, step }) => {
     const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
@@ -284,7 +298,20 @@ const generateStoryOrder = inngest.createFunction(
 
 // ── PREVIEW CHAPTERS ($2.99 flow) ──
 const generatePreviewChapters = inngest.createFunction(
-  { id: "generate-preview-chapters", retries: 2, timeout: "45m" },
+  {
+    id: "generate-preview-chapters",
+    retries: 2,
+    timeout: "45m",
+    // Same catch-all as generate-story-order — fires once a run permanently fails,
+    // regardless of which step caused it.
+    onFailure: async ({ event, error }) => {
+      const orig = event.data.event?.data || {};
+      await sendAlertEmail(
+        `Preview FAILED — ${orig.childName || 'unknown'} (${orig.storyId || 'unknown'})`,
+        `generate-preview-chapters failed permanently after exhausting retries.\n\nstoryId: ${orig.storyId}\nchildName: ${orig.childName}\ncustomerEmail: ${orig.customerEmail}\n\nError: ${error?.name}: ${error?.message}`
+      );
+    }
+  },
   { event: "story/preview.purchased" },
   async ({ event, step }) => {
     const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
