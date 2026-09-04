@@ -78,8 +78,8 @@ const generateStoryOrder = inngest.createFunction(
 
     // Step 3: Generate illustrations in batches of 10
     let illustrations = {};
-    console.log(`ILLUSTRATIONS CHECK: OPENAI_API_KEY=${!!process.env.OPENAI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}`);
-    if (process.env.OPENAI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
+    console.log(`ILLUSTRATIONS CHECK: GEMINI_API_KEY=${!!process.env.GEMINI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}`);
+    if (process.env.GEMINI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
       const IMG_BATCH = 10;
       // Retrieve outline fresh from Redis — Inngest state may be empty on replay
       const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
@@ -136,33 +136,43 @@ const generateStoryOrder = inngest.createFunction(
 
           const result = {};
 
-          // Check if cover image (0-0) already exists in Redis
+          // Check if a character reference image (0-0, the cover) already exists in Redis.
+          // Its bytes get fed back into every subsequent Gemini call so the character's
+          // face/hair/outfit stay consistent across the whole book — Nano Banana Pro
+          // conditions on the reference image itself, not a text description of it.
           const existingUrls = await getIllustrationsFromRedis(storyId);
-          const coverUrl = existingUrls['0-0'] || null;
+          let referenceBytes = existingUrls['0-0'] ? await fetchImageBytes(existingUrls['0-0']) : null;
 
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
+            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
 
             try {
               let imageBytes;
 
-              if (key === '0-0' || !coverUrl) {
-                // Generate cover with DALL-E 3
-                const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
-                const imageUrl = await callDallE(prompt);
-                imageBytes = await fetchImageBytes(imageUrl);
-                console.log(`Image ${key} generated with DALL-E 3`);
+              if (!referenceBytes) {
+                // First image of the book: generate the character reference (also the cover).
+                const gen = await callGeminiImage(
+                  [{ text: `${scenePrompt}\n\nCharacter reference sheet — full body, front-facing, clear view of face and outfit.` }],
+                  { aspectRatio: "3:4", imageSize: "4K" }
+                );
+                imageBytes = gen.bytes;
+                referenceBytes = gen.bytes;
+                console.log(`Image ${key} generated as character reference (Nano Banana Pro, 4K)`);
               } else {
-                // Use DALL-E 2 variation based on cover image for character consistency
-                const coverBytes = await fetchImageBytes(coverUrl);
-                imageBytes = await callDallE2Variation(coverBytes);
-                console.log(`Image ${key} generated as variation of cover`);
+                // Feed the reference image back in so the character stays identical.
+                const gen = await callGeminiImage([
+                  { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
+                  { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scenePrompt}` }
+                ], { aspectRatio: "4:3", imageSize: "2K" });
+                imageBytes = gen.bytes;
+                console.log(`Image ${key} generated with character consistency (Nano Banana Pro, 2K)`);
               }
 
-              const blob = await put(`illustrations/${storyId}/${key}.jpg`, imageBytes, {
+              const blob = await put(`illustrations/${storyId}/${key}.png`, imageBytes, {
                 access: 'public',
-                contentType: 'image/jpeg'
+                contentType: 'image/png'
               });
               result[key] = blob.url;
               console.log(`Image ${key} uploaded to Blob`);
@@ -304,13 +314,16 @@ const generatePreviewChapters = inngest.createFunction(
       const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
       const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.`;
       try {
-        const imageBytes = await callImageGenPreview(prompt);
-        const blob = await put(`illustrations/${storyId}/0-0.jpg`, imageBytes, {
+        const gen = await callGeminiImage(
+          [{ text: `${prompt}\n\nCharacter reference sheet — full body, front-facing, clear view of face and outfit.` }],
+          { aspectRatio: "3:4", imageSize: "4K" }
+        );
+        const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, {
           access: 'public',
-          contentType: 'image/jpeg'
+          contentType: 'image/png'
         });
         await saveIllustrationsToRedis(storyId, { '0-0': blob.url });
-        console.log(`Preview cover uploaded: ${blob.url.slice(0, 60)}`);
+        console.log(`Preview cover uploaded (Nano Banana Pro, 4K): ${blob.url.slice(0, 60)}`);
       } catch(e) {
         console.error(`Preview cover failed: ${e.message}`);
       }
@@ -591,171 +604,56 @@ Write all ${endIdx - startIdx} chapters now. Nothing else.`;
   return chapTexts.slice(0, endIdx - startIdx);
 }
 
-async function generateIllustrations(child, outline, chapters, tier) {
-  const { name, age, hair, hairLength, hairStyle, eye, city, region } = child;
-  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-  const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
-
-  const styleGuide = parseInt(age) <= 5
-    ? "soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, Studio Ghibli inspired"
-    : parseInt(age) <= 9
-    ? "vibrant digital children's book illustration, colorful and expressive, slightly stylized, warm lighting"
-    : "detailed digital illustration, cinematic lighting, slightly realistic, like a YA novel cover";
-
-  const illustrations = {}; // keyed by "chapterIndex-imageIndex"
-
-  for (let ci = 0; ci < outline.length; ci++) {
-    const chap = outline[ci];
-    for (let ii = 0; ii < tier.imagesPerChap; ii++) {
-      const key = `${ci}-${ii}`;
-      const scenePrompt = ii === 0
-        ? chap.imagePrompt
-        : `Another moment from this scene: ${chap.summary}`;
-
-      const prompt = `${styleGuide}. Scene: ${scenePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text in the image.`;
-
-      try {
-        console.log(`Generating image ${key}`);
-        const imageUrl = await callDallE(prompt);
-        const imageBytes = await fetchImageBytes(imageUrl);
-        illustrations[key] = imageBytes.toString('base64');
-        console.log(`Image ${key} done`);
-      } catch(err) {
-        console.error(`Image ${key} FAILED:`, err.message);
-      }
-    }
-  }
-
-  return illustrations;
-}
-
-function callDallE(prompt) {
+// Nano Banana Pro (gemini-3-pro-image). `parts` follows Gemini's generateContent
+// content-part format: [{ text }] and/or [{ inlineData: { mimeType, data (base64) } }]
+// for feeding a reference image back in. `imageConfig` is { aspectRatio, imageSize }
+// — imageSize "1K"/"2K"/"4K", default "1K" if omitted. No free tier; billing must be
+// enabled on the Google Cloud project behind GEMINI_API_KEY.
+function callGeminiImage(parts, imageConfig) {
   const payload = JSON.stringify({
-    model: "dall-e-3",
-    prompt,
-    n: 1,
-    size: "1024x1024",
-    quality: "standard"
+    contents: [{ parts }],
+    generationConfig: imageConfig ? { imageConfig } : undefined,
   });
 
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: "api.openai.com",
+      hostname: "generativelanguage.googleapis.com",
       port: 443,
-      path: "/v1/images/generations",
+      path: "/v1beta/models/gemini-3-pro-image:generateContent",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(payload),
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        "x-goog-api-key": process.env.GEMINI_API_KEY,
       },
-      timeout: 180000
+      timeout: 120000,
     };
 
     const req = https.request(options, (res) => {
       let body = "";
-      res.on("data", chunk => body += chunk);
+      res.on("data", (chunk) => (body += chunk));
       res.on("end", () => {
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
-          resolve(data.data[0].url);
-        } catch(e) {
-          reject(new Error("DALL-E parse error: " + body.slice(0, 200)));
+
+          const responseParts = data.candidates?.[0]?.content?.parts || [];
+          const imagePart = responseParts.find((p) => p.inlineData?.data);
+          if (!imagePart) {
+            return reject(new Error("No image in Gemini response: " + JSON.stringify(data).slice(0, 300)));
+          }
+
+          resolve({
+            bytes: Buffer.from(imagePart.inlineData.data, "base64"),
+            mimeType: imagePart.inlineData.mimeType || "image/png",
+          });
+        } catch (e) {
+          reject(new Error("Gemini parse error: " + body.slice(0, 300)));
         }
       });
     });
     req.on("error", reject);
-    req.on("timeout", () => reject(new Error("DALL-E timeout")));
-    req.write(payload);
-    req.end();
-  });
-}
-
-function callDallE2Variation(imageBytes) {
-  // Use FormData-style multipart POST for DALL-E 2 variations
-  const FormData = require('form-data');
-  const form = new FormData();
-  // DALL-E 2 requires PNG, resize to 1024x1024
-  form.append('image', imageBytes, { filename: 'cover.png', contentType: 'image/png' });
-  form.append('n', '1');
-  form.append('size', '1024x1024');
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: "api.openai.com",
-      port: 443,
-      path: "/v1/images/variations",
-      method: "POST",
-      headers: {
-        ...form.getHeaders(),
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      timeout: 180000
-    };
-
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", async () => {
-        try {
-          const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message));
-          const url = data.data[0].url;
-          const bytes = await fetchImageBytes(url);
-          resolve(bytes);
-        } catch(e) {
-          reject(new Error("DALL-E variation parse error: " + body.slice(0, 200)));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => reject(new Error("DALL-E variation timeout")));
-    form.pipe(req);
-  });
-}
-
-// gpt-image-1 replaced dall-e-3 (retired May 12, 2026) and returns base64 image data directly, no URL.
-// Used only by the $2.99 preview cover step for now — full-order illustration flow is being redesigned separately.
-function callImageGenPreview(prompt) {
-  const payload = JSON.stringify({
-    model: "gpt-image-1",
-    prompt,
-    n: 1,
-    size: "1024x1024",
-    quality: "high",
-    output_format: "jpeg"
-  });
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: "api.openai.com",
-      port: 443,
-      path: "/v1/images/generations",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      timeout: 180000
-    };
-
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", chunk => body += chunk);
-      res.on("end", () => {
-        try {
-          const data = JSON.parse(body);
-          if (data.error) return reject(new Error(data.error.message));
-          resolve(Buffer.from(data.data[0].b64_json, "base64"));
-        } catch(e) {
-          reject(new Error("Image generation parse error: " + body.slice(0, 200)));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => reject(new Error("Image generation timeout")));
+    req.on("timeout", () => reject(new Error("Gemini timeout")));
     req.write(payload);
     req.end();
   });
@@ -978,7 +876,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     // Skip chapter 0: its image (key "0-0") is already shown full-bleed as the cover
     const key = `${ci}-0`;
     const illustrationHtml = (ci > 0 && illustrations[key])
-      ? `<img src="data:image/jpeg;base64,${illustrations[key]}" />`
+      ? `<img src="data:image/png;base64,${illustrations[key]}" />`
       : '';
 
     return `
@@ -1240,7 +1138,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   <!-- COVER -->
   <div class="cover">
-    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/jpeg;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
+    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/png;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>

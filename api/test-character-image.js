@@ -1,6 +1,7 @@
-// api/test-character-image.js — Prototype/test endpoint for Gemini 2.5 Flash Image character consistency.
-// NOT wired into the live purchase flow — for manual side-by-side comparison against the current
-// gpt-image-1 pipeline before committing to a full-order redesign.
+// api/test-character-image.js — Standalone diagnostic endpoint for Gemini image character consistency.
+// NOT wired into the live purchase flow — the real pipeline (api/inngest.js) now runs on
+// Nano Banana Pro too; this stays around for manual side-by-side prompt/scene experiments
+// outside of a real order.
 //
 // Usage: POST /api/test-character-image?secret=ADMIN_WEBHOOK_SECRET
 // Body: { name, age, hair, hairLength, hairStyle, eye, city, region, genre, scenes: ["scene 1", "scene 2", ...] }
