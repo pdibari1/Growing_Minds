@@ -135,6 +135,7 @@ const generateStoryOrder = inngest.createFunction(
             : `detailed digital illustration, cinematic lighting, ${genreVisual}`;
 
           const result = {};
+          const failures = [];
 
           // Check if a character reference image (0-0, the cover) already exists in Redis.
           // Its bytes get fed back into every subsequent Gemini call so the character's
@@ -178,14 +179,28 @@ const generateStoryOrder = inngest.createFunction(
               console.log(`Image ${key} uploaded to Blob`);
             } catch(err) {
               console.error(`Image ${key} failed: ${err.message}`);
+              failures.push({ key, error: err.message });
             }
           }
           await saveIllustrationsToRedis(storyId, result);
-          return { saved: Object.keys(result).length };
+          if (failures.length > 0) {
+            await sendAlertEmail(
+              `Illustration failures — ${childName}'s book (${storyId})`,
+              `Batch ${b + 1}/${imgBatches}: ${failures.length}/${keys.length} images failed.\n\n` +
+              failures.map(f => `${f.key}: ${f.error}`).join('\n')
+            );
+          }
+          return { saved: Object.keys(result).length, failed: failures.length };
         });
       }
     } else {
       console.log("Skipping illustrations");
+      if (!process.env.GEMINI_API_KEY) {
+        await sendAlertEmail(
+          `Illustrations skipped — GEMINI_API_KEY missing`,
+          `Order for ${childName} (storyId ${storyId}) is shipping with no illustrations because GEMINI_API_KEY is not set in the environment.`
+        );
+      }
     }
 
     // Step 4: Generate PDF with first 10 chapters only (stays under PDFShift 2MB limit)
@@ -326,6 +341,10 @@ const generatePreviewChapters = inngest.createFunction(
         console.log(`Preview cover uploaded (Nano Banana Pro, 4K): ${blob.url.slice(0, 60)}`);
       } catch(e) {
         console.error(`Preview cover failed: ${e.message}`);
+        await sendAlertEmail(
+          `Preview cover failed — ${childName} (${storyId})`,
+          `Gemini image generation failed for the $2.99 preview cover: ${e.message}`
+        );
       }
     });
 
@@ -1238,6 +1257,24 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 // ════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════
+
+// Ops alert — separate from customer-facing email. Failures here must never block
+// order fulfillment (a customer's book should still ship even if the alert can't
+// send), so this always resolves rather than throwing.
+async function sendAlertEmail(subject, details) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: process.env.ADMIN_ALERT_EMAIL || "hello@growingminds.io",
+      subject: `⚠️ ${subject}`,
+      text: details
+    });
+    console.log(`Alert email sent: ${subject}`);
+  } catch (e) {
+    console.error(`Alert email failed to send: ${e.message}`);
+  }
+}
 
 async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, storyId) {
   const resend = new Resend(process.env.RESEND_API_KEY);
