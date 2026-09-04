@@ -1,6 +1,23 @@
 // api/webhook.js — verifies Stripe, sends event to Inngest
 const Stripe = require("stripe");
 const https = require("https");
+const { Resend } = require("resend");
+
+// A paid order silently dropped here (missing token, Inngest unreachable) means a
+// customer paid and got nothing, with no trace anywhere but a Vercel log line.
+async function sendAlertEmail(subject, details) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: process.env.ADMIN_ALERT_EMAIL || "hello@growingminds.io",
+      subject: `⚠️ ${subject}`,
+      text: details
+    });
+  } catch (e) {
+    console.error(`Alert email failed to send: ${e.message}`);
+  }
+}
 
 module.exports.config = { api: { bodyParser: false } };
 
@@ -31,6 +48,10 @@ module.exports = async function handler(req, res) {
   const storyToken = await getTokenFromRedis(storyId);
   if (!storyToken) {
     console.error(`FATAL: No storyToken found for storyId ${storyId} (childName: ${childName}). Order not queued.`);
+    await sendAlertEmail(
+      `Order dropped — no storyToken for ${childName} (${storyId})`,
+      `A ${payment_type || 'unknown'}-type Stripe payment completed for ${childName} (storyId ${storyId}, ${customerEmail || 'no email'}) but no storyToken was found in Redis, so the order was never sent to Inngest. The customer paid and got nothing queued.`
+    );
     return res.status(200).json({ received: true });
   }
 
@@ -39,10 +60,20 @@ module.exports = async function handler(req, res) {
 
   console.log(`Raw token first 20: ${storyToken?.slice(0,20)}`); console.log(`${isPreview ? 'Preview' : 'Full'} order received for ${childName} — sending to Inngest`);
 
-  if (!storyToken) { console.error(`FATAL: No storyToken for ${storyId}`); return res.status(200).json({ received: true }); } await sendInngestEvent({
-    name: eventName,
-    data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
-  });
+  try {
+    await sendInngestEvent({
+      name: eventName,
+      data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
+    });
+  } catch (e) {
+    console.error(`Failed to send Inngest event for ${childName}: ${e.message}`);
+    await sendAlertEmail(
+      `Order dropped — Inngest event failed for ${childName} (${storyId})`,
+      `sendInngestEvent threw: ${e.message}\n\nA ${payment_type || 'unknown'}-type Stripe payment completed for ${childName} (storyId ${storyId}) but the Inngest event failed to send.`
+    );
+    // Non-2xx so Stripe retries this webhook delivery on its own schedule.
+    return res.status(500).json({ error: "Failed to queue order" });
+  }
 
   console.log(`Inngest event sent for ${childName}: ${eventName}`);
   return res.status(200).json({ received: true });

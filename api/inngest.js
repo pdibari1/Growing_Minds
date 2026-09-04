@@ -451,7 +451,11 @@ const generatePreviewChapters = inngest.createFunction(
         await del(pdfUrl);
       } catch(e) { console.error("Preview PDF blob cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
-      await redisRequest("DEL", [`token:${storyId}`]);
+      // Do NOT delete token:${storyId} here — webhook.js needs it to process the
+      // upgrade purchase later, which reuses this same storyId. It already has its
+      // own 24h TTL from generate-preview.js; deleting it here meant every upgrade
+      // purchase failed with "No storyToken found" the moment a customer actually
+      // clicked through their preview email to buy the full book.
       console.log(`Cleaned up preview Redis for ${storyId}`);
     });
 
