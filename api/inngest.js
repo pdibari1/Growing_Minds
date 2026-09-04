@@ -209,27 +209,26 @@ const generateStoryOrder = inngest.createFunction(
       const chapters = await getChaptersFromRedis(storyId);
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
       console.log(`PDF v3: ${chapters.length} chapters, ${Object.keys(illustrationUrls).length} illustration URLs`);
-
-      // Convert Blob URLs to base64 so PDFShift can embed them
-      const illustrations = {};
-      for (const [key, url] of Object.entries(illustrationUrls)) {
-        try {
-          const imgBytes = await fetchImageBytes(url);
-          illustrations[key] = imgBytes.toString('base64');
-          console.log(`PDF v3: converted image ${key} (${Math.round(imgBytes.length/1024)}KB)`);
-        } catch(e) {
-          console.error(`PDF v3: failed image ${key}: ${e.message}`);
-        }
-      }
-      console.log(`PDF v3: ${Object.keys(illustrations).length} images converted, keys: ${Object.keys(illustrations).join(', ')}`);
-      const html_size_kb = Math.round(JSON.stringify(illustrations).length / 1024);
-      console.log(`PDF v3: illustrations data size: ${html_size_kb}KB`);
-      return await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrations);
+      // Pass Blob URLs straight through — PDFShift fetches <img src="https://..."> itself,
+      // so the HTML payload we send stays small regardless of image resolution. Inlining
+      // base64 here previously ballooned the payload with a single 4K illustration and
+      // crashed/timed out the function mid-step.
+      return await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
     });
     // Step 5: Send email with PDF of first 10 chapters
     await step.run("send-email", async () => {
       console.log(`Sending email to ${customerEmail}`);
-      await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
+      try {
+        await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
+      } catch (e) {
+        // Alert, then rethrow so Inngest's built-in retries still apply — an alerting
+        // problem must never mask a delivery problem or suppress the retry.
+        await sendAlertEmail(
+          `Delivery email failed — ${childName} (${storyId})`,
+          `sendDeliveryEmail threw: ${e.message}`
+        );
+        throw e;
+      }
     });
 
     // Step 6: Save full story to Airtable for training data
@@ -351,22 +350,15 @@ const generatePreviewChapters = inngest.createFunction(
     // Generate PDF of 3 chapters
     const pdfBase64 = await step.run("create-preview-pdf", async () => {
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      const illustrations = {};
-      for (const [key, url] of Object.entries(illustrationUrls)) {
-        try {
-          const imgBytes = await fetchImageBytes(url);
-          illustrations[key] = imgBytes.toString('base64');
-        } catch(e) {
-          console.error(`Failed to fetch image ${key}: ${e.message}`);
-        }
-      }
-      return await generatePDF(childName, chapters, childData, tier, illustrations);
+      // Blob URLs straight through — see the create-pdf-v3 comment above.
+      return await generatePDF(childName, chapters, childData, tier, illustrationUrls);
     });
 
     // Send email with PDF
     await step.run("send-preview-email", async () => {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const storyTitle = `${childName} and the ${getMilestoneTitle(childData.milestone)}`;
+      try {
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
         to: customerEmail,
@@ -399,6 +391,15 @@ const generatePreviewChapters = inngest.createFunction(
         `
       });
       console.log(`Preview email sent to ${customerEmail}`);
+      } catch (e) {
+        // Alert, then rethrow so Inngest's built-in retries still apply — an alerting
+        // problem must never mask a delivery problem or suppress the retry.
+        await sendAlertEmail(
+          `Preview email failed — ${childName} (${storyId})`,
+          `Preview email send threw: ${e.message}`
+        );
+        throw e;
+      }
     });
 
     // Cleanup
@@ -895,7 +896,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     // Skip chapter 0: its image (key "0-0") is already shown full-bleed as the cover
     const key = `${ci}-0`;
     const illustrationHtml = (ci > 0 && illustrations[key])
-      ? `<img src="data:image/png;base64,${illustrations[key]}" />`
+      ? `<img src="${illustrations[key]}" />`
       : '';
 
     return `
@@ -1157,7 +1158,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
 
   <!-- COVER -->
   <div class="cover">
-    ${illustrations['0-0'] ? `<img class="cover-image" src="data:image/png;base64,${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
+    ${illustrations['0-0'] ? `<img class="cover-image" src="${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
       <div class="cover-badge">A Growing Minds Original Story</div>
