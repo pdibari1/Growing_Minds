@@ -157,46 +157,31 @@ const generateStoryOrder = inngest.createFunction(
           const result = {};
           const failures = [];
 
-          // Check if a character reference image (0-0, the cover) already exists in Redis.
-          // Its bytes get fed back into every subsequent Gemini call so the character's
-          // face/hair/outfit stay consistent across the whole book — Nano Banana Pro
-          // conditions on the reference image itself, not a text description of it.
-          const existingUrls = await getIllustrationsFromRedis(storyId);
-          let referenceBytes = existingUrls['0-0'] ? await fetchImageBytes(existingUrls['0-0']) : null;
+          // One private reference image anchors consistency for the cover and every
+          // interior scene alike — reused across batches and across preview→upgrade
+          // via its own long-lived Redis key, never regenerated as a side effect of
+          // generating the cover.
+          const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
+          const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt);
 
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
             const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
+            const isCover = key === '0-0';
 
             try {
-              let imageBytes;
+              const gen = await callGeminiImage([
+                { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
+                { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scenePrompt}` }
+              ], isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" });
 
-              if (!referenceBytes) {
-                // First image of the book: generate the character reference (also the cover).
-                const gen = await callGeminiImage(
-                  [{ text: `${scenePrompt}\n\nCharacter reference sheet — full body, front-facing, clear view of face and outfit.` }],
-                  { aspectRatio: "3:4", imageSize: "4K" }
-                );
-                imageBytes = gen.bytes;
-                referenceBytes = gen.bytes;
-                console.log(`Image ${key} generated as character reference (Nano Banana Pro, 4K)`);
-              } else {
-                // Feed the reference image back in so the character stays identical.
-                const gen = await callGeminiImage([
-                  { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
-                  { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scenePrompt}` }
-                ], { aspectRatio: "4:3", imageSize: "2K" });
-                imageBytes = gen.bytes;
-                console.log(`Image ${key} generated with character consistency (Nano Banana Pro, 2K)`);
-              }
-
-              const blob = await put(`illustrations/${storyId}/${key}.png`, imageBytes, {
+              const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, {
                 access: 'public',
                 contentType: 'image/png'
               });
               result[key] = blob.url;
-              console.log(`Image ${key} uploaded to Blob`);
+              console.log(`Image ${key} generated with character consistency (Nano Banana Pro, ${isCover ? '4K cover' : '2K'})`);
             } catch(err) {
               console.error(`Image ${key} failed: ${err.message}`);
               failures.push({ key, error: err.message });
@@ -287,6 +272,11 @@ const generateStoryOrder = inngest.createFunction(
       try {
         await del(pdfUrl);
       } catch(e) { console.error("PDF blob cleanup error:", e.message); }
+      try {
+        const refUrl = await redisRequest("GET", [`charref:${storyId}`]);
+        if (refUrl) await del(refUrl);
+        await redisRequest("DEL", [`charref:${storyId}`]);
+      } catch(e) { console.error("Character reference cleanup error:", e.message); }
       await redisRequest("DEL", [`outline:${storyId}`]);
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
@@ -375,12 +365,17 @@ const generatePreviewChapters = inngest.createFunction(
         ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
         : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
       const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
-      const prompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
+      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
       try {
-        const gen = await callGeminiImage(
-          [{ text: `${prompt}\n\nCharacter reference sheet — full body, front-facing, clear view of face and outfit.` }],
-          { aspectRatio: "3:4", imageSize: "4K" }
-        );
+        // Same private-reference pattern as the full order — see getOrCreateCharacterReference.
+        // This reference (and, once generated, the cover itself) both survive on their own
+        // long-lived Redis keys, so the full order reuses this exact cover on upgrade.
+        const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
+        const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt);
+        const gen = await callGeminiImage([
+          { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
+          { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scenePrompt}` }
+        ], { aspectRatio: "3:4", imageSize: "4K" });
         const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, {
           access: 'public',
           contentType: 'image/png'
@@ -462,18 +457,11 @@ const generatePreviewChapters = inngest.createFunction(
     // Cleanup
     await step.run("cleanup-preview", async () => {
       await deleteChaptersFromRedis(storyId);
-      try {
-        const imgKeys = await redisRequest("KEYS", [`img:${storyId}:*`]);
-        if (imgKeys && imgKeys.length > 0) {
-          const urls = [];
-          for (const k of imgKeys) {
-            const url = await redisRequest("GET", [k]);
-            if (url) urls.push(url);
-            await redisRequest("DEL", [k]);
-          }
-          if (urls.length > 0) await del(urls);
-        }
-      } catch(e) { console.error("Preview illus cleanup error:", e.message); }
+      // Do NOT delete img:${storyId}:* here — same reasoning as the token below.
+      // The full order's illustration step looks up the preview's cover (and the
+      // character reference) to reuse them; deleting them here meant every upgrade
+      // got a mismatched cover generated from scratch instead of the one the
+      // customer already saw. Illustration URLs now carry a 30-day TTL of their own.
       try {
         await del(pdfUrl);
       } catch(e) { console.error("Preview PDF blob cleanup error:", e.message); }
@@ -741,6 +729,33 @@ function callGeminiImage(parts, imageConfig) {
     req.write(payload);
     req.end();
   });
+}
+
+// One private reference image per story, anchoring character consistency across
+// every customer-facing illustration (cover + interior scenes) and across the
+// preview→upgrade boundary. Never shown to the customer — no scene, no other
+// characters, no text or labels — so the cover no longer has to double as a
+// reference sheet and risk Gemini fusing both into one composite image.
+async function getOrCreateCharacterReference(storyId, prompt) {
+  const existingUrl = await redisRequest("GET", [`charref:${storyId}`]);
+  if (existingUrl) {
+    try {
+      return await fetchImageBytes(existingUrl);
+    } catch (e) {
+      console.error(`Failed to fetch existing character reference, regenerating: ${e.message}`);
+    }
+  }
+  const gen = await callGeminiImage(
+    [{ text: `${prompt}\n\nCharacter reference sheet — full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.` }],
+    { aspectRatio: "3:4", imageSize: "2K" }
+  );
+  const blob = await put(`illustrations/${storyId}/reference.png`, gen.bytes, {
+    access: 'public',
+    contentType: 'image/png'
+  });
+  await redisRequest("SET", [`charref:${storyId}`, blob.url, "EX", 2592000]);
+  console.log(`Character reference created for ${storyId}: ${blob.url}`);
+  return gen.bytes;
 }
 
 function fetchImageBytes(url) {
@@ -1485,9 +1500,10 @@ async function deleteChaptersFromRedis(storyId) {
 }
 
 async function saveIllustrationsToRedis(storyId, newIllustrations) {
-  // Store each image URL as a separate key
+  // 30-day TTL, not 2h — the preview's cover must still be findable whenever the
+  // customer upgrades to the full book, which can happen well outside a 2h window.
   for (const [key, url] of Object.entries(newIllustrations)) {
-    await redisRequest("SET", [`img:${storyId}:${key}`, url, "EX", 7200]);
+    await redisRequest("SET", [`img:${storyId}:${key}`, url, "EX", 2592000]);
   }
   console.log(`Saved ${Object.keys(newIllustrations).length} illustration URLs to Redis for ${storyId}`);
 }
