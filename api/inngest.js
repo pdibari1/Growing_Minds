@@ -507,6 +507,7 @@ async function generateOutline(child, tier) {
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
+NAMING RULE: Refer to the hero only as "${name}" and to any other named character only by the name given for them above. Do not invent, shorten, or substitute a nickname for anyone unless the custom details below explicitly provide one for that character — if they do, use exactly that nickname, consistently.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
 Milestone/theme: ${milestone}${genreLine}${customLine}
@@ -650,6 +651,7 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
 
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
+NAMING RULE: Refer to the hero only as "${name}" and to any other named character only by the name given for them. Do not invent, shorten, or substitute a nickname for anyone unless the custom details below explicitly provide one for that character — if they do, use exactly that nickname, consistently.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Setting: ${city}, ${region} — use the city name and regional geography (mountains, rivers, weather, landscape) naturally, but NEVER use specific street names, addresses, or neighbourhood names.
 ${customLine}
@@ -661,6 +663,7 @@ ${batchOutline}
 
 RULES:
 - Write all ${endIdx - startIdx} chapters back to back
+- NAMES: Never invent a nickname for ${name} or any other character. Use only the names given above, or a nickname only if the custom details explicitly supplied one.
 - Each chapter: ${tier.minWords}–${tier.maxWords} words, ending on a natural story beat
 - CRITICAL WRITING RULE: Never explain what a character is feeling. Show it through physical detail, action, and dialogue only. Wrong: "Benjamin felt angry." Right: "Benjamin's ears went hot. His fists clenched. He walked away without saying anything." Trust the reader to understand.
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
