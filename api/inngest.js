@@ -123,7 +123,8 @@ const generateStoryOrder = inngest.createFunction(
           // physical description) gets drawn as a specific, identifiable individual —
           // other named people in the story (friends, siblings, classmates) may be real
           // people, so they must never get an invented likeness.
-          const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${customDetails ? `\n\nPhysical descriptions to honor if provided for anyone besides ${name}: ${customDetails}` : ''}`;
+          const illustrationDetails = extractIllustrationDetails(customDetails);
+          const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
 
           // Genre-specific illustration style
           const genreVisual = {
@@ -346,7 +347,8 @@ const generatePreviewChapters = inngest.createFunction(
       // Only the primary character (and any secondary character with an explicit
       // physical description) gets drawn as a specific, identifiable individual —
       // see the same policy in the full-order illustration step for why.
-      const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${customDetails ? `\n\nPhysical descriptions to honor if provided for anyone besides ${name}: ${customDetails}` : ''}`;
+      const illustrationDetails = extractIllustrationDetails(customDetails);
+      const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
       const genreVisual = {
         'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
         'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
@@ -937,6 +939,20 @@ async function createStoryPDF(child, chapters, illustrations, tier) {
   if (page) addPageNum();
 
   return await pdfDoc.save();
+}
+
+// customDetails is one big blob (story constraints, milestone answers, family/friend
+// notes, "things to get right", etc.) meant for story-text generation. Image prompts
+// only care about the "Illustration details — <section>: name, age, gender, look"
+// lines the intake form's per-person appearance-note cards produce — pulling just
+// those out means the model isn't hunting for one physical detail in a lot of
+// unrelated text.
+function extractIllustrationDetails(customDetails) {
+  if (!customDetails) return '';
+  return customDetails
+    .split('\n')
+    .filter(line => line.trim().startsWith('Illustration details'))
+    .join('\n');
 }
 
 function getMilestoneTitle(milestone) {

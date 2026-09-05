@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
   }
 
   const session = event.data.object;
-  const { storyId, childName, customDetails, payment_type } = session.metadata;
+  const { storyId, childName, customDetails: metaCustomDetails, payment_type } = session.metadata;
   const customerEmail = session.customer_details?.email;
 
   // Get storyToken from Redis
@@ -60,10 +60,16 @@ module.exports = async function handler(req, res) {
 
   console.log(`Raw token first 20: ${storyToken?.slice(0,20)}`); console.log(`${isPreview ? 'Preview' : 'Full'} order received for ${childName} — sending to Inngest`);
 
+  // Stripe metadata caps each value at 500 characters, so customDetails there is
+  // truncated. The full text lives in Redis (saved by generate-preview.js) — use
+  // that, falling back to the truncated metadata copy only if it's gone.
+  const fullCustomDetails = await getCustomDetailsFromRedis(storyId);
+  const customDetails = fullCustomDetails || metaCustomDetails || '';
+
   try {
     await sendInngestEvent({
       name: eventName,
-      data: { storyToken, childName, storyId, customerEmail, customDetails: customDetails || '' }
+      data: { storyToken, childName, storyId, customerEmail, customDetails }
     });
   } catch (e) {
     console.error(`Failed to send Inngest event for ${childName}: ${e.message}`);
@@ -100,6 +106,36 @@ async function getTokenFromRedis(storyId) {
             result = result.slice(1, -1);
           }
           console.log(`Token for ${storyId}: ${result ? `found (${result.length} chars)` : 'NOT FOUND'}`);
+          resolve(result);
+        } catch(e) { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.end();
+  });
+}
+
+async function getCustomDetailsFromRedis(storyId) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: new URL(process.env.UPSTASH_REDIS_REST_URL).hostname,
+      port: 443,
+      path: `/get/customdetails:${storyId}`,
+      method: 'GET',
+      headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+      timeout: 10000
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          let result = parsed.result || null;
+          if (Array.isArray(result)) result = result[0] || null;
+          if (result && result.startsWith('"') && result.endsWith('"')) {
+            result = result.slice(1, -1);
+          }
           resolve(result);
         } catch(e) { resolve(null); }
       });

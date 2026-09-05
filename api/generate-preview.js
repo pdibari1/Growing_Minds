@@ -98,6 +98,26 @@ INSTRUCTIONS:
       console.error("Redis token save error:", e.message);
     }
 
+    // Save the FULL customDetails separately — it later has to round-trip through
+    // Stripe checkout metadata, which caps each value at 500 characters. Reading it
+    // back from here instead of from Stripe metadata means the appearance notes,
+    // milestone answers, etc. never get silently truncated.
+    if (customDetails) {
+      try {
+        await fetch(`${process.env.UPSTASH_REDIS_REST_URL}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(['SET', `customdetails:${storyId}`, customDetails, 'EX', 2592000])
+        });
+        console.log(`Saved full customDetails to Redis for ${storyId}`);
+      } catch(e) {
+        console.error("Redis customDetails save error:", e.message);
+      }
+    }
+
     return res.status(200).json({ preview: previewText, storyToken, storyId, childName: name, customerEmail: email, customDetails: customDetails || '' });
 
   } catch (error) {
