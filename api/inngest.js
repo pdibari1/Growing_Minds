@@ -157,6 +157,10 @@ const generateStoryOrder = inngest.createFunction(
           const result = {};
           const failures = [];
 
+          // Reuse the preview's literal cover image if the customer already saw one —
+          // same exact image, not just a freshly-generated same-looking-character cover.
+          const existingUrls = await getIllustrationsFromRedis(storyId);
+
           // One private reference image anchors consistency for the cover and every
           // interior scene alike — reused across batches and across preview→upgrade
           // via its own long-lived Redis key, never regenerated as a side effect of
@@ -169,6 +173,12 @@ const generateStoryOrder = inngest.createFunction(
             const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
             const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
             const isCover = key === '0-0';
+
+            if (isCover && existingUrls['0-0']) {
+              result['0-0'] = existingUrls['0-0'];
+              console.log(`Image 0-0 reused from preview cover: ${existingUrls['0-0'].slice(0, 60)}`);
+              continue;
+            }
 
             try {
               const gen = await callGeminiImage([
