@@ -19,6 +19,22 @@ async function sendAlertEmail(subject, details) {
   }
 }
 
+// Purely informational — lets you know a purchase came in, distinct from
+// sendAlertEmail's failure alerts above.
+async function sendOrderNotification(subject, details) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: process.env.ORDER_NOTIFICATION_EMAIL || "stories@growingminds.io",
+      subject: `🛒 ${subject}`,
+      text: details
+    });
+  } catch (e) {
+    console.error(`Order notification failed to send: ${e.message}`);
+  }
+}
+
 module.exports.config = { api: { bodyParser: false } };
 
 module.exports = async function handler(req, res) {
@@ -82,6 +98,12 @@ module.exports = async function handler(req, res) {
   }
 
   console.log(`Inngest event sent for ${childName}: ${eventName}`);
+
+  await sendOrderNotification(
+    isPreview ? `New preview order — ${childName}` : `New full book order — ${childName}`,
+    `Story ID: ${storyId}\nChild: ${childName}\nCustomer email: ${customerEmail || 'n/a'}\nType: ${isPreview ? 'Preview ($2.99)' : 'Full book ($35)'}`
+  );
+
   return res.status(200).json({ received: true });
 };
 

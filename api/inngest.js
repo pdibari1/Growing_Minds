@@ -219,42 +219,10 @@ const generateStoryOrder = inngest.createFunction(
       }
     }
 
-    // Step 4: Generate PDF with first 10 chapters only (stays under PDFShift 2MB limit)
-    const pdfUrl = await step.run("create-pdf-v3", async () => {
-      console.log(`STARTING PDF GENERATION v3`);
-      const chapters = await getChaptersFromRedis(storyId);
-      const illustrationUrls = await getIllustrationsFromRedis(storyId);
-      console.log(`PDF v3: ${chapters.length} chapters, ${Object.keys(illustrationUrls).length} illustration URLs`);
-      // Pass Blob URLs straight through — PDFShift fetches <img src="https://..."> itself,
-      // so the HTML payload we send stays small regardless of image resolution. Inlining
-      // base64 here previously ballooned the payload with a single 4K illustration and
-      // crashed/timed out the function mid-step.
-      const pdfBase64 = await generatePDF(childName, chapters.slice(0, 10), childData, tier, illustrationUrls);
-      // Inngest caps a step's return value at 4MB — a PDF with illustrations easily
-      // exceeds that, so upload it to Blob and return only the URL.
-      const blob = await put(`pdfs/${storyId}/delivery.pdf`, Buffer.from(pdfBase64, 'base64'), {
-        access: 'public',
-        contentType: 'application/pdf'
-      });
-      console.log(`PDF v3 uploaded to Blob: ${blob.url}`);
-      return blob.url;
-    });
-    // Step 5: Send email with PDF of first 10 chapters
-    await step.run("send-email", async () => {
-      console.log(`Sending email to ${customerEmail}`);
-      try {
-        const pdfBase64 = (await fetchImageBytes(pdfUrl)).toString('base64');
-        await sendDeliveryEmail(customerEmail, childName, pdfBase64, childData, tier, storyId);
-      } catch (e) {
-        // Alert, then rethrow so Inngest's built-in retries still apply — an alerting
-        // problem must never mask a delivery problem or suppress the retry.
-        await sendAlertEmail(
-          `Delivery email failed — ${childName} (${storyId})`,
-          `sendDeliveryEmail threw: ${e.message}`
-        );
-        throw e;
-      }
-    });
+    // The 10-chapter delivery email is intentionally gone — full orders are meant to
+    // ship as a physical book via Lulu (not yet wired into this flow) rather than a
+    // partial PDF by email. Chapters/illustrations generated above are still saved to
+    // Airtable and Blob below for whenever that pipeline exists.
 
     // Step 6: Save full story to Airtable for training data
     await step.run("save-story", async () => {
@@ -280,9 +248,6 @@ const generateStoryOrder = inngest.createFunction(
           if (urls.length > 0) await del(urls);
         }
       } catch(e) { console.error("Illustration cleanup error:", e.message); }
-      try {
-        await del(pdfUrl);
-      } catch(e) { console.error("PDF blob cleanup error:", e.message); }
       try {
         const refUrl = await redisRequest("GET", [`charref:${storyId}`]);
         if (refUrl) await del(refUrl);
@@ -1383,41 +1348,6 @@ async function sendAlertEmail(subject, details) {
   } catch (e) {
     console.error(`Alert email failed to send: ${e.message}`);
   }
-}
-
-async function sendDeliveryEmail(email, childName, pdfBase64, child, tier, storyId) {
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const { milestone, city, region } = child;
-  const wordCount = `${(tier.chapCount * tier.minWords).toLocaleString()}–${(tier.chapCount * tier.maxWords).toLocaleString()}`;
-  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-
-  await resend.emails.send({
-    from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-    to: email,
-    bcc: "purchase@growingminds.io",
-    subject: `📖 ${childName}'s story is on its way!`,
-    attachments: [{ filename: `${childName}-story-part1.pdf`, content: pdfBase64 }],
-    html: `
-      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
-        <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
-          <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
-        </div>
-        <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
-          <h2 style="color:#2d6a4f;">${storyTitle}</h2>
-          <p>The first 10 chapters of ${childName}'s story are attached — start reading together tonight!</p>
-          <p style="margin-top:1rem;color:#6b7280;font-size:.9rem;">The complete 30-chapter story arrives in your beautifully printed hardcover book within 13–15 business days.</p>
-
-          <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1.5rem;text-align:center;">
-            <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
-            <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
-            <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID! Use it when ordering a sequel or a story for a sibling.</p>
-          </div>
-
-          <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
-        </div>
-      </div>
-    `
-  });
 }
 
 // ════════════════════════════════════════════
