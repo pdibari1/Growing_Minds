@@ -236,6 +236,36 @@ const generateStoryOrder = inngest.createFunction(
     // partial PDF by email. Chapters/illustrations generated above are still saved to
     // Airtable and Blob below for whenever that pipeline exists.
 
+    // Step: Build the full book PDF and notify admin with a link — not attached, so
+    // there's no email attachment size ceiling to worry about, just a Blob URL.
+    const fullPdfUrl = await step.run("create-full-pdf", async () => {
+      console.log(`Building full ${tier.chapCount}-chapter PDF for ${storyId}`);
+      try {
+        const chapters = await getChaptersFromRedis(storyId);
+        const illustrationUrls = await getIllustrationsFromRedis(storyId);
+        const pdfBase64 = await generatePDF(childName, chapters, childData, tier, illustrationUrls);
+        const blob = await put(`pdfs/${storyId}/full-book.pdf`, Buffer.from(pdfBase64, 'base64'), {
+          access: 'public',
+          contentType: 'application/pdf'
+        });
+        console.log(`Full book PDF uploaded to Blob: ${blob.url}`);
+        return blob.url;
+      } catch (e) {
+        await sendAlertEmail(
+          `Full book PDF generation failed — ${childName} (${storyId})`,
+          `generatePDF/upload threw: ${e.message}`
+        );
+        throw e;
+      }
+    });
+
+    await step.run("notify-full-book-ready", async () => {
+      await sendOrderNotification(
+        `Full book ready — ${childName} (${storyId})`,
+        `The full book (all ${tier.chapCount} chapters) is ready to view:\n${fullPdfUrl}\n\nStory ID: ${storyId}\nChild: ${childName}\nCustomer: ${customerEmail || 'n/a'}`
+      );
+    });
+
     // Step 6: Save full story to Airtable for training data
     await step.run("save-story", async () => {
       console.log(`Saving story to Airtable for ${childName}`);
@@ -1363,6 +1393,23 @@ async function sendAlertEmail(subject, details) {
     console.log(`Alert email sent: ${subject}`);
   } catch (e) {
     console.error(`Alert email failed to send: ${e.message}`);
+  }
+}
+
+// Purely informational — same channel as webhook.js's purchase notification, just
+// fired later, once the full book actually exists to link to.
+async function sendOrderNotification(subject, details) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: process.env.ORDER_NOTIFICATION_EMAIL || "stories@growingminds.io",
+      subject: `📖 ${subject}`,
+      text: details
+    });
+    console.log(`Order notification sent: ${subject}`);
+  } catch (e) {
+    console.error(`Order notification failed to send: ${e.message}`);
   }
 }
 
