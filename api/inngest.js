@@ -61,19 +61,31 @@ const generateStoryOrder = inngest.createFunction(
         } catch(e) {}
       }
       const result = await generateOutline(childData, tier);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 2592000]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);
       return result;
     });
 
-    // Step 2: Generate chapters in batches — save each batch to Airtable immediately
-    // This means chapter text never lives in Inngest state
+    // The preview already wrote and emailed chapters 1-3 (or however many) to the
+    // customer — reuse that exact text instead of asking Claude to write it again
+    // from scratch, which produces different prose even from the same outline.
+    // Memoized in its own step so a retry mid-run can't shift these boundaries.
+    const startChapter = await step.run("check-existing-chapters", async () => {
+      const existing = await getChaptersFromRedis(storyId);
+      if (existing.length > 0) {
+        console.log(`Reusing ${existing.length} chapters already written for ${storyId}`);
+      }
+      return existing.length;
+    });
+
+    // Step 2: Generate remaining chapters in batches — save each batch to Airtable
+    // immediately. This means chapter text never lives in Inngest state.
     const BATCH_SIZE = 4;
-    const batches = Math.ceil(outline.length / BATCH_SIZE);
+    const batches = Math.ceil(Math.max(0, outline.length - startChapter) / BATCH_SIZE);
 
     for (let b = 0; b < batches; b++) {
       await step.run(`generate-batch-${b + 1}`, async () => {
-        const start = b * BATCH_SIZE;
+        const start = startChapter + b * BATCH_SIZE;
         const end = Math.min(start + BATCH_SIZE, outline.length);
         console.log(`Generating batch ${b + 1}/${batches}: chapters ${start + 1}–${end}`);
 
@@ -292,7 +304,8 @@ const generatePreviewChapters = inngest.createFunction(
     // Generate outline
     const outline = await step.run("generate-preview-outline", async () => {
       const result = await generateOutline(childData, tier);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 7200]);
+      // 30-day TTL — must still be here whenever the customer upgrades to the full book.
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 2592000]);
       return result;
     });
 
@@ -433,22 +446,25 @@ const generatePreviewChapters = inngest.createFunction(
 
     // Cleanup
     await step.run("cleanup-preview", async () => {
-      await deleteChaptersFromRedis(storyId);
-      // Do NOT delete img:${storyId}:* here — same reasoning as the token below.
-      // The full order's illustration step looks up the preview's cover (and the
-      // character reference) to reuse them; deleting them here meant every upgrade
-      // got a mismatched cover generated from scratch instead of the one the
-      // customer already saw. Illustration URLs now carry a 30-day TTL of their own.
+      // Do NOT delete story:${storyId} (chapters) or outline:${storyId} here — same
+      // reasoning as the token/images below. The full order reuses this exact
+      // outline and these exact chapters 1-3 on upgrade, instead of asking Claude to
+      // write different prose from scratch for chapters the customer already read.
+      // Both now carry their own 30-day TTL.
+      // Do NOT delete img:${storyId}:* here — same reasoning. The full order's
+      // illustration step looks up the preview's cover (and the character
+      // reference) to reuse them; deleting them here meant every upgrade got a
+      // mismatched cover generated from scratch instead of the one the customer
+      // already saw. Illustration URLs now carry a 30-day TTL of their own.
       try {
         await del(pdfUrl);
       } catch(e) { console.error("Preview PDF blob cleanup error:", e.message); }
-      await redisRequest("DEL", [`outline:${storyId}`]);
       // Do NOT delete token:${storyId} here — webhook.js needs it to process the
       // upgrade purchase later, which reuses this same storyId. It already has its
       // own 24h TTL from generate-preview.js; deleting it here meant every upgrade
       // purchase failed with "No storyToken found" the moment a customer actually
       // clicked through their preview email to buy the full book.
-      console.log(`Cleaned up preview Redis for ${storyId}`);
+      console.log(`Cleaned up preview PDF blob for ${storyId}`);
     });
 
     return { success: true, childName, chapters: 3 };
@@ -1441,8 +1457,9 @@ async function redisRequest(command, args) {
 
 async function saveChaptersToRedis(storyId, priorChapters, newChapters) {
   const allChapters = [...priorChapters, ...newChapters];
-  // Store as JSON string with 2 hour expiry (plenty of time to finish)
-  await redisRequest("SET", [`story:${storyId}`, JSON.stringify(allChapters), "EX", 7200]);
+  // 30-day TTL — the preview's chapters must still be here whenever the customer
+  // upgrades to the full book, which can happen well outside a 2h window.
+  await redisRequest("SET", [`story:${storyId}`, JSON.stringify(allChapters), "EX", 2592000]);
   console.log(`Saved ${allChapters.length} chapters to Redis for ${storyId}`);
 }
 
