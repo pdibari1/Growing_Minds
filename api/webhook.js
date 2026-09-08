@@ -8,12 +8,17 @@ const { Resend } = require("resend");
 async function sendAlertEmail(subject, details) {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
+    // The Resend SDK does NOT throw on API-level errors (bad recipient, domain
+    // issue, rate limit, etc.) — it resolves normally with { data: null, error }.
+    // Without this check, a rejected send looks identical to a successful one.
+    const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
       to: process.env.ADMIN_ALERT_EMAIL || "hello@growingminds.io",
       subject: `⚠️ ${subject}`,
       text: details
     });
+    if (error) throw new Error(error.message || JSON.stringify(error));
+    console.log(`Alert email sent: ${subject} (id: ${data?.id})`);
   } catch (e) {
     console.error(`Alert email failed to send: ${e.message}`);
   }
@@ -24,12 +29,14 @@ async function sendAlertEmail(subject, details) {
 async function sendOrderNotification(subject, details) {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
       to: process.env.ORDER_NOTIFICATION_EMAIL || "stories@growingminds.io",
       subject: `🛒 ${subject}`,
       text: details
     });
+    if (error) throw new Error(error.message || JSON.stringify(error));
+    console.log(`Order notification sent: ${subject} (id: ${data?.id})`);
   } catch (e) {
     console.error(`Order notification failed to send: ${e.message}`);
   }
