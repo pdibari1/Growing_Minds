@@ -25,15 +25,6 @@
     "api/capture-email.js": {
       "maxDuration": 10
     },
-    "api/approve.js": {
-      "maxDuration": 15
-    },
-    "api/regenerate.js": {
-      "maxDuration": 15
-    },
-    "api/cancel.js": {
-      "maxDuration": 15
-    },
     "api/survey.js": {
       "maxDuration": 15
     },
