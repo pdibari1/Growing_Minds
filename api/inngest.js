@@ -242,7 +242,7 @@ const generateStoryOrder = inngest.createFunction(
       try {
         const chapters = await getChaptersFromRedis(storyId);
         const illustrationUrls = await getIllustrationsFromRedis(storyId);
-        const pdfBase64 = await generatePDF(childName, chapters, childData, tier, illustrationUrls);
+        const pdfBase64 = await generatePDF(childName, chapters, childData, tier, illustrationUrls, outline);
         const blob = await put(`pdfs/${storyId}/full-book.pdf`, Buffer.from(pdfBase64, 'base64'), {
           access: 'public',
           contentType: 'application/pdf'
@@ -414,7 +414,7 @@ const generatePreviewChapters = inngest.createFunction(
     const pdfUrl = await step.run("create-preview-pdf", async () => {
       const illustrationUrls = await getIllustrationsFromRedis(storyId);
       // Blob URLs straight through — see the create-pdf-v3 comment above.
-      const pdfBase64 = await generatePDF(childName, chapters, childData, tier, illustrationUrls);
+      const pdfBase64 = await generatePDF(childName, chapters, childData, tier, illustrationUrls, outline);
       // Inngest caps a step's return value at 4MB — upload to Blob and return only the URL.
       const blob = await put(`pdfs/${storyId}/preview.pdf`, Buffer.from(pdfBase64, 'base64'), {
         access: 'public',
@@ -796,10 +796,13 @@ function getMilestoneTitle(milestone) {
 // PDF GENERATION VIA PDFSHIFT
 // ════════════════════════════════════════════
 
-async function generatePDF(childName, chapters, child, tier, illustrations = {}) {
+async function generatePDF(childName, chapters, child, tier, illustrations = {}, outline = null) {
   const { milestone, city, region, age } = child;
   const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
-  const wordCount = `${(tier.chapCount * tier.minWords).toLocaleString()}–${(tier.chapCount * tier.maxWords).toLocaleString()}`;
+  const writtenCount = chapters.length;
+  const totalCount = (outline && outline.length > writtenCount) ? outline.length : writtenCount;
+  const isPreview = totalCount > writtenCount;
+  const wordCount = `${(writtenCount * tier.minWords).toLocaleString()}–${(writtenCount * tier.maxWords).toLocaleString()}`;
 
   const chaptersHtml = chapters.map((chapText, ci) => {
     const lines = chapText.split(/\n+/).filter(l => l.trim());
@@ -832,28 +835,36 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     `;
   }).join('');
 
-  // Build TOC rows — two columns for 30 chapters
-  const tocRowsLeft = chapters.slice(0, 15).map((chapText, ci) => {
-    const firstLine = chapText.split(/\n+/)[0] || '';
-    const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
-    const num = match ? match[1] : String(ci + 1);
-    const title = match ? match[2] : firstLine;
-    return '<tr>' +
-      '<td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#2d6a4f;font-weight:800;">' + num + '</td>' +
-      '<td style="padding:5px 0;font-size:9pt;color:#1a1a2e;font-weight:600;">' + title + '</td>' +
-      '</tr>';
-  }).join('');
+  // Build TOC rows — two columns. In preview mode (writtenCount < totalCount),
+  // every chapter title comes from the outline so the full arc shows as a table
+  // of contents; rows beyond what's actually written in this PDF render greyed
+  // out as a "coming in the full book" tease. In full-book mode every chapter is
+  // written, so every row renders the same normal style.
+  const tocItems = isPreview && outline
+    ? outline.slice(0, totalCount).map((c, i) => ({ num: i + 1, title: c.title, included: i < writtenCount }))
+    : chapters.map((chapText, ci) => {
+        const firstLine = chapText.split(/\n+/)[0] || '';
+        const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
+        return { num: match ? match[1] : String(ci + 1), title: match ? match[2] : firstLine, included: true };
+      });
 
-  const tocRowsRight = chapters.slice(15, 30).map((chapText, ci) => {
-    const firstLine = chapText.split(/\n+/)[0] || '';
-    const match = firstLine.match(/^Chapter (\d+):\s*(.+)$/);
-    const num = match ? match[1] : String(ci + 16);
-    const title = match ? match[2] : firstLine;
+  const tocRow = (item) => {
+    const numColor = item.included ? '#2d6a4f' : '#9ca3af';
+    const titleColor = item.included ? '#1a1a2e' : '#9ca3af';
+    const titleStyle = item.included ? 'font-weight:600;' : 'font-weight:600;font-style:italic;';
+    const suffix = item.included ? '' : ' ✦';
     return '<tr>' +
-      '<td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:#9ca3af;font-weight:800;">' + num + '</td>' +
-      '<td style="padding:5px 0;font-size:9pt;color:#9ca3af;font-weight:600;font-style:italic;">' + title + ' ✦</td>' +
+      `<td style="padding:5px 8px 5px 0;width:24px;font-size:8pt;color:${numColor};font-weight:800;">${item.num}</td>` +
+      `<td style="padding:5px 0;font-size:9pt;color:${titleColor};${titleStyle}">${item.title}${suffix}</td>` +
       '</tr>';
-  }).join('');
+  };
+
+  const tocRowsLeft = tocItems.slice(0, 15).map(tocRow).join('');
+  const tocRowsRight = tocItems.slice(15, 30).map(tocRow).join('');
+
+  const tocFootnote = isPreview
+    ? `✦ You're previewing Chapters 1–${writtenCount}. The complete ${totalCount}-chapter story continues when you order the full book.`
+    : '';
 
   const html = `<!DOCTYPE html>
 <html>
@@ -1080,11 +1091,11 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
     ${illustrations['0-0'] ? `<img class="cover-image" src="${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
-      <div class="cover-badge">A Growing Minds Original Story</div>
+      <div class="cover-badge">${isPreview ? 'Free Preview' : 'A Growing Minds Original Story'}</div>
       <div class="cover-title-line1">${childName} and the</div>
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
-      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${wordCount} words</div>
+      <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${isPreview ? `Chapters 1–${writtenCount} of ${totalCount}` : `${wordCount} words`}</div>
       <div class="cover-publisher">🌱 growingminds.io</div>
     </div>
   </div>
@@ -1092,7 +1103,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
   <!-- TITLE PAGE -->
   <div class="title-page">
     <div>
-      <div class="title-page-name">A story written for</div>
+      <div class="title-page-name">${isPreview ? 'A free preview written for' : 'A story written for'}</div>
       <div class="title-page-title">${childName} and the ${getMilestoneTitle(milestone)}</div>
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
@@ -1117,9 +1128,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {})
         ${tocRowsRight}
       </table>
     </div>
-    <div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:Arial,sans-serif;font-size:8pt;color:#6b7280;">
-      ✦ Chapters 16–30 are included in your printed hardcover book, arriving in 13–15 business days.
-    </div>
+    ${tocFootnote ? `<div style="margin-top:20px;padding:12px 16px;background:#f9fafb;border-radius:8px;font-family:Arial,sans-serif;font-size:8pt;color:#6b7280;">${tocFootnote}</div>` : ''}
   </div>
   ${chaptersHtml}
 
