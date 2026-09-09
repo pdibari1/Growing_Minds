@@ -878,7 +878,10 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
      151-400pp book (this 30-chapter book lands there), applied uniformly on both left/right
      since a single-flow HTML render can't alternate recto/verso gutter sides. */
   @page { size: 5.75in 8.75in; margin: 0; }
-  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e; }
+  /* Cream page tint is preview-only — the full book reuses this same template as
+     the eventual Lulu print interior, and a full-bleed background on every page
+     would add ink coverage cost there once that pipeline is wired in. */
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 13pt; line-height: 1.9; color: #1a1a2e;${isPreview ? ' background: #fdfbf5; -webkit-print-color-adjust: exact; print-color-adjust: exact;' : ''} }
 
   /* ── COVER ── */
   .cover {
