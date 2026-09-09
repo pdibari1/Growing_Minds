@@ -54,6 +54,8 @@
     .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green-light);box-shadow:0 0 0 3px rgba(82,183,136,0.15),var(--shadow-sm);}
     .field input::placeholder,.field textarea::placeholder{color:var(--muted-light);font-weight:600;}
     .field-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+    .field-row .field{display:flex;flex-direction:column;}
+    .field-row .field input,.field-row .field select,.field-row .field textarea{margin-top:auto;}
     .field-hint{font-size:.79rem;color:var(--muted-light);margin-top:.4rem;line-height:1.5;}
     .field-error{font-size:.78rem;color:#dc2626;margin-top:.35rem;display:none;font-weight:700;}
     .field-error.show{display:block;}
