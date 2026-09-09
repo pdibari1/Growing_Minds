@@ -160,11 +160,12 @@ const generateStoryOrder = inngest.createFunction(
             'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
           }[genre] || 'whimsical fantasy illustration, warm colors';
 
+          const baseStyle = getIllustrationBaseStyle(age);
           const styleGuide = parseInt(age) <= 5
-            ? `soft watercolor children's book illustration, warm pastel colors, gentle and whimsical, ${genreVisual}`
+            ? `${baseStyle} Softer and gentler energy for a younger reader. ${genreVisual}`
             : parseInt(age) <= 9
-            ? `vibrant digital children's book illustration, colorful and expressive, ${genreVisual}`
-            : `detailed digital illustration, cinematic lighting, ${genreVisual}`;
+            ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
+            : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
 
           const result = {};
           const failures = [];
@@ -377,7 +378,7 @@ const generatePreviewChapters = inngest.createFunction(
         'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
         'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
       }[genre] || 'whimsical fantasy illustration, warm colors';
-      const baseStyle = "Heroic storybook character illustration, Pixar-style 3D glossy render, high production quality. Character is charismatic, confident, and adventurous — the hero of the frame, not a passive subject presented to the viewer. Face: large expressive eyes with a confident, purposeful gaze and directional focus — avoid perfectly round, startled, or vacant eyes. Expressive eyebrows, lively confident expression (curious, determined, delighted, or mischievous rather than merely cute or shy). Pose: dynamic and open — shoulders back, chest forward, caught mid-action or mid-discovery, strong recognizable silhouette. Composition: character-forward cinematic framing, child occupying a strong portion of the frame from a dynamic angle — never a centered, static portrait. Lighting: warm cinematic illumination with luminous rim light and dimensional contrast that makes the character feel important. Avoid: passive standing portraits, timid smiles, head tilted down, hands hanging awkwardly, generic cute-kid aesthetic, stiff centered compositions.";
+      const baseStyle = getIllustrationBaseStyle(age);
       const styleGuide = parseInt(age) <= 5
         ? `${baseStyle} Softer and gentler energy for a younger reader. ${genreVisual}`
         : parseInt(age) <= 9
@@ -529,10 +530,12 @@ Hometown: ${city}, ${region} — use broad geography (landscape, weather, region
 Milestone/theme: ${milestone}${genreLine}${customLine}
 
 This is a full ${tier.chapCount}-chapter novel. Structure the arc like a proper novel in the ${genre || 'fantasy'} genre:
-- Chapters 1–5: Introduce ${name} and their world, establish the milestone challenge
-- Chapters 6–15: Rising action, complications, adventures, setbacks
+- Chapters 1–2: Introduce ${name} and their everyday world, THEN ignite the central ${genre || 'fantasy'} adventure — something genuinely magical, extraordinary, or genre-defining must actually happen on the page during these chapters, not just be hinted at or promised for later. The adventure must already be underway by the time Chapter 3 begins.
+- Chapters 3–15: Rising action, complications, deeper adventures, setbacks
 - Chapters 16–24: Climax builds, highest stakes, darkest moment
 - Chapters 25–30: Resolution, triumph over the milestone, heartwarming ending
+
+IMPORTANT: Customers only read Chapters 1–3 in the preview before deciding whether to buy the full book, so both the ${genre || 'fantasy'} hook and the milestone challenge must be clearly underway by the end of Chapter 3 — never save the inciting magical/adventure moment for Chapter 4 or later.
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
@@ -764,6 +767,14 @@ function extractIllustrationDetails(customDetails) {
     .split('\n')
     .filter(line => line.trim().startsWith('Illustration details'))
     .join('\n');
+}
+
+// Shared face/pose direction for every character-generating image call (private
+// reference sheet, cover, interior illustrations) so the hero reads the same way
+// everywhere — a real, age-accurate kid who always looks warm and heroic, never
+// mean or smug, even mid-prank or mid-surprise.
+function getIllustrationBaseStyle(age) {
+  return `Heroic storybook character illustration, Pixar-style 3D glossy render, high production quality. Character is charismatic, confident, and adventurous — the hero of the frame, not a passive subject presented to the viewer. The child must look like an actual ${age}-year-old, with age-accurate proportions and facial maturity — not a toddler or preschooler, even in a soft/rounded illustration style. Face: large expressive eyes with a confident, purposeful gaze and directional focus — avoid perfectly round, startled, or vacant eyes. Expressive eyebrows, warm and kind expression — curious, determined, delighted, or joyfully mischievous, always warm-hearted and never smug, scheming, unkind, or mean-looking, even mid-prank or mid-surprise. If other characters share the scene, their expressions should feel emotionally consistent with the moment (everyone reads as delighted in a joyful scene) rather than one character looking hostile or aggressive while another looks frightened or overjoyed. Pose: dynamic and open — shoulders back, chest forward, caught mid-action or mid-discovery, strong recognizable silhouette. Composition: character-forward cinematic framing, child occupying a strong portion of the frame from a dynamic angle — never a centered, static portrait. Lighting: warm cinematic illumination with luminous rim light and dimensional contrast that makes the character feel important. Avoid: passive standing portraits, timid smiles, head tilted down, hands hanging awkwardly, generic cute-kid aesthetic, stiff centered compositions, smug or mean facial expressions, toddler-like proportions.`;
 }
 
 function getMilestoneTitle(milestone) {
@@ -1094,7 +1105,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     ${illustrations['0-0'] ? `<img class="cover-image" src="${illustrations['0-0']}" />` : `<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,#2d6a4f,#1a3a2a);"></div>`}
     <div class="cover-gradient"></div>
     <div class="cover-panel">
-      <div class="cover-badge">${isPreview ? 'Free Preview' : 'A Growing Minds Original Story'}</div>
+      <div class="cover-badge">${isPreview ? 'Story Preview' : 'A Growing Minds Original Story'}</div>
       <div class="cover-title-line1">${childName} and the</div>
       <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
       <div class="cover-divider"></div>
@@ -1106,7 +1117,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
   <!-- TITLE PAGE -->
   <div class="title-page">
     <div>
-      <div class="title-page-name">${isPreview ? 'A free preview written for' : 'A story written for'}</div>
+      <div class="title-page-name">${isPreview ? 'A story preview written for' : 'A story written for'}</div>
       <div class="title-page-title">${childName} and the ${getMilestoneTitle(milestone)}</div>
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
