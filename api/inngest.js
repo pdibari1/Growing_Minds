@@ -525,6 +525,7 @@ async function generateOutline(child, tier) {
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 NAMING RULE: Refer to the hero only as "${name}" and to any other named character only by the name given for them above. Do not invent, shorten, or substitute a nickname for anyone unless the custom details below explicitly provide one for that character — if they do, use exactly that nickname, consistently. A nickname belongs permanently to the one person it was given for — if the custom details say someone (e.g. a parent) calls ${name} by a nickname, that nickname refers ONLY to ${name} for the rest of the story. Never let it drift onto or start referring to the person who uses it, or to anyone else — that person keeps being called by their own name throughout.
+PHYSICAL DESCRIPTION RULE: Only ${name} has a physical description you should use (given above). For every other named character — friends, siblings, classmates, anyone — do NOT invent or state any physical trait (hair color or style, eye color, height, build, clothing, etc.) unless the custom details below explicitly give that specific person a description. If someone has no description provided, refer to them only by name, personality, and actions — never guess what they look like.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Hometown: ${city}, ${region} — use broad geography (landscape, weather, regional feel), never specific street names or addresses.
 Milestone/theme: ${milestone}${genreLine}${customLine}
@@ -614,6 +615,7 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
 
 HERO: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
 NAMING RULE: Refer to the hero only as "${name}" and to any other named character only by the name given for them. Do not invent, shorten, or substitute a nickname for anyone unless the custom details below explicitly provide one for that character — if they do, use exactly that nickname, consistently. A nickname belongs permanently to the one person it was given for — if the custom details say someone (e.g. a parent) calls ${name} by a nickname, that nickname refers ONLY to ${name} for the rest of the story. Never let it drift onto or start referring to the person who uses it, or to anyone else — that person keeps being called by their own name throughout.
+PHYSICAL DESCRIPTION RULE: Only ${name} has a physical description you should use (given above). For every other named character — friends, siblings, classmates, anyone — do NOT invent or state any physical trait (hair color or style, eye color, height, build, clothing, etc.) unless the custom details below explicitly give that specific person a description. If someone has no description provided, refer to them only by name, personality, and actions — never guess what they look like.
 Personality: ${trait}. Loves: ${favorite}. ${friendLine}
 Setting: ${city}, ${region} — use the city name and regional geography (mountains, rivers, weather, landscape) naturally, but NEVER use specific street names, addresses, or neighbourhood names.
 ${customLine}
@@ -626,6 +628,7 @@ ${batchOutline}
 RULES:
 - Write all ${endIdx - startIdx} chapters back to back
 - NAMES: Never invent a nickname for ${name} or any other character. Use only the names given above, or a nickname only if the custom details explicitly supplied one — and that nickname always means ${name}, never whoever is speaking it or anyone else, in every chapter.
+- APPEARANCE: Never invent a physical trait (hair, eyes, height, build, clothing) for a named character who wasn't given one in the custom details — not even a small, throwaway detail. Only describe what was explicitly provided.
 - Each chapter: ${tier.minWords}–${tier.maxWords} words, ending on a natural story beat
 - CRITICAL WRITING RULE: Never explain what a character is feeling. Show it through physical detail, action, and dialogue only. Wrong: "Benjamin felt angry." Right: "Benjamin's ears went hot. His fists clenched. He walked away without saying anything." Trust the reader to understand.
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
