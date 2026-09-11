@@ -538,11 +538,14 @@ This is a full ${tier.chapCount}-chapter novel. Structure the arc like a proper 
 
 IMPORTANT: Customers only read Chapters 1–3 in the preview before deciding whether to buy the full book, so both the ${genre || 'fantasy'} hook and the milestone challenge must be clearly underway by the end of Chapter 3 — never save the inciting magical/adventure moment for Chapter 4 or later.
 
+SCENE CONTINUITY RULE: Never open a chapter with a hard reset to a new setting just because time has passed (e.g. "the next day at school," "that weekend at camp") with nothing connecting it to what just happened. Every chapter must carry forward something concrete from the chapter before it — an unresolved problem, a goal ${name} is now pursuing, a question they need answered, or an emotion they're still working through — and that carried-forward thing is what puts ${name} in this chapter's setting, not mere timekeeping. If the location changes, the summary must make clear it changes because of what just happened, not simply because a new day or activity started.
+
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
 Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object must have:
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
-- "summary": 2-3 sentence summary of what happens
+- "carriesForward": one sentence naming the specific problem, goal, question, or emotion carried over from the previous chapter that drives this chapter's events (for Chapter 1, describe the everyday-world hook that pulls the reader in instead)
+- "summary": 2-3 sentence summary of what happens, written so it clearly follows from "carriesForward" rather than starting a fresh, disconnected scene
 - "imagePrompt": a 1-sentence description of the key visual moment in this chapter, written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer
 
 No markdown, no explanation, just the JSON array.`;
@@ -564,7 +567,7 @@ No markdown, no explanation, just the JSON array.`;
     if (parsed.length !== tier.chapCount) {
       console.warn(`Outline returned ${parsed.length} chapters, expected ${tier.chapCount} — trimming/padding`);
       while (parsed.length < tier.chapCount) {
-        parsed.push({ title: `Chapter ${parsed.length + 1}`, summary: `The adventure continues`, imagePrompt: `${name} exploring ${city}` });
+        parsed.push({ title: `Chapter ${parsed.length + 1}`, carriesForward: `Continues directly from the previous chapter`, summary: `The adventure continues`, imagePrompt: `${name} exploring ${city}` });
       }
       return parsed.slice(0, tier.chapCount);
     }
@@ -573,6 +576,7 @@ No markdown, no explanation, just the JSON array.`;
     console.error("Outline parse failed, using fallback:", e.message);
     return Array.from({ length: tier.chapCount }, (_, i) => ({
       title: `Chapter ${i + 1}`,
+      carriesForward: `Continues directly from the previous chapter`,
       summary: `Part ${i + 1} of ${name}'s adventure`,
       imagePrompt: `${name} on an adventure in ${city}`
     }));
@@ -602,9 +606,11 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
       ).join('\n')
     : "";
 
-  // Chapters to write in this batch
+  // Chapters to write in this batch — carriesForward tells the model exactly what
+  // problem/goal/question/emotion this chapter must open by continuing, so scene
+  // changes read as caused by what just happened rather than a fresh reset.
   const batchOutline = outline.slice(startIdx, endIdx).map((c, i) =>
-    `Chapter ${startIdx + i + 1}: "${c.title}" — ${c.summary}`
+    `Chapter ${startIdx + i + 1}: "${c.title}"\n  Carries forward: ${c.carriesForward || '(continues directly from the previous chapter)'}\n  What happens: ${c.summary}`
   ).join('\n');
 
   const isLastBatch = endIdx >= outline.length;
@@ -635,6 +641,7 @@ RULES:
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
 - SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first.
+- SCENE CONTINUITY: Open each chapter by picking up the "Carries forward" thread listed for it above — the same unresolved problem, goal, question, or emotion the previous chapter left off on. Don't open with an unexplained new setting or a "the next day at ___" reset with nothing connecting it to what just happened; if the location changed, a sentence or two should make clear why it changed now, driven by what just happened, not just because time passed.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? "- The final chapter must resolve the milestone beautifully with warmth and hope." : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
