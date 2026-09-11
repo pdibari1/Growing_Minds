@@ -56,6 +56,11 @@
     .field-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
     .field-row .field{display:flex;flex-direction:column;}
     .field-row .field input,.field-row .field select,.field-row .field textarea{margin-top:auto;}
+    .time-checks{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+    .time-check{display:flex;align-items:center;gap:.6rem;padding:.7rem .9rem;border:2px solid var(--border);border-radius:12px;cursor:pointer;font-weight:700;font-size:.9rem;color:var(--text-soft);background:var(--white);transition:border-color .2s,background .2s;}
+    .time-check:has(input:checked){border-color:var(--green-light);background:var(--green-faint);color:var(--text);}
+    .time-check input{accent-color:var(--green-light);width:1rem;height:1rem;flex-shrink:0;}
+    @media(max-width:480px){.time-checks{grid-template-columns:1fr;}}
     .field-hint{font-size:.79rem;color:var(--muted-light);margin-top:.4rem;line-height:1.5;}
     .field-error{font-size:.78rem;color:#dc2626;margin-top:.35rem;display:none;font-weight:700;}
     .field-error.show{display:block;}
@@ -350,6 +355,21 @@
           <label>State / Province <span class="opt">Optional</span></label>
           <input type="text" id="childRegion" placeholder="e.g. Colorado"/>
         </div>
+      </div>
+      <div class="section-divider">Their everyday world</div>
+      <div class="field">
+        <label>Where do they spend most of their time? <span class="opt">Optional — select all that apply</span></label>
+        <p class="field-hint" style="margin-top:-.3rem;margin-bottom:.6rem;">Keeps the story happening somewhere real, not a made-up version of their day.</p>
+        <div class="time-checks">
+          <label class="time-check"><input type="checkbox" name="timeSetting" value="School"/> School</label>
+          <label class="time-check"><input type="checkbox" name="timeSetting" value="Daycare / Preschool"/> Daycare / Preschool</label>
+          <label class="time-check"><input type="checkbox" name="timeSetting" value="After-school program"/> After-school program</label>
+          <label class="time-check"><input type="checkbox" name="timeSetting" value="Home"/> Home</label>
+          <label class="time-check"><input type="checkbox" name="timeSetting" value="Sports or activities"/> Sports or activities</label>
+          <label class="time-check"><input type="checkbox" name="timeSetting" value="Grandparents' / relative's house"/> Grandparents' / relative's house</label>
+          <label class="time-check"><input type="checkbox" id="timeOtherCheck" onchange="document.getElementById('timeOtherWrap').style.display=this.checked?'block':'none'"/> Other</label>
+        </div>
+        <div id="timeOtherWrap" style="display:none;margin-top:.7rem;"><input type="text" id="timeOther" placeholder="Please describe…" maxlength="80"/></div>
       </div>
       <div class="nav"><button class="btn-back" onclick="goTo(2)">← Back</button><button class="btn-next" onclick="goTo(4)">Continue →</button></div>
     </div>
@@ -770,6 +790,10 @@ async function submitForm(){
   const wantFeel2=(document.getElementById('wantToFeel')?.value||'').trim();
   if(storyAvoid||wantFeel2){parts.push('=== STORY CONSTRAINTS ===');if(storyAvoid)parts.push(`FORBIDDEN: ${storyAvoid}`);if(wantFeel2)parts.push(`REQUIRED OUTCOME: ${wantFeel2}`);}
   if(mqConfig){parts.push(`=== MILESTONE: ${state.milestoneLabel} ===`);mqConfig.questions.forEach((q,i)=>{const val=(document.getElementById(`mq_${i}`)?.value||'').trim();if(val)parts.push(`${q.label}: ${val}`);});}
+  const timeSettings=[...document.querySelectorAll('input[name="timeSetting"]:checked')].map(cb=>cb.value);
+  const timeOther=(document.getElementById('timeOther')?.value||'').trim();
+  if(document.getElementById('timeOtherCheck')?.checked&&timeOther)timeSettings.push(timeOther);
+  if(timeSettings.length)parts.push('\n=== WHERE THEY SPEND TIME ===',timeSettings.join(', '));
   const family=(document.getElementById('familyInfo')?.value||'').trim();
   const friends=(document.getElementById('friendsInfo')?.value||'').trim();
   const others=(document.getElementById('othersInfo')?.value||'').trim();
