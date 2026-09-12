@@ -126,7 +126,7 @@ const generateStoryOrder = inngest.createFunction(
           const keys = allImageKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
+          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, customDetails } = childData;
           const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
           const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
@@ -135,7 +135,7 @@ const generateStoryOrder = inngest.createFunction(
           // other named people in the story (friends, siblings, classmates) may be real
           // people, so they must never get an invented likeness.
           const illustrationDetails = extractIllustrationDetails(customDetails);
-          const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
+          const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person in the scene — parents, siblings, friends, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. Do not include them even as a generic, faceless, or turned-away figure — omit them completely and focus the illustration on ${name} and the setting/action instead, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
 
           // Genre-specific illustration style
           const genreVisual = {
@@ -349,14 +349,14 @@ const generatePreviewChapters = inngest.createFunction(
 
     // Generate cover illustration
     await step.run("generate-preview-cover", async () => {
-      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
+      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, customDetails } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
       // Only the primary character (and any secondary character with an explicit
       // physical description) gets drawn as a specific, identifiable individual —
       // see the same policy in the full-order illustration step for why.
       const illustrationDetails = extractIllustrationDetails(customDetails);
-      const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Do not invent a specific face or likeness for${friend && friend !== 'none' ? ` ${friend.split(' ')[0]} or` : ''} any other named person in the scene unless a physical description for them is explicitly given below — if they appear, render them as a generic, non-specific figure (turned away, partially out of frame, or without distinguishing individual features) rather than a recognizable character.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
+      const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person in the scene — parents, siblings, friends, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. Do not include them even as a generic, faceless, or turned-away figure — omit them completely and focus the illustration on ${name} and the setting/action instead, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
       const genreVisual = {
         'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
         'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
