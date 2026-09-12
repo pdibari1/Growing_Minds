@@ -520,6 +520,14 @@ async function generateOutline(child, tier) {
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
   const genreLine = genre ? `\nSTORY GENRE & STYLE: ${genre} — ${genreStyle}` : '';
   const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these must be followed precisely:\n${customDetails}\nIMPORTANT NICKNAME RULE: If a nickname is provided for any character, use ONLY that nickname — never invent a different one, never shorten it, never substitute it with another name. Characters may be referred to by their full name OR a provided nickname, but never a made-up alternative.` : "";
+  // Only fires for milestones actually about big feelings/emotional regulation —
+  // an emotion-gated ability mechanic (a sword that only glows when "happy," say)
+  // silently teaches that positive emotions = power and everything else = weakness,
+  // which is backwards for exactly this milestone.
+  const bigFeelingsMilestone = /big feelings|frustration|anxiety|anger|meltdown|overwhelm/i.test(milestone);
+  const emotionFramingLine = bigFeelingsMilestone ? `
+
+EMOTIONAL FRAMING RULE: This milestone is about big feelings, so if the story gives ${name} any ability, power, or tool that responds to their emotional state, it must respond to whether ${name} is present, grounded, and connected — never simply to whether ${name} is "happy." Never frame it as "happy feelings make it stronger, other feelings make it weaker." ${name} should be allowed to feel angry, sad, or frustrated while the story treats those feelings as normal, not as a malfunction or a loss of ability. What restores or strengthens the ability is ${name} returning to a grounded, present state — through breathing, quiet time, or connection with someone else — never simply "cheering up" or "being happy again."` : '';
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 
@@ -540,6 +548,7 @@ This is a full ${tier.chapCount}-chapter novel. Structure the arc like a proper 
 IMPORTANT: Customers only read Chapters 1–3 in the preview before deciding whether to buy the full book, so both the ${genre || 'fantasy'} hook and the milestone challenge must be clearly underway by the end of Chapter 3 — never save the inciting magical/adventure moment for Chapter 4 or later.
 
 SCENE CONTINUITY RULE: Never open a chapter with a hard reset to a new setting just because time has passed (e.g. "the next day at school," "that weekend at camp") with nothing connecting it to what just happened. Every chapter must carry forward something concrete from the chapter before it — an unresolved problem, a goal ${name} is now pursuing, a question they need answered, or an emotion they're still working through — and that carried-forward thing is what puts ${name} in this chapter's setting, not mere timekeeping. If the location changes, the summary must make clear it changes because of what just happened, not simply because a new day or activity started.
+${emotionFramingLine}
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
