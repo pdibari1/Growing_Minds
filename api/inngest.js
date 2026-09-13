@@ -635,6 +635,7 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
   ).join('\n');
 
   const isLastBatch = endIdx >= outline.length;
+  const isFirstBatch = startIdx === 0;
 
   const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these MUST be followed exactly in every chapter:\n${customDetails}\nPay special attention to any nicknames — use them EVERY time that character is addressed or referenced. Never use a different name for a character who has been given a nickname.` : "";
 
@@ -661,9 +662,11 @@ RULES:
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
-- SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first.
+- SCENE LOGIC: Every scene must make physical sense. Characters must be in locations that make sense for the time of day and story context. If a character wakes up, they wake up in their bed. If they are at school, they arrived there. Never have a character inexplicably appear somewhere without getting there first. If a chapter opens with a character waking up, show them waking up in their own bed first, in clear chronological order — never open the scene already in a different room (a playroom, basement, kitchen) reacting to a voice calling from elsewhere and only afterward reveal they were actually waking up; that reads as if they slept in the wrong room.
+- TRAVEL TIME: Never state a specific number of minutes or an exact distance for a walk, drive, or commute (e.g., "the ten-minute walk to school"). These are invented guesses that may not match the family's real geography. Describe travel generically instead: "on the walk to school," "the drive to school," "on the way to school."
 - SCENE CONTINUITY: Open each chapter by picking up the "Carries forward" thread listed for it above — the same unresolved problem, goal, question, or emotion the previous chapter left off on. Don't open with an unexplained new setting or a "the next day at ___" reset with nothing connecting it to what just happened; if the location changed, a sentence or two should make clear why it changed now, driven by what just happened, not just because time passed.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
+${isFirstBatch ? `- OPENING RULE: Before the milestone challenge (${milestone}) first appears, Chapter 1 must spend genuine time on an ordinary scene establishing who ${name} actually is — their personality, interests, and relationships — so the reader has met and liked ${name} first. Don't open the book already inside the problem; earn the conflict.` : ""}
 ${isLastBatch ? `- The final chapter must resolve the milestone beautifully with warmth and hope, and must land on an identity statement about who ${name} has become — never end on ${name} or anyone else summarizing a technique or lesson ("remember to take a breath," "now I know to ask for help"). Show it through action (a small, ordinary echo of the milestone handled differently) or a single quiet line of realization about who ${name} is now, not what they learned to do.` : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
 
