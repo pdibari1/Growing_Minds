@@ -705,6 +705,13 @@ function callGeminiImage(parts, imageConfig) {
     generationConfig: imageConfig ? { imageConfig } : undefined,
   });
 
+  // Logged so a PROHIBITED_CONTENT (or any other) rejection can actually be
+  // diagnosed after the fact — the response alone doesn't say what in the
+  // prompt triggered it, and this was previously never captured anywhere.
+  const textPreview = parts.filter(p => p.text).map(p => p.text).join(' ').slice(0, 600);
+  const hasReferenceImage = parts.some(p => p.inlineData?.data);
+  console.log(`Gemini image request (${imageConfig?.aspectRatio || '?'}, ${imageConfig?.imageSize || '?'}, refImage=${hasReferenceImage}): ${textPreview}`);
+
   return new Promise((resolve, reject) => {
     const options = {
       hostname: "generativelanguage.googleapis.com",
