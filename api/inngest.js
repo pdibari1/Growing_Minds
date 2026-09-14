@@ -126,7 +126,7 @@ const generateStoryOrder = inngest.createFunction(
           const keys = allImageKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, customDetails } = childData;
+          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
           const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
           const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
@@ -136,6 +136,13 @@ const generateStoryOrder = inngest.createFunction(
           // people, so they must never get an invented likeness.
           const illustrationDetails = extractIllustrationDetails(customDetails);
           const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person in the scene — parents, siblings, friends, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. Do not include them even as a generic, faceless, or turned-away figure — omit them completely and focus the illustration on ${name} and the setting/action instead, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
+          // Pets are the opposite case from real people above — they're meant to be
+          // drawn, but only as whatever species/appearance was actually established
+          // for them, never invented from scratch (this is what put a golden retriever
+          // into a story whose only companion animal is a cat).
+          const companionPolicy = friend && friend !== 'none'
+            ? `\n\nCOMPANION RULE: ${name}'s established companion(s) — ${friend} — must be drawn to match exactly what's already established (species, breed, coloring, etc.) whenever they appear in a scene. Never substitute a different kind of animal or a different person than what's specified — for example, never draw a dog if the companion is a cat.`
+            : '';
 
           // Genre-specific illustration style
           const genreVisual = {
@@ -184,7 +191,7 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
-            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
+            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}`;
             const isCover = key === '0-0';
 
             if (isCover && existingUrls['0-0']) {
@@ -349,7 +356,7 @@ const generatePreviewChapters = inngest.createFunction(
 
     // Generate cover illustration
     await step.run("generate-preview-cover", async () => {
-      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, customDetails } = childData;
+      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
       // Only the primary character (and any secondary character with an explicit
@@ -357,6 +364,12 @@ const generatePreviewChapters = inngest.createFunction(
       // see the same policy in the full-order illustration step for why.
       const illustrationDetails = extractIllustrationDetails(customDetails);
       const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person in the scene — parents, siblings, friends, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. Do not include them even as a generic, faceless, or turned-away figure — omit them completely and focus the illustration on ${name} and the setting/action instead, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
+      // See the same policy in the full-order illustration step — pets are meant
+      // to be drawn, but only matching whatever species/appearance was actually
+      // established, never invented from scratch.
+      const companionPolicy = friend && friend !== 'none'
+        ? `\n\nCOMPANION RULE: ${name}'s established companion(s) — ${friend} — must be drawn to match exactly what's already established (species, breed, coloring, etc.) whenever they appear in a scene. Never substitute a different kind of animal or a different person than what's specified — for example, never draw a dog if the companion is a cat.`
+        : '';
       const genreVisual = {
         'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
         'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
@@ -385,7 +398,7 @@ const generatePreviewChapters = inngest.createFunction(
         ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
         : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
       const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
-      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}`;
+      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}`;
       try {
         // Same private-reference pattern as the full order — see getOrCreateCharacterReference.
         // This reference (and, once generated, the cover itself) both survive on their own
