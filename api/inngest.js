@@ -1295,7 +1295,13 @@ function callClaude(prompt, maxTokens) {
         "x-api-key": process.env.ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01"
       },
-      timeout: 180000
+      // 180s was too tight once the outline prompt grew with all its rules
+      // (SCENE CONTINUITY, MILESTONE CAUSALITY, IDENTITY, etc.) — a run timed
+      // out client-side even though Claude would have answered. This is a
+      // background Inngest job, not a live UI call, so there's no benefit to
+      // failing fast; 400s stays well inside api/inngest.js's own 800s Vercel
+      // maxDuration (vercel.json) while giving real headroom.
+      timeout: 400000
     };
 
     const req = https.request(options, (res) => {
