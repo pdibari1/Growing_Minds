@@ -428,7 +428,7 @@ const generatePreviewChapters = inngest.createFunction(
     // Send email with PDF
     await step.run("send-preview-email", async () => {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const storyTitle = `${childName} and the ${getMilestoneTitle(childData.milestone)}`;
+      const storyTitle = `${childName} and the ${getStoryTitle(outline, childData.milestone)}`;
       try {
         const pdfBase64 = (await fetchImageBytes(pdfUrl)).toString('base64');
       // The Resend SDK does NOT throw on API-level errors — it resolves normally
@@ -576,6 +576,9 @@ Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object
 - "carriesForward": one sentence naming the specific problem, goal, question, or emotion carried over from the previous chapter that drives this chapter's events (for Chapter 1, describe the everyday-world hook that pulls the reader in instead)
 - "summary": 2-3 sentence summary of what happens, written so it clearly follows from "carriesForward" rather than starting a fresh, disconnected scene
 - "imagePrompt": a 1-sentence description of the key visual moment in this chapter, written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer
+
+The Chapter 1 object only must ALSO include:
+- "bookSubtitle": a short, distinctive 2-4 word title capturing THIS story's specific invented adventure or hook (e.g. "Balloon Blaster," "The Whispering Woods," "Rocket to the Stars") — it becomes the book's title as "${name} and the [bookSubtitle]." It must be specific to what actually happens in this story, never a generic phrase like "Big Adventure" and never just a restatement of the milestone (${milestone}).
 
 No markdown, no explanation, just the JSON array.`;
 
@@ -839,6 +842,16 @@ function getMilestoneTitle(milestone) {
   return map[milestone] || "Big Adventure";
 }
 
+// Prefer the outline's own generated hook (specific to this story's invented
+// adventure) over the static milestone table, which is the same for every
+// story sharing a milestone and falls back to a generic "Big Adventure" for
+// anything it doesn't recognize.
+function getStoryTitle(outline, milestone) {
+  const generated = outline?.[0]?.bookSubtitle;
+  if (generated && typeof generated === 'string' && generated.trim()) return generated.trim();
+  return getMilestoneTitle(milestone);
+}
+
 // ════════════════════════════════════════════
 // EMAIL
 // ════════════════════════════════════════════
@@ -849,7 +862,6 @@ function getMilestoneTitle(milestone) {
 
 async function generatePDF(childName, chapters, child, tier, illustrations = {}, outline = null) {
   const { milestone, city, region, age } = child;
-  const storyTitle = `${childName} and the ${getMilestoneTitle(milestone)}`;
   const writtenCount = chapters.length;
   const totalCount = (outline && outline.length > writtenCount) ? outline.length : writtenCount;
   const isPreview = totalCount > writtenCount;
@@ -1147,7 +1159,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     <div class="cover-panel">
       <div class="cover-badge">${isPreview ? 'Story Preview' : 'A Growing Minds Original Story'}</div>
       <div class="cover-title-line1">${childName} and the</div>
-      <div class="cover-title-main">${getMilestoneTitle(milestone)}</div>
+      <div class="cover-title-main">${getStoryTitle(outline, milestone)}</div>
       <div class="cover-divider"></div>
       <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${isPreview ? `Chapters 1–${writtenCount} of ${totalCount}` : `${wordCount} words`}</div>
       <div class="cover-publisher">🌱 growingminds.io</div>
@@ -1158,7 +1170,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
   <div class="title-page">
     <div>
       <div class="title-page-name">${isPreview ? 'A story preview written for' : 'A story written for'}</div>
-      <div class="title-page-title">${childName} and the ${getMilestoneTitle(milestone)}</div>
+      <div class="title-page-title">${childName} and the ${getStoryTitle(outline, milestone)}</div>
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
         This story was written just for ${childName},<br/>
