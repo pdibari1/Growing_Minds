@@ -191,8 +191,8 @@ const generateStoryOrder = inngest.createFunction(
           for (const key of keys) {
             const [ci] = key.split('-').map(Number);
             const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
-            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}`;
             const isCover = key === '0-0';
+            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
 
             if (isCover && existingUrls['0-0']) {
               result['0-0'] = existingUrls['0-0'];
@@ -398,7 +398,7 @@ const generatePreviewChapters = inngest.createFunction(
         ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
         : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
       const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
-      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}`;
+      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
       try {
         // Same private-reference pattern as the full order — see getOrCreateCharacterReference.
         // This reference (and, once generated, the cover itself) both survive on their own
@@ -846,6 +846,15 @@ function extractIllustrationDetails(customDetails) {
 // mean or smug, even mid-prank or mid-surprise.
 function getIllustrationBaseStyle(age) {
   return `Heroic storybook character illustration, Pixar-style 3D glossy render, high production quality. Character is charismatic, confident, and adventurous — the hero of the frame, not a passive subject presented to the viewer. The child must look like an actual ${age}-year-old, with age-accurate proportions and facial maturity — not a toddler or preschooler, even in a soft/rounded illustration style. Face: large expressive eyes with a warm, delighted gaze and directional focus — avoid perfectly round, startled, or vacant eyes, and avoid narrowed or squinted eyes, which read as scheming or combative rather than joyful. Default to a visible, open, genuine smile with relaxed (not furrowed) eyebrows unless the specific scene explicitly calls for a different emotion like fear, sadness, or worry — confidence and determination should come through posture and action, not a narrowed-eye or smirking expression, which reads as mean or aggressive rather than heroic. If other characters share the scene, their expressions should feel emotionally consistent with the moment (everyone reads as delighted in a joyful scene) rather than one character looking hostile or aggressive while another looks frightened or overjoyed. COMPOSITION WITH PROPS: If the hero is holding, swinging, or using an object near another character (a toy, tool, weapon-shaped prop, etc.), never frame it as aimed, swung, or pointed AT that person — even in a clearly friendly scene, that framing reads as an attack rather than play. Instead show the object being raised triumphantly, held up to share, or used alongside the other character in a joint moment — the other character should read as a joyful participant or witness, never a target. Pose: dynamic and open — shoulders back, chest forward, caught mid-action or mid-discovery, strong recognizable silhouette. Composition: character-forward cinematic framing, child occupying a strong portion of the frame from a dynamic angle — never a centered, static portrait. Lighting: warm cinematic illumination with luminous rim light and dimensional contrast that makes the character feel important. Avoid: passive standing portraits, timid smiles, head tilted down, hands hanging awkwardly, generic cute-kid aesthetic, stiff centered compositions, smug or mean facial expressions, toddler-like proportions.`;
+}
+
+// The cover is the one image a customer sees before buying, and its scene
+// description often comes from a dramatic opening beat (storms, spells,
+// chases) that pulls the render toward tense/threatening even though the
+// base style rule above already asks for warmth — this override wins that
+// fight by explicitly reframing "dramatic" as "awe-inspiring," never "dangerous."
+function getCoverMoodPolicy() {
+  return `\n\nCOVER-SPECIFIC MOOD OVERRIDE: This is the book's front cover — the single image a customer sees before buying, so it must always read as inviting, exciting, and warm, never tense or threatening, regardless of how dramatic the scene description sounds (storms, spells, chases, monsters, etc). The main character's expression must be wonder, determination, or delight — bright eyes, an open/genuine smile or awe-struck expression, relaxed or excitedly-raised eyebrows — never gritted teeth, a scowl, narrowed or angry eyes, or a battle-ready snarl, even when the scene involves danger or magic gone wrong. Any other character visible on the cover must look like an excited companion sharing the adventure, not someone reacting in fear or alarm — if the scene as written implies a character is frightened, soften that into wide-eyed wonder or excitement instead. Dramatic elements (storms, glowing magic, dark skies) should read as epic, awe-inspiring atmosphere, not as something actively threatening the characters in the foreground.`;
 }
 
 function getMilestoneTitle(milestone) {
