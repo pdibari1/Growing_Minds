@@ -956,6 +956,12 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
   const isPreview = totalCount > writtenCount;
   const wordCount = `${(writtenCount * tier.minWords).toLocaleString()}–${(writtenCount * tier.maxWords).toLocaleString()}`;
 
+  // Generated titles vary a lot in length ("Wobbly Tooth" vs "Robe of a Thousand
+  // Spells") — sizing down the longer ones keeps a 2-line wrap from crowding the
+  // "[Name] and the" line above it on the cover.
+  const storyTitle = getStoryTitle(outline, milestone);
+  const coverTitleFontSize = storyTitle.length > 22 ? "20pt" : storyTitle.length > 14 ? "24pt" : "28pt";
+
   const chaptersHtml = chapters.map((chapText, ci) => {
     const lines = chapText.split(/\n+/).filter(l => l.trim());
     const fullTitle = lines[0] || `Chapter ${ci + 1}`;
@@ -1088,16 +1094,19 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     font-weight: 700;
     color: rgba(255,255,255,0.85);
     letter-spacing: .04em;
-    margin-bottom: 2px;
+    margin-bottom: 12px;
     text-shadow: 0 2px 10px rgba(0,0,0,0.6);
   }
 
+  /* Main title font-size is set inline per-story (see cover-title-main below) since
+     the generated title's length varies — a long title wraps to 2 lines, and at a
+     fixed 28pt with only a couple px of clearance above it, the wrapped line's
+     ascenders crowded right up against cover-title-line1 above it. */
   .cover-title-main {
     font-family: Georgia, serif;
-    font-size: 28pt;
     font-weight: 900;
     color: #ffffff;
-    line-height: 1.1;
+    line-height: 1.25;
     margin-bottom: 12px;
     text-shadow: 0 2px 14px rgba(0,0,0,0.65);
   }
@@ -1248,7 +1257,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     <div class="cover-panel">
       <div class="cover-badge">${isPreview ? 'Story Preview' : 'A Growing Minds Original Story'}</div>
       <div class="cover-title-line1">${childName} and the</div>
-      <div class="cover-title-main">${getStoryTitle(outline, milestone)}</div>
+      <div class="cover-title-main" style="font-size:${coverTitleFontSize};">${storyTitle}</div>
       <div class="cover-divider"></div>
       <div class="cover-meta">Written for ${childName}, age ${age} &nbsp;·&nbsp; ${city}, ${region} &nbsp;·&nbsp; ${isPreview ? `Chapters 1–${writtenCount} of ${totalCount}` : `${wordCount} words`}</div>
       <div class="cover-publisher">🌱 growingminds.io</div>
@@ -1259,7 +1268,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
   <div class="title-page">
     <div>
       <div class="title-page-name">${isPreview ? 'A story preview written for' : 'A story written for'}</div>
-      <div class="title-page-title">${childName} and the ${getStoryTitle(outline, milestone)}</div>
+      <div class="title-page-title">${childName} and the ${storyTitle}</div>
       <div class="title-page-divider"></div>
       <div class="title-page-dedication">
         This story was written just for ${childName},<br/>
