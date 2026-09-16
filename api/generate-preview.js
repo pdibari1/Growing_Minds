@@ -73,7 +73,11 @@ INSTRUCTIONS:
       const friendLine2 = friend && friend !== "none" ? `Companion: ${friend}.` : "";
       const genreLine = genre ? `\nSTORY GENRE & STYLE: ${genre} — ${genreStyle}` : '';
       const outlinePrompt = `Create a 30-chapter outline. Hero: ${name}, age ${age}. Personality: ${trait}. Loves: ${favorite}. ${friendLine2} Hometown: ${city}, ${region}. Milestone: ${milestone}${genreLine}. Return ONLY a JSON array of 30 objects: [{"title":"...","summary":"...","imagePrompt":"..."}]`;
-      const outlineMsg = await client.messages.create({ model: "claude-haiku-4-5", max_tokens: 4000, messages: [{ role: "user", content: outlinePrompt }] });
+      // 4000 tokens was too tight for 30 chapters of title+summary+imagePrompt —
+      // the response was getting cut off before the closing "]", which then failed
+      // to parse as JSON. Matches the 12000 budget the real outline generator
+      // (generateOutline in inngest.js) uses for the same structure.
+      const outlineMsg = await client.messages.create({ model: "claude-haiku-4-5", max_tokens: 12000, messages: [{ role: "user", content: outlinePrompt }] });
       let raw = outlineMsg.content[0].text.trim();
       const s = raw.indexOf("["), e2 = raw.lastIndexOf("]");
       if (s !== -1 && e2 !== -1) raw = raw.slice(s, e2 + 1);

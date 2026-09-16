@@ -201,10 +201,8 @@ const generateStoryOrder = inngest.createFunction(
             }
 
             try {
-              const gen = await callGeminiImage([
-                { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
-                { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scenePrompt}` }
-              ], isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" });
+              const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment during their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
+              const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" });
 
               const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, {
                 access: 'public',
@@ -440,10 +438,8 @@ const generatePreviewChapters = inngest.createFunction(
         // long-lived Redis keys, so the full order reuses this exact cover on upgrade.
         const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
         const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt);
-        const gen = await callGeminiImage([
-          { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
-          { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scenePrompt}` }
-        ], { aspectRatio: "3:4", imageSize: "4K" });
+        const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment about to begin their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
+        const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" });
         const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, {
           access: 'public',
           contentType: 'image/png'
@@ -811,6 +807,26 @@ function callGeminiImage(parts, imageConfig) {
     req.write(payload);
     req.end();
   });
+}
+
+// Gemini's safety classifier can block a specific scene description
+// (finishReason: PROHIBITED_CONTENT) even when the story itself is entirely
+// appropriate for children — a dynamic action phrase is sometimes enough to
+// trip it. Without a retry, that chapter silently ships with no illustration
+// at all. Retrying once with a generic, unmistakably safe scene (same
+// character/setting, no specific action) recovers an image instead.
+async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, imageConfig) {
+  const buildParts = (scene) => [
+    { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
+    { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene}` }
+  ];
+  try {
+    return await callGeminiImage(buildParts(scenePrompt), imageConfig);
+  } catch (err) {
+    if (!err.message.includes("PROHIBITED_CONTENT")) throw err;
+    console.log(`Scene blocked by Gemini safety filter (PROHIBITED_CONTENT) — retrying with a generic fallback scene`);
+    return await callGeminiImage(buildParts(fallbackScenePrompt), imageConfig);
+  }
 }
 
 // One private reference image per story, anchoring character consistency across
