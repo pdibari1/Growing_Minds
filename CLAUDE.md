@@ -32,6 +32,7 @@ open decisions.
 | `api/inngest.js` | Story/illustration generation, PDF assembly, admin notifications |
 | `api/lulu*.js` | Lulu print submission + webhook + job polling (admin-only test path today) |
 | `api/test-character-image.js` | Admin diagnostic tool for Gemini prompt/scene experiments (gated by `ADMIN_WEBHOOK_SECRET`) |
+| `api/recover-dropped-order.js` | Admin tool to manually re-queue a paid order whose storyToken expired out of Redis before Inngest ever saw it (gated by `ADMIN_WEBHOOK_SECRET`) |
 | `DEPLOYMENT.md` | Deploy runbook + API request/response shapes |
 | `env.example.txt` | All required environment variables |
 

@@ -42,6 +42,9 @@
     },
     "api/test-character-image.js": {
       "maxDuration": 120
+    },
+    "api/recover-dropped-order.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
