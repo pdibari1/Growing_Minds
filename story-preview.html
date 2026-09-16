@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Growing Minds — Mia's Story Preview</title>
+  <title>Growing Minds — Story Preview</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300;1,9..144,500;1,9..144,700&family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -424,8 +424,8 @@
 
         <!-- FADE + BLURRED PREVIEW -->
         <div class="story-fade">
-          <div class="story-blurred">
-            She grabbed her backpack and headed downstairs where the smell of toast and her mom's humming filled the kitchen. But just as Mia reached the bottom step, something strange caught her eye through the window. There, sitting at the foot of the oak tree, was something she had never seen before in all her six years — something small, and glowing faintly gold, and watching her with enormous knowing eyes. Mia froze. Biscuit growled once, low in his throat, then went completely silent. And the thing at the tree — it smiled. "I've been waiting for you," it said. "There's something you need to know before you go to school today." Mia's heart hammered as she took one slow step toward the door, her hand reaching for the knob. Whatever was waiting in that yard, she had a feeling everything was about to change...
+          <div class="story-blurred" id="story-blurred-text">
+            She grabbed her backpack and headed downstairs where the smell of toast and her mom's humming filled the kitchen. But just as she reached the bottom step, something strange caught her eye through the window. There, sitting at the foot of the old tree, was something she had never seen before — something small, and glowing faintly gold, and watching her with enormous knowing eyes. She froze. Then the thing at the tree — it smiled. "I've been waiting for you," it said. "There's something you need to know before today." Her heart hammered as she took one slow step toward the door, her hand reaching for the knob. Whatever was waiting out there, she had a feeling everything was about to change...
           </div>
         </div>
 
@@ -434,7 +434,7 @@
           <div class="cliff-icon">🔒</div>
           <div class="cliff-text">
             <div class="cliff-title">What happens next?</div>
-            <div class="cliff-sub">Mia is about to discover something magical that will change her first day of kindergarten forever. Unlock the full story to find out what's waiting for her at the oak tree — and how she finds the courage to walk through those school doors.</div>
+            <div class="cliff-sub" id="cliff-sub">Unlock the full story to find out what happens next.</div>
           </div>
         </div>
       </div>
@@ -468,7 +468,7 @@
             <div class="wi-icon">🎯</div>
             <div class="wi-text">
               <strong>Milestone built into the plot</strong>
-              <span>Mia's story resolves around starting kindergarten</span>
+              <span id="wi-milestone-text">Their story resolves around the milestone you chose</span>
             </div>
           </div>
         </div>
@@ -512,14 +512,14 @@
               <div class="li-icon">✨</div>
               <div class="li-info">
                 <div class="li-title">100% Unique Story</div>
-                <div class="li-sub">Written only for Mia, never repeated</div>
+                <div class="li-sub" id="li-unique-sub">Written only for your child, never repeated</div>
               </div>
             </li>
             <li>
               <div class="li-icon">🎯</div>
               <div class="li-info">
                 <div class="li-title">Milestone Woven In</div>
-                <div class="li-sub">Starting kindergarten is the heart of the story</div>
+                <div class="li-sub" id="li-milestone-sub">Their milestone is the heart of the story</div>
               </div>
             </li>
           </ul>
@@ -605,6 +605,10 @@
     } else {
       const { preview, storyToken, storyId, childName, childData } = story;
       const { age, trait, city, region, milestone, friend, gender } = childData;
+      const milestoneLower = milestone ? milestone.charAt(0).toLowerCase() + milestone.slice(1) : "their milestone";
+
+      // ── UPDATE TAB TITLE ──
+      document.title = `Growing Minds — ${childName}'s Story Preview`;
 
       // ── UPDATE HERO ──
       document.getElementById('story-title-name').textContent = `${childName} and the ${getMilestoneTitle(milestone)}`;
@@ -618,6 +622,20 @@
       const storyTextEl = document.getElementById('story-text-body');
       const paragraphs = preview.split(/\n+/).filter(p => p.trim());
       storyTextEl.innerHTML = paragraphs.map(p => `<p>${p}</p>`).join('');
+
+      // ── UPDATE BLURRED FILLER + CLIFFHANGER ──
+      // Generic on purpose — we only have the preview text at this point, not a
+      // specific "next scene" beat, so this must never claim a plot detail we
+      // haven't actually generated.
+      document.getElementById('story-blurred-text').textContent =
+        `${childName} took one slow step forward, heart racing. Whatever was about to happen next would change everything — and there was only one way to find out...`;
+      document.getElementById('cliff-sub').textContent =
+        `${childName}'s adventure is just getting started. Unlock the full story to find out what happens next — and how ${childName} finds their way through ${milestoneLower}.`;
+
+      // ── UPDATE MILESTONE COPY ──
+      document.getElementById('wi-milestone-text').textContent = `${childName}'s story resolves around ${milestoneLower}`;
+      document.getElementById('li-unique-sub').textContent = `Written only for ${childName}, never repeated`;
+      document.getElementById('li-milestone-sub').textContent = milestone ? `${milestone} is the heart of the story` : `Their milestone is the heart of the story`;
 
       // ── UPDATE PURCHASE CARD ──
       document.getElementById('purchase-child-name').textContent = `Complete ${childName}'s Story`;
