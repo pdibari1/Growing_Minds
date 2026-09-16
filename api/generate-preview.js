@@ -82,7 +82,12 @@ INSTRUCTIONS:
       console.log(`Saved outline to Redis for ${storyId}`);
     } catch(e) { console.error("Outline cache error:", e.message); } })();
 
-    // Save storyToken to Redis so webhook can retrieve it after Stripe payment
+    // Save storyToken to Redis so webhook can retrieve it after Stripe payment.
+    // 30-day TTL, matching outline/customDetails/chapters/images for this storyId —
+    // an upgrade purchase can happen any time after the preview (the follow-up
+    // survey alone reaches out at T+48h and T+9d), so this must outlive that whole
+    // window. A shorter TTL here previously caused upgrade payments to complete in
+    // Stripe with no storyToken left to find, silently dropping the order.
     try {
       const redisResp = await fetch(`${process.env.UPSTASH_REDIS_REST_URL}`, {
         method: 'POST',
@@ -90,7 +95,7 @@ INSTRUCTIONS:
           Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(['SET', `token:${storyId}`, storyToken, 'EX', 86400])
+        body: JSON.stringify(['SET', `token:${storyId}`, storyToken, 'EX', 2592000])
       });
       const redisData = await redisResp.json();
       console.log(`Saved storyToken to Redis for ${storyId}: ${JSON.stringify(redisData)}`);
