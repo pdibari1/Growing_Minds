@@ -31,6 +31,9 @@
     "api/survey-results.js": {
       "maxDuration": 15
     },
+    "api/post-order-survey.js": {
+      "maxDuration": 15
+    },
     "api/waitlist.js": {
       "maxDuration": 10
     },
@@ -89,6 +92,10 @@
     {
       "source": "/survey-results",
       "destination": "/survey-results.html"
+    },
+    {
+      "source": "/post-order-survey",
+      "destination": "/post-order-survey.html"
     },
     {
       "source": "/returns",

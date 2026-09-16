@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Growing Minds — How Did We Do?</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:       #2d6a4f;
+      --green-mid:   #3a8a65;
+      --green-light: #52b788;
+      --green-pale:  #d8f3dc;
+      --green-faint: #f0faf3;
+      --yellow:      #f9c74f;
+      --warm-white:  #fffdf7;
+      --text:        #1a2e1f;
+      --muted:       #6b8f71;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--warm-white);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .wrap { max-width: 640px; margin: 0 auto; }
+
+    .header { text-align: center; margin-bottom: 2.5rem; }
+    .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 1.5rem;
+      color: var(--green);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .logo span { color: var(--yellow); }
+    .header h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+    }
+    .header p {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .time-badge {
+      display: inline-block;
+      background: var(--green-pale);
+      color: var(--green);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.3rem 0.75rem;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+      letter-spacing: 0.03em;
+    }
+
+    .card {
+      background: #fff;
+      border: 1.5px solid #e8f0e9;
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 2px 12px rgba(45,106,79,0.06);
+    }
+    .q-number {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--green-light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+    .q-label {
+      font-family: 'Fraunces', serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 1.25rem;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .chip {
+      padding: 0.6rem 1.2rem;
+      border: 1.5px solid #dde8de;
+      border-radius: 999px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      background: #fff;
+      transition: all 0.15s;
+    }
+    .chip:hover { border-color: var(--green-light); color: var(--green); }
+    .chip.selected { background: var(--green); border-color: var(--green); color: #fff; }
+
+    .nps-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .nps-btn {
+      flex: 1;
+      min-width: 36px;
+      padding: 0.6rem 0;
+      border: 1.5px solid #dde8de;
+      border-radius: 8px;
+      background: #fff;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .nps-btn:hover { border-color: var(--green-light); color: var(--green); }
+    .nps-btn.selected { background: var(--green); border-color: var(--green); color: #fff; }
+    .nps-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .submit-wrap { text-align: center; margin-top: 2rem; }
+    .btn-submit {
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 1rem 2.5rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: 0 4px 16px rgba(45,106,79,0.25);
+    }
+    .btn-submit:hover { background: var(--green-mid); transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .submit-note { font-size: 0.8rem; color: var(--muted); margin-top: 0.75rem; }
+
+    .err { color: #c0392b; font-size: 0.82rem; margin-top: 0.6rem; display: none; }
+    .err.show { display: block; }
+
+    .thankyou { display: none; text-align: center; padding: 3rem 1rem; }
+    .thankyou .emoji { font-size: 3.5rem; margin-bottom: 1rem; }
+    .thankyou h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+    .thankyou p {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 1.5rem; }
+      .header h1 { font-size: 1.6rem; }
+      .nps-btn { font-size: 0.8rem; padding: 0.5rem 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">Growing<span>Minds</span> 📖</div>
+    <div class="time-badge">⏱ Takes about 30 seconds</div>
+    <h1 id="headline">How did the story go?</h1>
+    <p>You've had a few weeks with the book now — we'd love three quick answers.</p>
+  </div>
+
+  <form id="surveyForm" novalidate>
+
+    <input type="hidden" id="f_storyId" name="storyId"/>
+    <input type="hidden" id="f_childName" name="childName"/>
+    <input type="hidden" id="f_email" name="email"/>
+    <input type="hidden" id="f_milestone" name="milestone"/>
+
+    <!-- Q1: Engagement -->
+    <div class="card" id="card-1">
+      <div class="q-number">Question 1 of 3</div>
+      <div class="q-label" id="q1label">Did the story keep your child engaged?</div>
+      <div class="chips" id="chips-engaged">
+        <button type="button" class="chip" data-val="yes" onclick="pickChip('engaged', this)">Yes</button>
+        <button type="button" class="chip" data-val="somewhat" onclick="pickChip('engaged', this)">Somewhat</button>
+        <button type="button" class="chip" data-val="no" onclick="pickChip('engaged', this)">No</button>
+      </div>
+      <div class="err" id="err-engaged">Please pick one.</div>
+    </div>
+
+    <!-- Q2: Milestone reflection -->
+    <div class="card" id="card-2">
+      <div class="q-number">Question 2 of 3</div>
+      <div class="q-label" id="q2label">Did the story help your child think about their milestone?</div>
+      <div class="chips" id="chips-milestone">
+        <button type="button" class="chip" data-val="yes" onclick="pickChip('milestone', this)">Yes</button>
+        <button type="button" class="chip" data-val="somewhat" onclick="pickChip('milestone', this)">Somewhat</button>
+        <button type="button" class="chip" data-val="no" onclick="pickChip('milestone', this)">No</button>
+      </div>
+      <div class="err" id="err-milestone">Please pick one.</div>
+    </div>
+
+    <!-- Q3: Recommend to a friend (NPS) -->
+    <div class="card" id="card-3">
+      <div class="q-number">Question 3 of 3</div>
+      <div class="q-label">How likely are you to recommend Growing Minds to a friend or family member?</div>
+      <div class="nps-row" id="npsRow">
+        <button type="button" class="nps-btn" data-val="0" onclick="pickNps(this)">0</button>
+        <button type="button" class="nps-btn" data-val="1" onclick="pickNps(this)">1</button>
+        <button type="button" class="nps-btn" data-val="2" onclick="pickNps(this)">2</button>
+        <button type="button" class="nps-btn" data-val="3" onclick="pickNps(this)">3</button>
+        <button type="button" class="nps-btn" data-val="4" onclick="pickNps(this)">4</button>
+        <button type="button" class="nps-btn" data-val="5" onclick="pickNps(this)">5</button>
+        <button type="button" class="nps-btn" data-val="6" onclick="pickNps(this)">6</button>
+        <button type="button" class="nps-btn" data-val="7" onclick="pickNps(this)">7</button>
+        <button type="button" class="nps-btn" data-val="8" onclick="pickNps(this)">8</button>
+        <button type="button" class="nps-btn" data-val="9" onclick="pickNps(this)">9</button>
+        <button type="button" class="nps-btn" data-val="10" onclick="pickNps(this)">10</button>
+      </div>
+      <div class="nps-labels"><span>Not likely at all</span><span>Extremely likely</span></div>
+      <div class="err" id="err-nps">Please select a score.</div>
+    </div>
+
+    <div class="submit-wrap">
+      <button type="button" class="btn-submit" onclick="submitSurvey()" id="submitBtn">Send my feedback ✨</button>
+      <div class="submit-note">Takes a second. We read every single response.</div>
+    </div>
+
+  </form>
+
+  <div class="thankyou" id="thankyouScreen">
+    <div class="emoji">🙏</div>
+    <h2>Thank you so much.</h2>
+    <p>Your feedback goes straight to the person writing these stories. It genuinely helps us make them better for every family.</p>
+  </div>
+
+</div>
+
+<script>
+  const answers = { engaged: null, milestone: null, nps: null };
+
+  (function seedFromUrl() {
+    const p = new URLSearchParams(window.location.search);
+    const storyId   = p.get('sid')  || '';
+    const childName = p.get('name') || '';
+    const email     = p.get('em')   || '';
+    const milestone = p.get('milestone') || '';
+    document.getElementById('f_storyId').value   = storyId;
+    document.getElementById('f_childName').value = childName;
+    document.getElementById('f_email').value     = email;
+    document.getElementById('f_milestone').value = milestone;
+    if (childName) {
+      document.getElementById('headline').textContent = `How did ${childName}'s story go?`;
+      document.getElementById('q1label').textContent = `Did the story keep ${childName} engaged?`;
+    }
+    if (childName && milestone) {
+      document.getElementById('q2label').textContent = `Did the story help ${childName} think about ${milestone.toLowerCase()}?`;
+    } else if (childName) {
+      document.getElementById('q2label').textContent = `Did the story help ${childName} think about their milestone?`;
+    }
+  })();
+
+  function pickChip(key, btn) {
+    btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+    btn.classList.add('selected');
+    answers[key] = btn.dataset.val;
+    document.getElementById(`err-${key}`).classList.remove('show');
+  }
+
+  function pickNps(btn) {
+    document.querySelectorAll('#npsRow .nps-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    answers.nps = parseInt(btn.dataset.val);
+    document.getElementById('err-nps').classList.remove('show');
+  }
+
+  async function submitSurvey() {
+    let valid = true;
+    if (!answers.engaged)   { document.getElementById('err-engaged').classList.add('show'); valid = false; }
+    if (!answers.milestone) { document.getElementById('err-milestone').classList.add('show'); valid = false; }
+    if (answers.nps === null) { document.getElementById('err-nps').classList.add('show'); valid = false; }
+    if (!valid) {
+      document.querySelector('.err.show')?.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const payload = {
+      storyId:   document.getElementById('f_storyId').value,
+      childName: document.getElementById('f_childName').value,
+      email:     document.getElementById('f_email').value,
+      milestone: document.getElementById('f_milestone').value,
+      engaged:   answers.engaged,
+      milestoneReflection: answers.milestone,
+      nps:       answers.nps,
+      submittedAt: new Date().toISOString()
+    };
+
+    try {
+      const res = await fetch('/api/post-order-survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Server error');
+      document.getElementById('surveyForm').style.display = 'none';
+      document.getElementById('thankyouScreen').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Send my feedback ✨';
+      alert('Something went wrong — please try again in a moment.');
+    }
+  }
+</script>
+</body>
+</html>

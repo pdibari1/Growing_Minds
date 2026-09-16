@@ -306,6 +306,41 @@ const generateStoryOrder = inngest.createFunction(
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
 
+    // Step 8: Post-order feedback survey — fires 3 weeks after the order completes.
+    // Gated behind ENABLE_POST_ORDER_SURVEY so this is built but stays off until
+    // we're ready to turn it on — flip the env var in Vercel, no redeploy needed.
+    if (process.env.ENABLE_POST_ORDER_SURVEY === 'true' && customerEmail) {
+      await step.sleep("wait-for-post-order-survey", "21d");
+      await step.run("send-post-order-survey-email", async () => {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const milestone = childData.milestone || '';
+        const surveyUrl = `https://www.growingminds.io/post-order-survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}&milestone=${encodeURIComponent(milestone)}`;
+        const { data, error } = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+          to: customerEmail,
+          subject: `How did ${childName}'s story go? 📖`,
+          html: `
+            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+              <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+                <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
+              </div>
+              <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+                <h2 style="color:#2d6a4f;">How did ${childName}'s story go?</h2>
+                <p>It's been a few weeks since ${childName}'s book arrived — we'd love three quick answers about how it went.</p>
+                <p style="margin-top:1rem;">Did it keep them engaged? Did it help them think about their milestone? Would you recommend us to a friend?</p>
+                <div style="text-align:center;margin:2rem 0;">
+                  <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(45,106,79,0.3);">Share my feedback →</a>
+                </div>
+                <p style="color:#6b7280;font-size:.85rem;">Takes about 30 seconds. We read every response.</p>
+                <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+              </div>
+            </div>`
+        });
+        if (error) throw new Error(error.message || JSON.stringify(error));
+        console.log(`Post-order survey email sent to ${customerEmail} (id: ${data?.id})`);
+      });
+    }
+
     console.log(`✅ Complete for ${childName}`);
     return { success: true, childName, tier: tier.label };
   }
