@@ -24,6 +24,34 @@ async function sendAlertEmail(subject, details) {
   }
 }
 
+// Customer-facing purchase confirmation for an upgrade order — a very brief
+// reassurance note, not a status update, since generation hasn't started yet
+// at the moment this fires.
+async function sendUpgradeConfirmationEmail(customerEmail, childName) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+      to: customerEmail,
+      subject: `${childName}'s full book is on its way! 📖`,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#1a1a2e;">
+          <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+            <h1 style="color:white;font-size:1.4rem;margin:0;">🌱 Growing Minds</h1>
+          </div>
+          <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+            <p style="margin:0;">Thanks for upgrading! ${childName}'s complete story is being printed and will be mailed to you as soon as it's ready.</p>
+            <p style="color:#6b7280;font-size:.85rem;margin-top:1.25rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+          </div>
+        </div>`
+    });
+    if (error) throw new Error(error.message || JSON.stringify(error));
+    console.log(`Upgrade confirmation email sent to ${customerEmail} (id: ${data?.id})`);
+  } catch (e) {
+    console.error(`Upgrade confirmation email failed to send: ${e.message}`);
+  }
+}
+
 // Purely informational — lets you know a purchase came in, distinct from
 // sendAlertEmail's failure alerts above.
 async function sendOrderNotification(subject, details) {
@@ -105,6 +133,10 @@ module.exports = async function handler(req, res) {
   }
 
   console.log(`Inngest event sent for ${childName}: ${eventName}`);
+
+  if (payment_type === 'upgrade' && customerEmail) {
+    await sendUpgradeConfirmationEmail(customerEmail, childName);
+  }
 
   await sendOrderNotification(
     isPreview ? `New preview order — ${childName}` : `New full book order — ${childName}`,
