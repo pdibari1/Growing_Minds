@@ -82,10 +82,6 @@
     },
     {
       "source": "/test",
-      "destination": "/test.html"
-    },
-    {
-      "source": "/tester",
       "destination": "/tester-instructions.html"
     },
     {
