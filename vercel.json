@@ -85,6 +85,10 @@
       "destination": "/test.html"
     },
     {
+      "source": "/tester",
+      "destination": "/tester-instructions.html"
+    },
+    {
       "source": "/test2",
       "destination": "/test2.html"
     },
