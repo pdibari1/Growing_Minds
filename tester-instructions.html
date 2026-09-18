@@ -63,20 +63,14 @@
     .note {
       background: var(--green-faint);
       border-radius: 12px;
-      padding: 1.1rem 1.3rem;
+      padding: 1.2rem 1.3rem;
       margin-bottom: 2rem;
       text-align: left;
       font-size: 1.02rem;
       line-height: 1.55;
       color: var(--text);
     }
-    .note em {
-      font-style: normal;
-      color: var(--muted);
-      font-size: 0.9rem;
-      display: block;
-      margin-top: 0.3rem;
-    }
+    .note p + p { margin-top: 0.9rem; }
 
     .btn-start {
       display: inline-block;
@@ -106,8 +100,9 @@
     <h1>Thanks for helping test this!</h1>
 
     <div class="note">
-      📧 When your story is complete, you'll get a PDF in your email.
-      <em>It's not sending physical books for testing.</em>
+      <p>The button below will bring you to the homepage. You can go through the flow to generate a new, personalized story for your kiddo.</p>
+      <p>When your story is complete, you'll get a PDF in your email.</p>
+      <p>The live version will send you a physical book, but it's not sending physical books for testing.</p>
     </div>
 
     <a href="/" class="btn-start">Get Started →</a>
