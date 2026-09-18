@@ -70,7 +70,24 @@
       line-height: 1.55;
       color: var(--text);
     }
-    .note p + p { margin-top: 0.9rem; }
+    .note ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .note li {
+      position: relative;
+      padding-left: 1.3rem;
+    }
+    .note li + li { margin-top: 0.9rem; }
+    .note li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--green-light);
+      font-weight: 800;
+    }
+    .note p { margin-top: 0.9rem; }
     .note em {
       font-style: normal;
       color: var(--muted);
@@ -105,8 +122,11 @@
     <h1>Thanks for helping test this!</h1>
 
     <div class="note">
-      <p>The button below will bring you to the homepage. You can go through the flow to generate a new, personalized story for your kiddo.</p>
-      <p>When your story is complete, you'll get a PDF in your email.</p>
+      <ul>
+        <li>The button below will bring you to the homepage. You can go through the flow to generate a new, personalized story for your kiddo.</li>
+        <li>For the test credit card number, contact Peter.</li>
+        <li>When your story is complete, you'll get a PDF in your email.</li>
+      </ul>
       <p><em>The live version will send you a physical book, but it's not sending physical books for testing.</em></p>
     </div>
 
