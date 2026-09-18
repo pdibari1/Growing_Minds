@@ -47,7 +47,10 @@ module.exports = async function handler(req, res) {
         state_code: address.state || "NY",
         country_code: address.country || "US",
         postcode: address.postal_code || "10001",
-        street1: "123 Main St"
+        street1: "123 Main St",
+        // Required by Lulu even for a cost-only quote — same default used in
+        // createLuluPrintJob for real orders that don't collect a phone number.
+        phone_number: address.phone || "0000000000"
       },
       shipping_level: shippingLevel
     });
