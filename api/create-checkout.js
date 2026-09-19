@@ -1,18 +1,22 @@
 // api/create-checkout.js
 const Stripe = require("stripe");
 
-const PRICE_CENTS = 3500;
+// Premium is +$10 over standard — covers the real Lulu premium-color print cost
+// difference (confirmed via /api/lulu-cost-check) plus margin, not just cost pass-through.
+const PRICE_CENTS = { standard: 3500, premium: 4500 };
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { childName, storyId, discountCode, customerEmail, customDetails } = req.body;
+  const { childName, storyId, discountCode, customerEmail, customDetails, printQuality } = req.body;
 
   if (!childName || !storyId) {
     return res.status(400).json({ error: "Missing required fields" });
   }
+
+  const quality = printQuality === "premium" ? "premium" : "standard";
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -43,10 +47,12 @@ module.exports = async function handler(req, res) {
       line_items: [{
         price_data: {
           currency: "usd",
-          unit_amount: PRICE_CENTS,
+          unit_amount: PRICE_CENTS[quality],
           product_data: {
-            name: `${childName}'s Personalized Story Book`,
-            description: "Personalized hardcover book — printed and shipped to your door in 13–15 business days",
+            name: `${childName}'s Personalized Story Book${quality === "premium" ? " (Premium Color)" : ""}`,
+            description: quality === "premium"
+              ? "Personalized softcover book with premium color printing — printed and shipped to your door in 13–15 business days"
+              : "Personalized softcover book — printed and shipped to your door in 13–15 business days",
           },
         },
         quantity: 1,
@@ -57,7 +63,7 @@ module.exports = async function handler(req, res) {
         allowed_countries: ["US", "CA", "GB", "AU"],
       },
       // storyToken is stored in Redis (key: token:{storyId}) — kept out of metadata to avoid Stripe's 500-char limit
-      metadata: { storyId, childName, customerEmail: customerEmail || '', customDetails: (customDetails || '').slice(0, 500) },
+      metadata: { storyId, childName, customerEmail: customerEmail || '', customDetails: (customDetails || '').slice(0, 500), printQuality: quality },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/story-preview?cancelled=true`,
     });

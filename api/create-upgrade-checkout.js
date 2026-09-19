@@ -1,13 +1,16 @@
-// api/create-upgrade-checkout.js — $32 upgrade checkout (full book, $2.99 already credited)
+// api/create-upgrade-checkout.js — upgrade checkout (full book, $2.99 already credited)
 const Stripe = require("stripe");
 
-const UPGRADE_PRICE_CENTS = 3200; // $35 total minus $2.99 preview = $32.01 → rounded to $32
+// $35/$45 total minus the $2.99 preview already paid, rounded up to a whole dollar.
+const UPGRADE_PRICE_CENTS = { standard: 3200, premium: 4200 };
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { storyId, childName, customerEmail } = req.body;
+  const { storyId, childName, customerEmail, printQuality } = req.body;
   if (!storyId || !childName) return res.status(400).json({ error: "Missing required fields" });
+
+  const quality = printQuality === "premium" ? "premium" : "standard";
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -18,10 +21,12 @@ module.exports = async function handler(req, res) {
       line_items: [{
         price_data: {
           currency: "usd",
-          unit_amount: UPGRADE_PRICE_CENTS,
+          unit_amount: UPGRADE_PRICE_CENTS[quality],
           product_data: {
-            name: `${childName}'s Personalized Story Book — Full Edition`,
-            description: "Complete personalized hardcover book (your $2.99 preview payment has been credited). Printed and shipped in 13–15 business days.",
+            name: `${childName}'s Personalized Story Book — Full Edition${quality === "premium" ? " (Premium Color)" : ""}`,
+            description: quality === "premium"
+              ? "Complete personalized softcover book with premium color printing (your $2.99 preview payment has been credited). Printed and shipped in 13–15 business days."
+              : "Complete personalized softcover book (your $2.99 preview payment has been credited). Printed and shipped in 13–15 business days.",
           },
         },
         quantity: 1,
@@ -35,6 +40,7 @@ module.exports = async function handler(req, res) {
         childName,
         customerEmail: customerEmail || '',
         payment_type: 'upgrade',
+        printQuality: quality,
       },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation.html?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}`,
