@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
   }
 
   const session = event.data.object;
-  const { storyId, childName, customDetails: metaCustomDetails, payment_type } = session.metadata;
+  const { storyId, childName, customDetails: metaCustomDetails, payment_type, printQuality } = session.metadata;
   const customerEmail = session.customer_details?.email;
 
   // Get storyToken from Redis
@@ -120,7 +120,7 @@ module.exports = async function handler(req, res) {
   try {
     await sendInngestEvent({
       name: eventName,
-      data: { storyToken, childName, storyId, customerEmail, customDetails }
+      data: { storyToken, childName, storyId, customerEmail, customDetails, printQuality: printQuality || 'standard' }
     });
   } catch (e) {
     console.error(`Failed to send Inngest event for ${childName}: ${e.message}`);
