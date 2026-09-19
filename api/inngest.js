@@ -37,7 +37,7 @@ const generateStoryOrder = inngest.createFunction(
   },
   { event: "order/completed" },
   async ({ event, step }) => {
-    const { storyToken, childName, storyId, customerEmail, customDetails } = event.data;
+    const { storyToken, childName, storyId, customerEmail, customDetails, printQuality } = event.data;
     const childData = decodeStoryData(storyToken);
     if (!childData) throw new Error("Could not decode story token");
     // Merge customDetails from event (not stored in token to keep it short)
@@ -45,6 +45,14 @@ const generateStoryOrder = inngest.createFunction(
 
     const tier = getStoryTier(childData.age);
     console.log(`Starting ${tier.label} for ${childName} (${tier.chapCount} chapters)`);
+
+    // Stored for the eventual Lulu print submission to pick the right
+    // POD_PACKAGE_ID (standard vs premium color) — that pipeline isn't wired
+    // into the live flow yet, so this just sits here until it is. 30-day TTL,
+    // matching the other storyId-keyed Redis records for this order.
+    await step.run("save-print-quality", async () => {
+      await redisRequest("SET", [`printquality:${storyId}`, printQuality || "standard", "EX", 2592000]);
+    });
 
     // Step 1: Generate chapter outline — save to Redis immediately
     const outline = await step.run("generate-outline", async () => {
@@ -275,7 +283,7 @@ const generateStoryOrder = inngest.createFunction(
     await step.run("save-story", async () => {
       console.log(`Saving story to Airtable for ${childName}`);
       const allChapters = await getChaptersFromRedis(storyId);
-      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters);
+      await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, printQuality || "standard");
     });
 
     // Step 7: Clean up Redis and Blob storage
@@ -1541,7 +1549,7 @@ function decodeStoryData(token) {
   } catch { return null; }
 }
 
-async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters) {
+async function saveStoryToAirtable(storyId, customerEmail, childName, child, chapters, printQuality = "standard") {
   const baseId = process.env.AIRTABLE_BASE_ID;
   const token  = process.env.AIRTABLE_TOKEN;
   if (!baseId || !token) { console.log("No Airtable credentials — skipping story save"); return; }
@@ -1559,6 +1567,7 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
         "City":       `${city}, ${region}`,
         "Full Story": fullStory.slice(0, 100000), // Airtable long text limit
         "Word Count": wordCount,
+        "Print Quality": printQuality,
         "Created At": new Date().toISOString().split("T")[0]
       }
     }]
