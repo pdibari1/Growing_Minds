@@ -11,8 +11,16 @@ const LULU_TOKEN_PATH = "/auth/realms/glasstree/protocol/openid-connect/token";
 
 if (SANDBOX) console.log("[lulu] ⚠️  SANDBOX MODE — orders will not be printed or charged");
 
-// 5.5" × 8.5" | Full Color | Standard | Perfect Bound | 80# Coated White | Matte cover
-const POD_PACKAGE_ID = "0550X0850.FC.STD.PB.080CW444.MXX";
+// 5.5" × 8.5" | Full Color | Perfect Bound | 80# Coated White | Matte cover
+// Confirmed via /api/lulu-cost-check — premium quotes ~$22.83 print cost vs
+// standard's ~$9.57 for the same 150-page book, so this is a real distinct tier,
+// not a guess that happened to validate.
+const POD_PACKAGE_IDS = {
+  standard: "0550X0850.FC.STD.PB.080CW444.MXX",
+  premium: "0550X0850.FC.PRE.PB.080CW444.MXX",
+};
+// Kept for any existing caller that doesn't pass printQuality.
+const POD_PACKAGE_ID = POD_PACKAGE_IDS.standard;
 
 // ── Token cache (in-process; refreshes when < 60s remain) ──
 let _token = null;
@@ -63,9 +71,10 @@ async function luluRequest(method, path, body = null) {
 // ── Get cover dimensions for a given page count ──
 // Returns { width, height, unit } — Lulu total cover size including bleed, in inches.
 // Spine must be derived: spine = width - (5.5*2 + 0.125*2) for 5.5" trim with 0.125" bleed.
-async function getCoverDimensions(pageCount) {
+async function getCoverDimensions(pageCount, printQuality = "standard") {
+  const podPackageId = POD_PACKAGE_IDS[printQuality] || POD_PACKAGE_IDS.standard;
   const result = await luluRequest("POST", "/print-jobs/cover-dimensions/", {
-    pod_package_id: POD_PACKAGE_ID,
+    pod_package_id: podPackageId,
     interior_page_count: pageCount,
     unit: "inch",   // must be lowercase — Lulu enum: pt | mm | inch
   });
@@ -78,19 +87,25 @@ async function getCoverDimensions(pageCount) {
 // shippingDetails — Stripe shipping_details object { name, address: { line1, line2, city, state, postal_code, country } }
 // customerEmail   — contact email for the job
 // storyId         — used as external_id for reference
-async function createLuluPrintJob({ interiorUrl, coverUrl, shippingDetails, customerEmail, storyId, childName }) {
+// printQuality    — 'standard' | 'premium', selects the POD package (see POD_PACKAGE_IDS)
+async function createLuluPrintJob({ interiorUrl, coverUrl, shippingDetails, customerEmail, storyId, childName, printQuality = "standard" }) {
   const addr = shippingDetails?.address || {};
   const name = shippingDetails?.name || childName;
+  const podPackageId = POD_PACKAGE_IDS[printQuality] || POD_PACKAGE_IDS.standard;
 
   const job = await luluRequest("POST", "/print-jobs/", {
     external_id: storyId,
     contact_email: process.env.LULU_CONTACT_EMAIL || "hello@growingminds.io",
-    shipping_option: "GROUND",  // API field is shipping_option, not shipping_level
+    // Confirmed via /api/lulu-cost-check: "GROUND" is not a valid shipping option
+    // for this package/US destination combo (Lulu 400s: "No shipping option found
+    // for GROUND to US..."). "MAIL" is. This was never caught before because the
+    // print pipeline has never actually been exercised end-to-end.
+    shipping_option: "MAIL",  // API field is shipping_option, not shipping_level
     line_items: [{
       title: `${childName}'s Personalized Story Book`,
       cover: { source_url: coverUrl },
       interior: { source_url: interiorUrl },
-      pod_package_id: POD_PACKAGE_ID,
+      pod_package_id: podPackageId,
       quantity: 1,
     }],
     shipping_address: {
@@ -150,6 +165,7 @@ function httpsRequest(options, body) {
 
 module.exports = {
   POD_PACKAGE_ID,
+  POD_PACKAGE_IDS,
   getLuluToken,
   luluRequest,
   getCoverDimensions,
