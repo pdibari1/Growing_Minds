@@ -90,6 +90,29 @@
       line-height: 1.4;
       margin-bottom: 1.25rem;
     }
+    .q-sub {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: -0.8rem;
+      margin-bottom: 1.25rem;
+    }
+
+    textarea {
+      width: 100%;
+      border: 1.5px solid #dde8de;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.95rem;
+      color: var(--text);
+      resize: vertical;
+      min-height: 100px;
+      background: var(--warm-white);
+      transition: border-color 0.15s;
+      line-height: 1.5;
+    }
+    textarea:focus { outline: none; border-color: var(--green-light); background: #fff; }
+    textarea::placeholder { color: #b0c4b5; }
 
     .chips { display: flex; flex-wrap: wrap; gap: 0.6rem; }
     .chip {
@@ -240,6 +263,14 @@
       <div class="err" id="err-nps">Please select a score.</div>
     </div>
 
+    <!-- Q4: Open feedback (optional) -->
+    <div class="card" id="card-4">
+      <div class="q-number">Optional</div>
+      <div class="q-label">Anything else you'd like to share?</div>
+      <div class="q-sub">Praise, complaints, ideas — whatever's on your mind. Totally optional.</div>
+      <textarea id="comments" name="comments" placeholder="e.g. &quot;We loved the illustrations, but the shipping took longer than we expected…&quot;" maxlength="1000"></textarea>
+    </div>
+
     <div class="submit-wrap">
       <button type="button" class="btn-submit" onclick="submitSurvey()" id="submitBtn">Send my feedback ✨</button>
       <div class="submit-note">Takes a second. We read every single response.</div>
@@ -315,6 +346,7 @@
       engaged:   answers.engaged,
       milestoneReflection: answers.milestone,
       nps:       answers.nps,
+      comments:  document.getElementById('comments').value.trim(),
       submittedAt: new Date().toISOString()
     };
 

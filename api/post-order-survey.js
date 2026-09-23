@@ -26,6 +26,18 @@ function answerLabel(val) {
   return { yes: '✅ Yes', somewhat: '🤏 Somewhat', no: '❌ No' }[val] || val;
 }
 
+// comments is freeform customer text — must be escaped before going into the
+// admin notification's HTML body, unlike the other fields here which are all
+// constrained to a fixed set of values.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -40,6 +52,7 @@ export default async function handler(req, res) {
       engaged,
       milestoneReflection,
       nps,
+      comments,
       submittedAt
     } = req.body;
 
@@ -51,7 +64,7 @@ export default async function handler(req, res) {
     const key = `postordersurvey:${storyId || 'anonymous'}:${Date.now()}`;
     const record = JSON.stringify({
       storyId, childName, email, milestone,
-      engaged, milestoneReflection, nps,
+      engaged, milestoneReflection, nps, comments: comments || '',
       submittedAt: submittedAt || new Date().toISOString()
     });
     await redisRequest('SET', [key, record, 'EX', String(60 * 60 * 24 * 90)]);
@@ -81,6 +94,7 @@ export default async function handler(req, res) {
         <td style="padding:0.6rem 0;font-weight:700;font-size:1.1rem;">${nps}/10 &nbsp; ${npsCategory(nps)}</td>
       </tr>
     </table>
+    ${comments ? `<div style="margin-top:1.25rem;padding:1rem 1.25rem;background:#f0faf3;border-left:3px solid #2d6a4f;border-radius:0 8px 8px 0;"><p style="font-size:0.78rem;color:#6b8f71;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Additional feedback</p><p style="font-size:0.9rem;white-space:pre-wrap;">${escapeHtml(comments)}</p></div>` : ''}
     ${storyId ? `<p style="font-size:0.78rem;color:#b0c4b5;margin-top:1.5rem;border-top:1px solid #f0faf3;padding-top:0.75rem;">Story ID: ${storyId} &nbsp;·&nbsp; Redis key: ${key}</p>` : ''}
   </div>
 </div>`;
