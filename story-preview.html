@@ -320,6 +320,34 @@
       margin-bottom: 1rem;
     }
 
+    /* ── PRINT QUALITY TOGGLE ── */
+    .quality-toggle {
+      display: flex; gap: .6rem;
+      margin-bottom: 1.2rem;
+    }
+    .quality-btn {
+      flex: 1;
+      background: white; border: 1.5px solid var(--border);
+      border-radius: 12px; padding: .7rem .6rem;
+      text-align: center; cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+      transition: all .15s;
+    }
+    .quality-btn:hover { border-color: var(--green-light); }
+    .quality-btn.selected {
+      border-color: var(--green); background: var(--green-pale);
+    }
+    .quality-btn .quality-name {
+      display: block; font-size: .82rem; font-weight: 800; color: var(--text);
+    }
+    .quality-btn .quality-price {
+      display: block; font-size: .95rem; font-weight: 900; color: var(--green);
+      margin-top: .15rem;
+    }
+    .quality-btn .quality-desc {
+      display: block; font-size: .7rem; color: var(--muted); margin-top: .1rem;
+    }
+
     /* ── WHAT'S INSIDE SECTION ── */
     .whats-inside {
       margin-top: 2.5rem;
@@ -482,7 +510,7 @@
 
         <div class="purchase-top">
           <div class="purchase-top-label" id="purchase-child-name">Complete Your Story</div>
-          <div class="purchase-price"><sup>$</sup>35</div>
+          <div class="purchase-price" id="purchase-price"><sup>$</sup>35</div>
           <div class="purchase-price-note">First half by email + complete book shipped free</div>
         </div>
 
@@ -490,6 +518,19 @@
 
           <div class="urgency-bar">
             ⏳ Your story is saved for 24 hours
+          </div>
+
+          <div class="quality-toggle" id="quality-toggle">
+            <button type="button" class="quality-btn selected" data-quality="standard" onclick="selectQuality('standard')">
+              <span class="quality-name">Standard</span>
+              <span class="quality-price">$35</span>
+              <span class="quality-desc">Standard color print</span>
+            </button>
+            <button type="button" class="quality-btn" data-quality="premium" onclick="selectQuality('premium')">
+              <span class="quality-name">Premium</span>
+              <span class="quality-price">$45</span>
+              <span class="quality-desc">Richer color, heavier paper</span>
+            </button>
           </div>
 
           <div class="includes-title">Everything included</div>
@@ -595,6 +636,11 @@
       return map[milestone] || "Big Adventure";
     }
 
+    // ── PRINT QUALITY SELECTION ── (declared before use below, since these are
+    // `let`/`const` and the story-loading block right after calls updateBuyButton())
+    let selectedQuality = 'standard';
+    const QUALITY_PRICES = { standard: 35, premium: 45 };
+
     // ── LOAD STORY DATA FROM SESSION ──
     const raw = sessionStorage.getItem('storyPreview');
     const story = raw ? JSON.parse(raw) : null;
@@ -639,7 +685,7 @@
 
       // ── UPDATE PURCHASE CARD ──
       document.getElementById('purchase-child-name').textContent = `Complete ${childName}'s Story`;
-      document.getElementById('buy-btn').textContent = `🌟 Get the Full Story — $35`;
+      updateBuyButton();
 
       // ── STORE TOKEN FOR PURCHASE ──
       window._storyToken = storyToken;
@@ -654,10 +700,24 @@
       }
     }
 
+    function selectQuality(quality) {
+      selectedQuality = quality;
+      document.querySelectorAll('#quality-toggle .quality-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.quality === quality);
+      });
+      updateBuyButton();
+    }
+
+    function updateBuyButton() {
+      const price = QUALITY_PRICES[selectedQuality];
+      document.getElementById('purchase-price').innerHTML = `<sup>$</sup>${price}`;
+      document.getElementById('buy-btn').textContent = `🌟 Get the Full Story — $${price}`;
+    }
+
     // GA4 - handle purchase click
     async function handlePurchase(type = 'full') {
       const isPreview = type === 'preview';
-      const price = isPreview ? 2.99 : 35;
+      const price = isPreview ? 2.99 : QUALITY_PRICES[selectedQuality];
       const endpoint = isPreview ? '/api/create-preview-checkout' : '/api/create-checkout';
 
       if (typeof gtag !== 'undefined') {
@@ -678,6 +738,7 @@
         if (!isPreview) {
           body.storyToken   = window._storyToken;
           body.discountCode = discountCode || '';
+          body.printQuality = selectedQuality;
         }
 
         const response = await fetch(endpoint, {

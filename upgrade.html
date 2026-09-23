@@ -132,6 +132,34 @@
       font-size: .82rem; color: var(--muted);
     }
 
+    /* ── PRINT QUALITY TOGGLE ── */
+    .quality-toggle {
+      display: flex; gap: .75rem;
+      margin-bottom: 1.5rem;
+    }
+    .quality-btn {
+      flex: 1;
+      background: white; border: 1.5px solid var(--border);
+      border-radius: 12px; padding: .9rem .75rem;
+      text-align: center; cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+      transition: all .15s;
+    }
+    .quality-btn:hover { border-color: var(--green-light); }
+    .quality-btn.selected {
+      border-color: var(--green); background: var(--green-pale);
+    }
+    .quality-btn .quality-name {
+      display: block; font-size: .85rem; font-weight: 800; color: var(--text);
+    }
+    .quality-btn .quality-price {
+      display: block; font-size: 1rem; font-weight: 900; color: var(--green);
+      margin-top: .15rem;
+    }
+    .quality-btn .quality-desc {
+      display: block; font-size: .72rem; color: var(--muted); margin-top: .15rem;
+    }
+
     /* ── PRICING BOX ── */
     .price-box {
       background: white; border: 2px solid var(--green-pale);
@@ -240,7 +268,7 @@
     <div class="credit-icon">✅</div>
     <div class="credit-text">
       <strong>Your $2.99 preview is already credited</strong>
-      <span>You're only paying the difference — $32 today to complete the full $35 softcover book.</span>
+      <span id="credit-note">You're only paying the difference — $32 today to complete the full $35 softcover book.</span>
     </div>
   </div>
 
@@ -272,11 +300,25 @@
     <p class="includes-note">Your preview chapters are already saved — no need to re-enter anything. Your complete story will pick up right where chapter 3 ended.</p>
   </div>
 
+  <!-- PRINT QUALITY -->
+  <div class="quality-toggle" id="quality-toggle">
+    <button type="button" class="quality-btn selected" data-quality="standard" onclick="selectQuality('standard')">
+      <span class="quality-name">Standard</span>
+      <span class="quality-price">$32 due today</span>
+      <span class="quality-desc">Standard color print</span>
+    </button>
+    <button type="button" class="quality-btn" data-quality="premium" onclick="selectQuality('premium')">
+      <span class="quality-name">Premium</span>
+      <span class="quality-price">$42 due today</span>
+      <span class="quality-desc">Richer color, heavier paper</span>
+    </button>
+  </div>
+
   <!-- PRICING -->
   <div class="price-box">
     <div class="price-row">
       <span class="label">Full personalized softcover book</span>
-      <span class="value">$35.00</span>
+      <span class="value" id="price-full">$35.00</span>
     </div>
     <div class="price-row credit">
       <span class="label">Preview credit applied</span>
@@ -284,7 +326,7 @@
     </div>
     <div class="price-row total">
       <span class="label">Due today</span>
-      <span class="value">$32</span>
+      <span class="value" id="price-due">$32</span>
     </div>
   </div>
 
@@ -322,6 +364,33 @@
     document.title = 'Growing Minds \u2014 Complete ' + childName + '\u2019s Story';
   }
 
+  // \u2500\u2500 PRINT QUALITY SELECTION \u2500\u2500
+  // $35/$45 total minus the $2.99 preview already paid, rounded up to a
+  // whole dollar \u2014 matches UPGRADE_PRICE_CENTS in create-upgrade-checkout.js.
+  let selectedQuality = 'standard';
+  const QUALITY_PRICES = {
+    standard: { total: 35, due: 32 },
+    premium:  { total: 45, due: 42 },
+  };
+
+  function selectQuality(quality) {
+    selectedQuality = quality;
+    document.querySelectorAll('#quality-toggle .quality-btn').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.quality === quality);
+    });
+    updateUpgradePrices();
+  }
+
+  function updateUpgradePrices() {
+    const { total, due } = QUALITY_PRICES[selectedQuality];
+    const qualityLabel = selectedQuality === 'premium' ? 'premium color ' : '';
+    document.getElementById('price-full').textContent = `$${total}.00`;
+    document.getElementById('price-due').textContent = `$${due}`;
+    document.getElementById('credit-note').textContent =
+      `You're only paying the difference \u2014 $${due} today to complete the full $${total} ${qualityLabel}softcover book.`;
+    document.getElementById('upgrade-btn').textContent = `\u2728 Complete the Story \u2014 Pay $${due}`;
+  }
+
   async function handleUpgrade() {
     const btn = document.getElementById('upgrade-btn');
     const errEl = document.getElementById('error-msg');
@@ -340,7 +409,7 @@
       const res = await fetch('/api/create-upgrade-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storyId, childName })
+        body: JSON.stringify({ storyId, childName, printQuality: selectedQuality })
       });
 
       const data = await res.json();
@@ -353,7 +422,7 @@
 
     } catch (err) {
       console.error('Upgrade checkout error:', err);
-      btn.textContent = '✨ Complete the Story — Pay $32';
+      btn.textContent = `✨ Complete the Story — Pay $${QUALITY_PRICES[selectedQuality].due}`;
       btn.disabled = false;
       errEl.textContent = err.message || 'Something went wrong — please try again.';
       errEl.classList.add('show');
