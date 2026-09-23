@@ -712,6 +712,60 @@ const generatePreviewChapters = inngest.createFunction(
       console.log(`Cleaned up preview PDF blob for ${storyId}`);
     });
 
+    // Follow-up reminder for previews that never upgrade — the story and upgrade
+    // link stay live for 30 days total, so a nudge partway through that window
+    // catches families who read the preview but forgot to act.
+    await step.sleep("wait-before-upgrade-reminder", "4d");
+
+    const alreadyUpgraded = await step.run("check-upgrade-status", async () => {
+      // generateStoryOrder (order/completed) is the only thing that ever writes
+      // printquality:{storyId} — an upgrade purchase reuses this exact preview
+      // storyId, so its presence here means the customer already upgraded.
+      const printQuality = await redisRequest("GET", [`printquality:${storyId}`]);
+      return !!printQuality;
+    });
+
+    if (!alreadyUpgraded) {
+      await step.run("send-upgrade-reminder-email", async () => {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        try {
+          const { data, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+            to: customerEmail,
+            subject: `Chapter 4 of ${childName}'s story is waiting...`,
+            html: `
+              <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+                <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+                  <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
+                </div>
+                <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+                  <h2 style="color:#2d6a4f;">${childName} left off at a cliffhanger!</h2>
+                  <p>The rest of the 30-chapter story — plus custom illustrations throughout and a printed softcover book — is ready whenever you are.</p>
+                  <div style="text-align:center;margin:1.5rem 0;">
+                    <a href="https://www.growingminds.io/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full 30-Chapter Book →</a>
+                    <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is still credited toward the full price</p>
+                  </div>
+                  <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:center;">
+                    <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
+                    <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
+                  </div>
+                  <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">${childName}'s story and this link stay active for 30 days from your preview purchase.</p>
+                  <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+                </div>
+              </div>
+            `
+          });
+          if (error) throw new Error(error.message || JSON.stringify(error));
+          console.log(`Upgrade reminder email sent to ${customerEmail} (id: ${data?.id})`);
+        } catch (e) {
+          await sendAlertEmail(
+            `Upgrade reminder email failed — ${childName} (${storyId})`,
+            `Upgrade reminder email send threw: ${e.message}`
+          );
+        }
+      });
+    }
+
     return { success: true, childName, chapters: 3 };
   }
 );
