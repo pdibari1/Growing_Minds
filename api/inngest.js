@@ -476,7 +476,10 @@ const generateStoryOrder = inngest.createFunction(
     // Step 8: Post-order feedback survey — fires 3 weeks after the order completes.
     // Gated behind ENABLE_POST_ORDER_SURVEY so this is built but stays off until
     // we're ready to turn it on — flip the env var in Vercel, no redeploy needed.
-    if (process.env.ENABLE_POST_ORDER_SURVEY === 'true' && customerEmail) {
+    // Also gated on `approval` — a timed-out approval means the customer was never
+    // actually sent their book, so asking "how did the story go?" would be asking
+    // about a book they never received.
+    if (approval && process.env.ENABLE_POST_ORDER_SURVEY === 'true' && customerEmail) {
       await step.sleep("wait-for-post-order-survey", "21d");
       await step.run("send-post-order-survey-email", async () => {
         const resend = new Resend(process.env.RESEND_API_KEY);
