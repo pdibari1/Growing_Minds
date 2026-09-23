@@ -732,7 +732,7 @@ const generatePreviewChapters = inngest.createFunction(
           const { data, error } = await resend.emails.send({
             from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
             to: customerEmail,
-            subject: `Chapter 4 of ${childName}'s story is waiting...`,
+            subject: `The rest of ${childName}'s story is waiting...`,
             html: `
               <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
                 <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
