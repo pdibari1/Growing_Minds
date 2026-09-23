@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
         payment_type: 'upgrade',
         printQuality: quality,
       },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation.html?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation.html?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}&type=upgrade&quality=${quality}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}`,
     });
 

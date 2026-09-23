@@ -318,29 +318,29 @@
       <div class="next-steps-title">📬 What happens next</div>
 
       <div class="step-row">
-        <div class="step-icon-wrap">📄</div>
+        <div class="step-icon-wrap" id="step1-icon">📄</div>
         <div class="step-content">
-          <div class="step-title">PDF arriving in your inbox</div>
-          <div class="step-desc">We're generating the full story right now and will email you a download link as soon as it's ready. Check your spam folder if you don't see it.</div>
-          <div class="step-timing">⚡ Within the next few minutes</div>
+          <div class="step-title" id="step1-title">PDF arriving in your inbox</div>
+          <div class="step-desc" id="step1-desc">We're generating the full story right now and will email you a download link as soon as it's ready. Check your spam folder if you don't see it.</div>
+          <div class="step-timing" id="step1-timing">⚡ Within the next few minutes</div>
         </div>
       </div>
 
       <div class="step-row">
-        <div class="step-icon-wrap">📦</div>
+        <div class="step-icon-wrap" id="step2-icon">📦</div>
         <div class="step-content">
-          <div class="step-title">Printed book on its way</div>
-          <div class="step-desc">Your beautifully printed softcover book has been sent to our print partner. It will be produced and shipped directly to the address you provided.</div>
-          <div class="step-timing">📮 13–15 business days</div>
+          <div class="step-title" id="step2-title">Printed book on its way</div>
+          <div class="step-desc" id="step2-desc">Your beautifully printed softcover book will be produced and shipped directly to the address you provided.</div>
+          <div class="step-timing" id="step2-timing">📮 13–15 business days</div>
         </div>
       </div>
 
       <div class="step-row">
-        <div class="step-icon-wrap">🌟</div>
+        <div class="step-icon-wrap" id="step3-icon">🌟</div>
         <div class="step-content">
-          <div class="step-title">Read it together tonight</div>
-          <div class="step-desc">Once you have the PDF, read it to your child before bed. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
-          <div class="step-timing">💛 The best part</div>
+          <div class="step-title" id="step3-title">Read it together tonight</div>
+          <div class="step-desc" id="step3-desc">Once you have the PDF, read it to your child before bed. We'd love to hear how they react — tag us at @growingminds or send us a note!</div>
+          <div class="step-timing" id="step3-timing">💛 The best part</div>
         </div>
       </div>
     </div>
@@ -352,21 +352,10 @@
         <span class="label">Story for</span>
         <span class="value" id="summary-name">Your child</span>
       </div>
-      <div class="order-row">
-        <span class="label">First Half — by Email</span>
-        <span class="value">✓ In your inbox within 30 min</span>
-      </div>
-      <div class="order-row">
-        <span class="label">Printed Hardcover Book</span>
-        <span class="value">✓ Included</span>
-      </div>
-      <div class="order-row">
-        <span class="label">Shipping</span>
-        <span class="value">✓ Free</span>
-      </div>
+      <div id="order-rows"><!-- populated per purchase type by script below --></div>
       <div class="order-total">
         <span class="label">Total paid</span>
-        <span class="value">$35.00</span>
+        <span class="value" id="order-total-value">$35.00</span>
       </div>
     </div>
 
@@ -414,20 +403,101 @@
     const params = new URLSearchParams(window.location.search);
     const urlStoryId = params.get('sid');
     const urlChildName = params.get('name');
+    // 'full' (direct $35/$45 purchase) is the default when ?type= is absent —
+    // covers any pre-existing session link created before this param existed.
+    const purchaseType = params.get('type') || 'full';
+    const quality = params.get('quality') === 'premium' ? 'premium' : 'standard';
+    const qualityLabel = quality === 'premium' ? 'Premium' : 'Standard';
 
     const storyData = sessionStorage.getItem('storyPreview');
     const parsed = storyData ? JSON.parse(storyData) : null;
     const childName = urlChildName || (parsed ? parsed.childName : localStorage.getItem('gm_last_child_name'));
     const storyId = urlStoryId || (parsed ? parsed.storyId : localStorage.getItem('gm_last_story_id'));
 
+    const PRICES = {
+      preview: 2.99,
+      full:    { standard: 35, premium: 45 },
+      upgrade: { standard: 32, premium: 42 },
+    };
+    const price = purchaseType === 'preview' ? PRICES.preview : PRICES[purchaseType][quality];
+
     if (childName) {
-      document.getElementById('confirm-subtitle').textContent =
-        `${childName}'s story is being written right now. The first half of their story will be in your inbox within 30 minutes. The complete hardcover book ships within 13–15 business days.`;
+      const name = childName;
+
+      // ── HERO SUBTITLE + STEPS, PER PURCHASE TYPE ──
+      // Each variant only promises what the pipeline actually does today (or, for
+      // physical printing, honestly states what WILL happen once it ships — never
+      // a status that isn't true yet). See GROWINGMINDS_STATUS.md / CLAUDE.md for
+      // why printing isn't automated yet.
+      if (purchaseType === 'preview') {
+        document.getElementById('confirm-subtitle').textContent =
+          `${name}'s first 3 chapters are being written right now — check your email in a few minutes for the PDF.`;
+
+        document.getElementById('step1-icon').textContent = '📄';
+        document.getElementById('step1-title').textContent = 'First 3 chapters arriving in your inbox';
+        document.getElementById('step1-desc').textContent = "We're finishing the chapters now — you'll get a PDF by email. Check your spam folder if you don't see it.";
+        document.getElementById('step1-timing').textContent = '⚡ Within a few minutes';
+
+        document.getElementById('step2-icon').textContent = '📖';
+        document.getElementById('step2-title').textContent = 'Read them together tonight';
+        document.getElementById('step2-desc').textContent = `Three full chapters, personalized just for ${name} — the perfect bedtime preview.`;
+        document.getElementById('step2-timing').textContent = '💛 The best part';
+
+        document.getElementById('step3-icon').textContent = '✨';
+        document.getElementById('step3-title').textContent = 'Decide on the full story, any time';
+        document.getElementById('step3-desc').textContent = "Loved it? Upgrade straight from that email whenever you're ready — no deadline.";
+        document.getElementById('step3-timing').textContent = '🕐 No rush';
+
+        document.getElementById('order-rows').innerHTML = `
+          <div class="order-row">
+            <span class="label">Preview — First 3 Chapters (Email)</span>
+            <span class="value">✓ In your inbox within a few minutes</span>
+          </div>`;
+
+      } else {
+        // 'full' or 'upgrade'
+        const isUpgrade = purchaseType === 'upgrade';
+        document.getElementById('confirm-subtitle').textContent =
+          `${name}'s complete 30-chapter story is being written right now. Your printed ${quality} softcover book will be on its way once it's ready.`;
+
+        document.getElementById('step1-icon').textContent = '✍️';
+        document.getElementById('step1-title').textContent = isUpgrade ? 'Finishing chapters 4–30' : 'Writing the complete story';
+        document.getElementById('step1-desc').textContent = isUpgrade
+          ? `We're continuing right where ${name}'s preview left off, plus custom illustrations throughout.`
+          : `We're generating all 30 chapters and custom illustrations for ${name}'s story now.`;
+        document.getElementById('step1-timing').textContent = '⏳ In progress';
+
+        document.getElementById('step2-icon').textContent = '📦';
+        document.getElementById('step2-title').textContent = 'Printed and shipped to your door';
+        document.getElementById('step2-desc').textContent = `Your ${quality} softcover book will be printed and mailed to the address you provided.`;
+        document.getElementById('step2-timing').textContent = '📮 13–15 business days';
+
+        document.getElementById('step3-icon').textContent = '💌';
+        document.getElementById('step3-title').textContent = "We'll email you when it's ready";
+        document.getElementById('step3-desc').textContent = "You'll hear from us once everything is complete and your book is on its way.";
+        document.getElementById('step3-timing').textContent = '📬 Look out for our email';
+
+        document.getElementById('order-rows').innerHTML = `
+          <div class="order-row">
+            <span class="label">Full Story — 30 Chapters</span>
+            <span class="value">✓ Being written now</span>
+          </div>
+          <div class="order-row">
+            <span class="label">Printed ${qualityLabel} Softcover Book</span>
+            <span class="value">✓ Included</span>
+          </div>
+          <div class="order-row">
+            <span class="label">Shipping</span>
+            <span class="value">✓ Free</span>
+          </div>`;
+      }
+
       document.getElementById('summary-name').textContent = childName;
+      document.getElementById('order-total-value').textContent = `$${price.toFixed(2)}`;
 
       // GA4 - purchase complete
       if (typeof gtag !== 'undefined') {
-        gtag('event', 'purchase', { currency: 'USD', value: 35, transaction_id: Date.now().toString() });
+        gtag('event', 'purchase', { currency: 'USD', value: price, transaction_id: Date.now().toString() });
       }
 
       sessionStorage.removeItem('storyPreview');

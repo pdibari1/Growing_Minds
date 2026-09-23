@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
       },
       // storyToken is stored in Redis (key: token:{storyId}) — kept out of metadata to avoid Stripe's 500-char limit
       metadata: { storyId, childName, customerEmail: customerEmail || '', customDetails: (customDetails || '').slice(0, 500), printQuality: quality },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation?session_id={CHECKOUT_SESSION_ID}&sid=${storyId}&name=${encodeURIComponent(childName)}&type=full&quality=${quality}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/story-preview?cancelled=true`,
     });
 
