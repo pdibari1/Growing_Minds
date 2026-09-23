@@ -51,6 +51,9 @@
     },
     "api/approve-print.js": {
       "maxDuration": 15
+    },
+    "api/register-lulu-webhook.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
