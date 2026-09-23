@@ -147,7 +147,7 @@ const generateStoryOrder = inngest.createFunction(
           const keys = allImageKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
+          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
           const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
           const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
 
@@ -186,7 +186,10 @@ const generateStoryOrder = inngest.createFunction(
             'Superhero Chronicles': 'cinematic comic style, dramatic skies, hero silhouette',
             'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
             'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
-          }[genre] || 'whimsical fantasy illustration, warm colors';
+          // A custom "Other" genre (see intake-express.html) has no curated entry here —
+          // fall back to whatever style text the parent typed instead of a generic
+          // default, so the illustrations still reflect what they actually described.
+          }[genre] || genreStyle || 'whimsical fantasy illustration, warm colors';
 
           const baseStyle = getIllustrationBaseStyle(age);
           const styleGuide = parseInt(age) <= 5
@@ -555,7 +558,7 @@ const generatePreviewChapters = inngest.createFunction(
 
     // Generate cover illustration
     await step.run("generate-preview-cover", async () => {
-      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, friend, customDetails } = childData;
+      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
       const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
       // Only the primary character (and any secondary character with an explicit
@@ -589,7 +592,9 @@ const generatePreviewChapters = inngest.createFunction(
         'Superhero Chronicles': 'cinematic comic style, dramatic skies, hero silhouette',
         'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
         'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
-      }[genre] || 'whimsical fantasy illustration, warm colors';
+      // Same custom-genre fallback as the full-order illustration step — see the
+      // comment there.
+      }[genre] || genreStyle || 'whimsical fantasy illustration, warm colors';
       const baseStyle = getIllustrationBaseStyle(age);
       const styleGuide = parseInt(age) <= 5
         ? `${baseStyle} Softer and gentler energy for a younger reader. ${genreVisual}`

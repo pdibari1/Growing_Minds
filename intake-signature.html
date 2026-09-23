@@ -380,7 +380,10 @@
       <h1 class="panel-title">What is your child into?</h1>
       <p class="panel-sub">Pick the world your child will adventure in.</p>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem;" id="genreCards"></div>
-      <div class="field-error" id="err-genre" style="margin-top:.5rem;">Please pick a story style.</div>
+      <div id="otherGenreField" style="display:none;margin-top:.8rem;">
+        <input type="text" id="otherGenreInput" placeholder="e.g. dinosaurs, space pirates, cooking competitions…" maxlength="60" oninput="onOtherGenreInput()"/>
+      </div>
+      <div class="field-error" id="err-genre" style="margin-top:.5rem;">Please pick a story style, or describe your own.</div>
       <div class="nav"><button class="btn-back" onclick="goTo(3)">← Back</button><button class="btn-next" onclick="goTo(5)">Continue →</button></div>
     </div>
 
@@ -583,25 +586,68 @@ const GENRES = {
 
 function getGenreGroup(age){const a=parseInt(age);if(a<=5)return'3-5';if(a<=9)return'6-9';return'10-13';}
 
+const OTHER_GENRE_VAL = '__other__';
+
 function renderGenres(){
   const age=document.getElementById('childAge')?.value||'7';
   const group=getGenreGroup(age);
   const list=GENRES[group]||GENRES['6-9'];
+  // If the current genre isn't one of this age group's presets, it's either a
+  // custom "Other" entry or a leftover pick from a different age group after
+  // the age changed — either way, surface it as the selected Other card with
+  // its text preserved, instead of silently losing it.
+  const isCustom = !!state.genre && !list.some(g=>g.val===state.genre);
   document.getElementById('genreCards').innerHTML=list.map(g=>`
-    <div class="card-option" data-val="${g.val}" data-style="${g.style}" onclick="selectGenre(this)">
+    <div class="card-option${g.val===state.genre?' selected':''}" data-val="${g.val}" data-style="${g.style}" onclick="selectGenre(this)">
       <div class="card-icon">${g.icon}</div>
       <div class="card-label">${g.val}</div>
     </div>
-  `).join('');
+  `).join('') + `
+    <div class="card-option${isCustom?' selected':''}" data-val="${OTHER_GENRE_VAL}" onclick="selectGenre(this)">
+      <div class="card-icon">✨</div>
+      <div class="card-label">Other</div>
+    </div>
+  `;
+  const otherField=document.getElementById('otherGenreField');
+  const otherInput=document.getElementById('otherGenreInput');
+  if(isCustom){
+    otherField.style.display='block';
+    otherInput.value=state.genre;
+  } else {
+    otherField.style.display='none';
+  }
 }
 
 function selectGenre(el){
   document.querySelectorAll('#genreCards .card-option').forEach(c=>c.classList.remove('selected'));
   el.classList.add('selected');
-  state.genre=el.dataset.val;
-  state.genreStyle=el.dataset.style;
+  const otherField=document.getElementById('otherGenreField');
+  const otherInput=document.getElementById('otherGenreInput');
+  if(el.dataset.val===OTHER_GENRE_VAL){
+    otherField.style.display='block';
+    otherInput.focus();
+    // No curated style text for a custom genre, so the typed description does
+    // double duty as both the short label and the style descriptor — see the
+    // genreVisual fallback in api/inngest.js that consumes this.
+    state.genre=otherInput.value.trim();
+    state.genreStyle=state.genre;
+  } else {
+    otherField.style.display='none';
+    state.genre=el.dataset.val;
+    state.genreStyle=el.dataset.style;
+  }
   const err=document.getElementById('err-genre');
   if(err)err.classList.remove('show');
+}
+
+function onOtherGenreInput(){
+  const val=document.getElementById('otherGenreInput').value.trim();
+  state.genre=val;
+  state.genreStyle=val;
+  if(val){
+    const err=document.getElementById('err-genre');
+    if(err)err.classList.remove('show');
+  }
 }
 
 function renderSidebar(){
