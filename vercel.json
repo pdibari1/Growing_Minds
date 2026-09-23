@@ -48,6 +48,9 @@
     },
     "api/lulu-cost-check.js": {
       "maxDuration": 15
+    },
+    "api/approve-print.js": {
+      "maxDuration": 15
     }
   },
   "rewrites": [

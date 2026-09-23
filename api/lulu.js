@@ -3,6 +3,8 @@
 // SKU format: [Trim].[Ink].[Quality].[Binding].[Paper].[Finish]
 
 const https = require("https");
+const { PDFDocument, rgb, StandardFonts } = require("pdf-lib");
+const { put } = require("@vercel/blob");
 
 // Set LULU_SANDBOX=true in Vercel env vars to use the sandbox (no real prints, no charges)
 const SANDBOX     = process.env.LULU_SANDBOX === "true";
@@ -137,6 +139,96 @@ async function registerLuluWebhook(webhookUrl) {
   });
 }
 
+// ── Fetch raw bytes from a URL (follows redirects) ──
+function fetchBytes(url) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const mod = urlObj.protocol === "https:" ? https : require("http");
+    const req = mod.get(url, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchBytes(res.headers.location).then(resolve).catch(reject);
+      }
+      const chunks = [];
+      res.on("data", c => chunks.push(c));
+      res.on("end", () => resolve(Buffer.concat(chunks)));
+    });
+    req.on("error", reject);
+  });
+}
+
+// ── Build a print-ready cover PDF (front + spine + back, with bleed) ──
+// Lulu needs one flat cover PDF sized to its own cover-dimensions formula, not the
+// per-chapter interior PDF's cover page — spine width depends on final page count,
+// so this can only be built once the interior PDF is finished. Adapted from the
+// same drawing logic already proven out in api/lulu-jobs.js's admin test-order path.
+async function buildCoverPdf(storyId, childName, pageCount, coverImageUrl, printQuality = "standard") {
+  let dims;
+  try {
+    dims = await getCoverDimensions(pageCount, printQuality);
+  } catch(e) {
+    console.warn(`getCoverDimensions failed: ${e.message} — using formula`);
+    const spineIn = pageCount / 444;
+    dims = { width: String(5.5 * 2 + spineIn + 0.125 * 2), height: String(8.5 + 0.125 * 2) };
+  }
+
+  const coverWidthIn  = parseFloat(dims.width);
+  const coverHeightIn = parseFloat(dims.height);
+  const spineIn = Math.max(0, coverWidthIn - (5.5 * 2 + 0.125 * 2));
+  const totalW  = Math.round(coverWidthIn  * 72);
+  const totalH  = Math.round(coverHeightIn * 72);
+  const spineW  = Math.round(spineIn * 72);
+  const bleedPt = Math.round(0.125 * 72);
+  const trimW   = Math.round(5.5 * 72);
+  const trimH   = Math.round(8.5 * 72);
+
+  const coverDoc = await PDFDocument.create();
+  const page     = coverDoc.addPage([totalW, totalH]);
+
+  const timesBold = await coverDoc.embedFont(StandardFonts.TimesRomanBold);
+  const helvetica = await coverDoc.embedFont(StandardFonts.Helvetica);
+
+  const green     = rgb(0.176, 0.416, 0.310);
+  const white     = rgb(1, 1, 1);
+  const darkGreen = rgb(0.06, 0.15, 0.10);
+
+  // Back cover
+  page.drawRectangle({ x: 0, y: 0, width: bleedPt + trimW, height: totalH, color: darkGreen });
+  page.drawText("A Growing Minds Original Story", { x: bleedPt + 24, y: totalH / 2 + 20, font: helvetica, size: 10, color: white });
+  page.drawText("growingminds.io", { x: bleedPt + 24, y: bleedPt + 20, font: helvetica, size: 9, color: rgb(0.5, 0.8, 0.6) });
+
+  // Spine
+  const spineX = bleedPt + trimW;
+  page.drawRectangle({ x: spineX, y: 0, width: spineW, height: totalH, color: green });
+  if (spineW > 30) {
+    page.drawText(`${childName} · Growing Minds`, {
+      x: spineX + spineW / 2 + 6, y: bleedPt + 20,
+      font: timesBold, size: Math.min(9, spineW * 0.4), color: white,
+      rotate: { type: "degrees", angle: 90 },
+    });
+  }
+
+  // Front cover
+  const frontX = spineX + spineW;
+  page.drawRectangle({ x: frontX, y: 0, width: trimW + bleedPt, height: totalH, color: darkGreen });
+
+  if (coverImageUrl) {
+    try {
+      const imgBytes = await fetchBytes(coverImageUrl);
+      const img = await coverDoc.embedJpg(imgBytes).catch(() => coverDoc.embedPng(imgBytes));
+      page.drawImage(img, { x: frontX, y: bleedPt + Math.round(trimH * 0.35), width: trimW, height: Math.round(trimH * 0.65) });
+    } catch(e) { console.warn("Cover image embed failed:", e.message); }
+  }
+
+  page.drawRectangle({ x: frontX, y: bleedPt, width: trimW, height: Math.round(trimH * 0.38), color: green });
+  page.drawText(`${childName}'s Story`, { x: frontX + 24, y: bleedPt + Math.round(trimH * 0.35) - 40, font: timesBold, size: 22, color: white });
+  page.drawText("A Growing Minds Original Story", { x: frontX + 24, y: bleedPt + Math.round(trimH * 0.35) - 70, font: helvetica, size: 9, color: rgb(0.8, 0.9, 0.85) });
+
+  const pdfBytes = await coverDoc.save();
+  const blob = await put(`covers/${storyId}/lulu-cover.pdf`, pdfBytes, { access: "public", contentType: "application/pdf" });
+  console.log(`Lulu cover PDF built: ${blob.url} (spine ${spineW}pt)`);
+  return blob.url;
+}
+
 // ── Low-level HTTPS helper ──
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
@@ -172,4 +264,5 @@ module.exports = {
   createLuluPrintJob,
   getLuluJobStatus,
   registerLuluWebhook,
+  buildCoverPdf,
 };

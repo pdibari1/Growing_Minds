@@ -2,8 +2,21 @@
 const { serve } = require("inngest/node");
 const { Inngest } = require("inngest");
 const https = require("https");
+const crypto = require("crypto");
 const { Resend } = require("resend");
 const { put, del } = require("@vercel/blob");
+const { PDFDocument } = require("pdf-lib");
+const { createLuluPrintJob, buildCoverPdf } = require("./lulu");
+
+// Same derivation as api/approve-print.js — the two must agree for the "Approve &
+// Send" link in the review email to actually validate.
+function adminToken(storyId) {
+  return crypto
+    .createHmac("sha256", process.env.ADMIN_WEBHOOK_SECRET || "dev-secret")
+    .update(storyId)
+    .digest("hex")
+    .slice(0, 24);
+}
 
 const inngest = new Inngest({
   id: "growingminds",
@@ -37,7 +50,7 @@ const generateStoryOrder = inngest.createFunction(
   },
   { event: "order/completed" },
   async ({ event, step }) => {
-    const { storyToken, childName, storyId, customerEmail, customDetails, printQuality } = event.data;
+    const { storyToken, childName, storyId, customerEmail, customDetails, printQuality, shippingAddress } = event.data;
     const childData = decodeStoryData(storyToken);
     if (!childData) throw new Error("Could not decode story token");
     // Merge customDetails from event (not stored in token to keep it short)
@@ -244,13 +257,8 @@ const generateStoryOrder = inngest.createFunction(
       }
     }
 
-    // The 10-chapter delivery email is intentionally gone — full orders are meant to
-    // ship as a physical book via Lulu (not yet wired into this flow) rather than a
-    // partial PDF by email. Chapters/illustrations generated above are still saved to
-    // Airtable and Blob below for whenever that pipeline exists.
-
-    // Step: Build the full book PDF and notify admin with a link — not attached, so
-    // there's no email attachment size ceiling to worry about, just a Blob URL.
+    // Step: Build the full book PDF — not attached to any email, just a Blob URL,
+    // so there's no attachment-size ceiling to worry about.
     const fullPdfUrl = await step.run("create-full-pdf", async () => {
       console.log(`Building full ${tier.chapCount}-chapter PDF for ${storyId}`);
       try {
@@ -272,11 +280,62 @@ const generateStoryOrder = inngest.createFunction(
       }
     });
 
-    await step.run("notify-full-book-ready", async () => {
-      await sendOrderNotification(
-        `Full book ready — ${childName} (${storyId})`,
-        `The full book (all ${tier.chapCount} chapters) is ready to view:\n${fullPdfUrl}\n\nStory ID: ${storyId}\nChild: ${childName}\nCustomer: ${customerEmail || 'n/a'}`
-      );
+    // Save details the Lulu webhook and the approval flow below need, keyed by
+    // storyId so they're reachable from a later, out-of-band request (an admin
+    // clicking the approve link, or Lulu's own status webhook days from now).
+    await step.run("save-order-metadata", async () => {
+      await redisRequest("SET", [`fullbookurl:${storyId}`, fullPdfUrl, "EX", 2592000]);
+      await redisRequest("SET", [`customeremail:${storyId}`, customerEmail || '', "EX", 2592000]);
+      await redisRequest("SET", [`childname:${storyId}`, childName, "EX", 2592000]);
+    });
+
+    // Human review gate: an AI mistake (wrong companion animal, a hostile-looking
+    // cover, a name that doesn't match what the family entered) is cheap to catch
+    // here and expensive to catch after a physical book has been printed and
+    // mailed. The review email includes the family's actual intake answers next
+    // to the book link specifically so this catches factual mismatches, not just
+    // "does it look okay."
+    await step.run("send-approval-request", async () => {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const token = adminToken(storyId);
+      const approveUrl = `https://www.growingminds.io/api/approve-print?storyId=${encodeURIComponent(storyId)}&token=${token}`;
+      const { friend, city, region, milestone, age, genre } = childData;
+
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+        to: process.env.ADMIN_ALERT_EMAIL || "hello@growingminds.io",
+        subject: `📖 Review needed — ${childName}'s book (${printQuality || 'standard'})`,
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a2e1f;">
+            <div style="background:#2d6a4f;padding:1.5rem 2rem;border-radius:12px 12px 0 0;">
+              <h1 style="color:#fff;margin:0;font-size:1.3rem;">📖 ${childName}'s book is ready for review</h1>
+            </div>
+            <div style="background:#fff;border:1px solid #e8f0e9;border-top:none;padding:1.5rem 2rem;border-radius:0 0 12px 12px;">
+              <div style="font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b8f71;margin-bottom:.6rem;">What the family actually told us</div>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;">
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;width:140px;">Child</td><td style="padding:.4rem 0;font-weight:700;">${childName}, age ${age}</td></tr>
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Milestone</td><td style="padding:.4rem 0;">${milestone || '—'}</td></tr>
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Hometown</td><td style="padding:.4rem 0;">${city || '—'}, ${region || '—'}</td></tr>
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Companion</td><td style="padding:.4rem 0;">${friend && friend !== 'none' ? friend : '(none)'}</td></tr>
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Genre</td><td style="padding:.4rem 0;">${genre || '—'}</td></tr>
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Print quality</td><td style="padding:.4rem 0;">${printQuality || 'standard'}</td></tr>
+              </table>
+              ${customDetails ? `
+              <div style="margin-bottom:1.5rem;">
+                <div style="font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b8f71;margin-bottom:.4rem;">Full intake answers</div>
+                <div style="background:#f0faf3;border-left:3px solid #52b788;padding:.85rem 1rem;border-radius:0 8px 8px 0;font-size:.9rem;line-height:1.5;white-space:pre-wrap;">${customDetails.slice(0, 2000)}</div>
+              </div>` : ''}
+              <p style="margin:0 0 1.25rem;"><a href="${fullPdfUrl}" style="color:#2d6a4f;font-weight:700;">📄 Open the full book PDF →</a></p>
+              <p style="color:#6b7280;font-size:.85rem;margin-bottom:1.5rem;">Check the story and illustrations against the details above — especially anything the model could invent (companion animal species, appearance, named people).</p>
+              <div style="text-align:center;">
+                <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2.5rem;border-radius:12px;box-shadow:0 4px 14px rgba(22,163,74,0.35);">✅ Approve & Send</a>
+              </div>
+              <p style="font-size:.78rem;color:#b0c4b5;margin-top:1.5rem;border-top:1px solid #f0faf3;padding-top:.75rem;">Story ID: ${storyId} · Customer: ${customerEmail || 'n/a'} · No action in 7 days = the customer isn't notified and nothing prints — you'll get a reminder.</p>
+            </div>
+          </div>`
+      });
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      console.log(`Approval request sent for ${storyId} (id: ${data?.id})`);
     });
 
     // Step 6: Save full story to Airtable for training data
@@ -285,6 +344,105 @@ const generateStoryOrder = inngest.createFunction(
       const allChapters = await getChaptersFromRedis(storyId);
       await saveStoryToAirtable(storyId, customerEmail, childName, childData, allChapters, printQuality || "standard");
     });
+
+    // Wait up to 7 days for an admin to click "Approve & Send" — see
+    // send-approval-request above for why this human check exists at all.
+    const approval = await step.waitForEvent("wait-for-approval", {
+      event: "book/approved",
+      match: "data.storyId",
+      timeout: "7d",
+    });
+
+    if (!approval) {
+      await step.run("approval-timeout-alert", async () => {
+        await sendAlertEmail(
+          `Book approval overdue — ${childName} (${storyId})`,
+          `No one approved ${childName}'s book within 7 days, so the customer was never emailed and nothing was sent to print.\n\nReview it here: ${fullPdfUrl}\n\nStory ID: ${storyId}`
+        );
+      });
+    } else {
+      // Customer-facing "book is ready" email — the actual delivery moment full
+      // orders never had before. Links to the PDF rather than attaching it, since
+      // an illustrated 30-chapter book can be far larger than a 3-chapter preview.
+      await step.run("send-customer-email", async () => {
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const quality = printQuality === 'premium' ? 'premium' : 'standard';
+        const { error } = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+          to: customerEmail,
+          subject: `🎉 ${childName}'s story is ready!`,
+          html: `
+            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+              <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+                <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
+              </div>
+              <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+                <h2 style="color:#2d6a4f;">${childName}'s complete story is ready! 🎉</h2>
+                <p>All ${tier.chapCount} chapters, personalized just for ${childName}, are ready to read right now.</p>
+                <div style="text-align:center;margin:1.5rem 0;">
+                  <a href="${fullPdfUrl}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">📖 Read the Full Story →</a>
+                </div>
+                <p style="color:#6b7280;font-size:.9rem;">Your ${quality} softcover book is also being printed and mailed to the address you provided — we'll send tracking info once it ships.</p>
+                <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+              </div>
+            </div>`
+        });
+        if (error) throw new Error(error.message || JSON.stringify(error));
+        console.log(`Customer book-ready email sent to ${customerEmail} for ${storyId}`);
+      });
+
+      // Submit the actual Lulu print job — only once a human has approved, and
+      // only if Stripe actually collected a shipping address at checkout.
+      await step.run("submit-lulu-print-job", async () => {
+        if (!shippingAddress) {
+          console.log(`No shipping address for ${storyId} — skipping Lulu submission`);
+          await sendAlertEmail(
+            `No shipping address — ${childName} (${storyId})`,
+            `${childName}'s book was approved, but no shipping address was collected at checkout, so no print job was submitted. Customer: ${customerEmail || 'n/a'}`
+          );
+          return;
+        }
+        try {
+          const illustrationUrls = await getIllustrationsFromRedis(storyId);
+          const coverImageUrl = illustrationUrls['0-0'] || null;
+          const quality = printQuality === 'premium' ? 'premium' : 'standard';
+
+          // Measure the real page count from the generated PDF — the cover's spine
+          // width depends on it, and getting that wrong is a real print defect,
+          // not just a cosmetic one.
+          let pageCount;
+          try {
+            const pdfBytes = await fetchImageBytes(fullPdfUrl);
+            const doc = await PDFDocument.load(pdfBytes);
+            pageCount = doc.getPageCount();
+          } catch (e) {
+            console.warn(`Page count measurement failed, using tier estimate: ${e.message}`);
+            pageCount = tier.chapCount * 5 + 4;
+          }
+
+          const coverUrl = await buildCoverPdf(storyId, childName, pageCount, coverImageUrl, quality);
+          const job = await createLuluPrintJob({
+            interiorUrl: fullPdfUrl,
+            coverUrl,
+            shippingDetails: shippingAddress,
+            customerEmail,
+            storyId,
+            childName,
+            printQuality: quality,
+          });
+
+          await redisRequest("SET", [`lulu-job:${storyId}`, String(job.id), "EX", 2592000]);
+          await redisRequest("SET", [`lulu-job-story:${job.id}`, storyId, "EX", 2592000]);
+          console.log(`Lulu print job created: ${job.id} for ${childName} (${storyId})`);
+        } catch (e) {
+          console.error(`Lulu order failed: ${e.message}`);
+          await sendAlertEmail(
+            `Lulu print submission failed — ${childName} (${storyId})`,
+            `createLuluPrintJob threw: ${e.message}\n\nThe customer was already emailed their PDF — this only affects the physical book. Retry manually via api/lulu-jobs.js once fixed.`
+          );
+        }
+      });
+    }
 
     // Step 7: Clean up Redis and Blob storage
     await step.run("cleanup", async () => {

@@ -94,6 +94,9 @@ module.exports = async function handler(req, res) {
   const session = event.data.object;
   const { storyId, childName, customDetails: metaCustomDetails, payment_type, printQuality } = session.metadata;
   const customerEmail = session.customer_details?.email;
+  // Populated by shipping_address_collection on the Checkout Session (create-checkout.js /
+  // create-upgrade-checkout.js) — needed later for the actual Lulu print job submission.
+  const shippingAddress = session.shipping_details || null;
 
   // Get storyToken from Redis
   const storyToken = await getTokenFromRedis(storyId);
@@ -120,7 +123,7 @@ module.exports = async function handler(req, res) {
   try {
     await sendInngestEvent({
       name: eventName,
-      data: { storyToken, childName, storyId, customerEmail, customDetails, printQuality: printQuality || 'standard' }
+      data: { storyToken, childName, storyId, customerEmail, customDetails, printQuality: printQuality || 'standard', shippingAddress }
     });
   } catch (e) {
     console.error(`Failed to send Inngest event for ${childName}: ${e.message}`);
