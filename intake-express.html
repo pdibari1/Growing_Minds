@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Growing Minds — Let's Write Your Child's Story</title>
+  <title>Growing Minds — Let's Write Your Child's Story (Express)</title>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
 
   <!-- Google Analytics -->
@@ -642,7 +642,7 @@ function renderProgress(){
 
 function goTo(step){
   if(step>currentStep&&!validate(currentStep))return;
-  if(typeof gtag!=='undefined')gtag('event','form_step_complete',{step_number:currentStep+1});
+  if(typeof gtag!=='undefined')gtag('event','form_step_complete',{step_number:currentStep+1,form_type:'express'});
   if(currentStep===1&&step>1){
     const email=document.getElementById('parentEmail').value.trim();
     const name=document.getElementById('childName').value.trim();
@@ -820,7 +820,7 @@ async function submitForm(){
   document.getElementById('loadingSub').textContent=`Our storyteller is weaving a one-of-a-kind adventure just for ${name}. This usually takes about 20 seconds.`;
   document.getElementById('loadingOverlay').classList.add('show');
 
-  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:st.milestoneLabel,child_age:age});
+  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:st.milestoneLabel,child_age:age,form_type:'express'});
 
   const payload={name,age,gender:document.getElementById('childGender').value||'',ethnicity,hair:st.hair,hairLength:st.hairLength,hairStyle:st.hairStyle,eye:st.eye,trait:st.trait,favorite:fav,friend,city,region,milestone:milestoneStr,email,priorStoryId:document.getElementById('priorStoryId').value.trim()||'',customDetails,genre:st.genre||'',genreStyle:st.genreStyle||''};
 
@@ -831,7 +831,7 @@ async function submitForm(){
     sessionStorage.setItem('storyPreview',JSON.stringify({preview:data.preview,storyToken:data.storyToken,storyId:data.storyId,childName:data.childName,customerEmail:email,customDetails:data.customDetails||customDetails,childData:payload}));
     localStorage.setItem('gm_last_story_id',data.storyId);
     localStorage.setItem('gm_last_child_name',data.childName);
-    if(typeof gtag!=='undefined')gtag('event','preview_generated',{story_id:data.storyId});
+    if(typeof gtag!=='undefined')gtag('event','preview_generated',{story_id:data.storyId,form_type:'express'});
     window.location.href='story-preview.html';
   }catch(err){
     console.error(err);
