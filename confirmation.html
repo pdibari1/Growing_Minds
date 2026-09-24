@@ -403,7 +403,7 @@
     const params = new URLSearchParams(window.location.search);
     const urlStoryId = params.get('sid');
     const urlChildName = params.get('name');
-    // 'full' (direct $35/$45 purchase) is the default when ?type= is absent —
+    // 'full' (direct $35/$50 purchase) is the default when ?type= is absent —
     // covers any pre-existing session link created before this param existed.
     const purchaseType = params.get('type') || 'full';
     const quality = params.get('quality') === 'premium' ? 'premium' : 'standard';
@@ -416,8 +416,8 @@
 
     const PRICES = {
       preview: 2.99,
-      full:    { standard: 35, premium: 45 },
-      upgrade: { standard: 32, premium: 42 },
+      full:    { standard: 35, premium: 50 },
+      upgrade: { standard: 32, premium: 47 },
     };
     const price = purchaseType === 'preview' ? PRICES.preview : PRICES[purchaseType][quality];
 

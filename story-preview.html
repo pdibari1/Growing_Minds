@@ -528,7 +528,7 @@
             </button>
             <button type="button" class="quality-btn" data-quality="premium" onclick="selectQuality('premium')">
               <span class="quality-name">Premium</span>
-              <span class="quality-price">$45</span>
+              <span class="quality-price">$50</span>
               <span class="quality-desc">Richer color, heavier paper</span>
             </button>
           </div>
@@ -639,7 +639,7 @@
     // ── PRINT QUALITY SELECTION ── (declared before use below, since these are
     // `let`/`const` and the story-loading block right after calls updateBuyButton())
     let selectedQuality = 'standard';
-    const QUALITY_PRICES = { standard: 35, premium: 45 };
+    const QUALITY_PRICES = { standard: 35, premium: 50 };
 
     // ── LOAD STORY DATA FROM SESSION ──
     const raw = sessionStorage.getItem('storyPreview');

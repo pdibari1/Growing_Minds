@@ -1,9 +1,9 @@
 // api/create-checkout.js
 const Stripe = require("stripe");
 
-// Premium is +$10 over standard — covers the real Lulu premium-color print cost
+// Premium is +$15 over standard — covers the real Lulu premium-color print cost
 // difference (confirmed via /api/lulu-cost-check) plus margin, not just cost pass-through.
-const PRICE_CENTS = { standard: 3500, premium: 4500 };
+const PRICE_CENTS = { standard: 3500, premium: 5000 };
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {

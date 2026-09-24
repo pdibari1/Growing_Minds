@@ -309,7 +309,7 @@
     </button>
     <button type="button" class="quality-btn" data-quality="premium" onclick="selectQuality('premium')">
       <span class="quality-name">Premium</span>
-      <span class="quality-price">$42 due today</span>
+      <span class="quality-price">$47 due today</span>
       <span class="quality-desc">Richer color, heavier paper</span>
     </button>
   </div>
@@ -365,12 +365,12 @@
   }
 
   // \u2500\u2500 PRINT QUALITY SELECTION \u2500\u2500
-  // $35/$45 total minus the $2.99 preview already paid, rounded up to a
+  // $35/$50 total minus the $2.99 preview already paid, rounded up to a
   // whole dollar \u2014 matches UPGRADE_PRICE_CENTS in create-upgrade-checkout.js.
   let selectedQuality = 'standard';
   const QUALITY_PRICES = {
     standard: { total: 35, due: 32 },
-    premium:  { total: 45, due: 42 },
+    premium:  { total: 50, due: 47 },
   };
 
   function selectQuality(quality) {

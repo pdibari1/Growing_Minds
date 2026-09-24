@@ -1,8 +1,8 @@
 // api/create-upgrade-checkout.js — upgrade checkout (full book, $2.99 already credited)
 const Stripe = require("stripe");
 
-// $35/$45 total minus the $2.99 preview already paid, rounded up to a whole dollar.
-const UPGRADE_PRICE_CENTS = { standard: 3200, premium: 4200 };
+// $35/$50 total minus the $2.99 preview already paid, rounded up to a whole dollar.
+const UPGRADE_PRICE_CENTS = { standard: 3200, premium: 4700 };
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
