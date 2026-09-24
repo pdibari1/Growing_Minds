@@ -803,6 +803,14 @@ async function generateOutline(child, tier) {
 
 EMOTIONAL FRAMING RULE: This milestone is about big feelings, so if the story gives ${name} any ability, power, or tool that responds to their emotional state, it must respond to whether ${name} is present, grounded, and connected — never simply to whether ${name} is "happy." Never frame it as "happy feelings make it stronger, other feelings make it weaker." ${name} should be allowed to feel angry, sad, or frustrated while the story treats those feelings as normal, not as a malfunction or a loss of ability. What restores or strengthens the ability is ${name} returning to a grounded, present state — through breathing, quiet time, or connection with someone else — never simply "cheering up" or "being happy again."` : '';
 
+  // At this age, real coping happens mostly WITH a trusted adult present, not
+  // independently — co-regulation is the developmentally typical pattern, and
+  // that capacity for fully independent self-regulation isn't there yet.
+  const youngReader = parseInt(age) <= 5;
+  const coRegulationLine = youngReader ? `
+
+YOUNG READER CO-REGULATION RULE: ${name} is ${age}, so when they calm down or work through a hard feeling, a trusted adult should typically be present and helping — sitting close, breathing together, listening — even though, per the ADULT ROLE RULE above, that adult must still never be the one who performs the decisive action that resolves the climax. Refer to this adult generically by their family role (Mom, Dad, a grandparent) unless the custom details below specifically name someone — never invent a new adult character (a new teacher, neighbor, or stranger) to fill this comforting role.` : '';
+
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 
 Hero: ${name}, age ${age}, ${genderPronoun}, ${hairDesc} hair, ${eye} eyes
@@ -847,7 +855,7 @@ BASELINE RULE: Before the ${genre || 'fantasy'} hook ignites in Chapters 1–2, 
 SCENE CONTINUITY RULE: Never open a chapter with a hard reset to a new setting just because time has passed (e.g. "the next day at school," "that weekend at camp") with nothing connecting it to what just happened. Every chapter must carry forward something concrete from the chapter before it — an unresolved problem, a goal ${name} is now pursuing, a question they need answered, or an emotion they're still working through — and that carried-forward thing is what puts ${name} in this chapter's setting, not mere timekeeping. If the location changes, the summary must make clear it changes because of what just happened, not simply because a new day or activity started.
 
 ADVENTURE INTEGRATION RULE: The ${genre || 'fantasy'} adventure must not stay confined to a separate "adventure world" that ${name} visits and then cleanly leaves behind, resetting ordinary life back to mundane in between. Once ignited in Chapters 1–2, it follows ${name} home and stays active in their everyday settings (home, school, family, friends) for the rest of the book — a magic object lives in ${name}'s room, a power shows up at the dinner table, a consequence follows ${name} to school the next day, and so on, whatever fits this story. Ordinary life and the adventure should read as one continuous, escalating thing happening to ${name}, never as two separate categories of scene that alternate. By Chapters 25–30, the adventure's effects should be fully present in ${name}'s ordinary life rather than something wrapped up and left behind in a special separate place.
-${emotionFramingLine}
+${emotionFramingLine}${coRegulationLine}
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
@@ -927,6 +935,14 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
 
   const isLastBatch = endIdx >= outline.length;
 
+  // "Show don't tell" is good craft for an older reader, but research on preschool
+  // emotional literacy favors the opposite — explicitly naming a feeling is part of
+  // how kids that age actually build emotional vocabulary. Flipping this uniformly
+  // for older readers would read as preachy, so it only applies at age <= 5.
+  const emotionRule = parseInt(age) <= 5
+    ? `- EMOTION NAMING RULE: Because this is for a very young reader, it's fine — even good — to name the feeling plainly alongside showing it physically. Example: "Benjamin felt angry. His fists clenched and his ears went hot." Naming the emotion directly helps a young child build their own emotional vocabulary; don't rely on physical description alone to carry it.`
+    : `- CRITICAL WRITING RULE: Never explain what a character is feeling. Show it through physical detail, action, and dialogue only. Wrong: "Benjamin felt angry." Right: "Benjamin's ears went hot. His fists clenched. He walked away without saying anything." Trust the reader to understand.`;
+
   const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these MUST be followed exactly in every chapter:\n${customDetails}\nPay special attention to any nicknames — use them EVERY time that character is addressed or referenced. Never use a different name for a character who has been given a nickname.` : "";
 
   const prompt = `You are writing chapters ${startIdx + 1}–${endIdx} of a personalized children's ${tier.label}.
@@ -948,7 +964,7 @@ RULES:
 - NAMES: Never invent a nickname for ${name} or any other character. Use only the names given above, or a nickname only if the custom details explicitly supplied one — and that nickname always means ${name}, never whoever is speaking it or anyone else, in every chapter.
 - APPEARANCE: Never invent a physical trait (hair, eyes, height, build, clothing) for a named character who wasn't given one in the custom details — not even a small, throwaway detail. Only describe what was explicitly provided.
 - Each chapter: ${tier.minWords}–${tier.maxWords} words, ending on a natural story beat
-- CRITICAL WRITING RULE: Never explain what a character is feeling. Show it through physical detail, action, and dialogue only. Wrong: "Benjamin felt angry." Right: "Benjamin's ears went hot. His fists clenched. He walked away without saying anything." Trust the reader to understand.
+${emotionRule}
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
 - Each chapter flows naturally from the last — no new unrelated premises
