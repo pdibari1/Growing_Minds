@@ -330,6 +330,7 @@ const generateStoryOrder = inngest.createFunction(
               </div>` : ''}
               <p style="margin:0 0 1.25rem;"><a href="${fullPdfUrl}" style="color:#2d6a4f;font-weight:700;">📄 Open the full book PDF →</a></p>
               <p style="color:#6b7280;font-size:.85rem;margin-bottom:1.5rem;">Check the story and illustrations against the details above — especially anything the model could invent (companion animal species, appearance, named people).</p>
+              <p style="color:#b91c1c;font-size:.85rem;font-weight:700;margin-bottom:1.5rem;">⚠️ Clicking Approve & Send submits a real, chargeable print job to Lulu and emails the customer their book — there's no confirmation step after this.</p>
               <div style="text-align:center;">
                 <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2.5rem;border-radius:12px;box-shadow:0 4px 14px rgba(22,163,74,0.35);">✅ Approve & Send</a>
               </div>
