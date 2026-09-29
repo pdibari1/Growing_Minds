@@ -884,23 +884,29 @@ No markdown, no explanation, just the JSON array.`;
       cleaned = cleaned.slice(start, end + 1);
     }
     const parsed = JSON.parse(cleaned);
-    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Not an array");
-    if (parsed.length !== tier.chapCount) {
-      console.warn(`Outline returned ${parsed.length} chapters, expected ${tier.chapCount} — trimming/padding`);
-      while (parsed.length < tier.chapCount) {
-        parsed.push({ title: `Chapter ${parsed.length + 1}`, carriesForward: `Continues directly from the previous chapter`, summary: `The adventure continues`, imagePrompt: `${name} exploring ${city}` });
-      }
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("Outline response was not a valid array");
+    if (parsed.length < tier.chapCount) {
+      // Never pad a short outline with generic filler chapters — see the comment
+      // in the catch block below for why this throws instead.
+      throw new Error(`Outline returned only ${parsed.length} of ${tier.chapCount} required chapters`);
+    }
+    if (parsed.length > tier.chapCount) {
+      // Trimming extras is safe — every chapter here is still real, personalized
+      // content from Claude, just more than needed.
+      console.warn(`Outline returned ${parsed.length} chapters, expected ${tier.chapCount} — trimming extras`);
       return parsed.slice(0, tier.chapCount);
     }
     return parsed;
   } catch(e) {
-    console.error("Outline parse failed, using fallback:", e.message);
-    return Array.from({ length: tier.chapCount }, (_, i) => ({
-      title: `Chapter ${i + 1}`,
-      carriesForward: `Continues directly from the previous chapter`,
-      summary: `Part ${i + 1} of ${name}'s adventure`,
-      imagePrompt: `${name} on an adventure in ${city}`
-    }));
+    // Never fall back to generic placeholder chapters ("Chapter 1", "Part 1 of
+    // NAME's adventure") — a customer's book must be built from a real,
+    // personalized outline or not at all. Throwing here lets Inngest retry this
+    // step automatically, and if it still fails after exhausting retries, the
+    // function's onFailure handler sends a real alert with the customer's info,
+    // so the order can be manually re-run instead of silently shipping a
+    // generic, unpersonalized book.
+    console.error("Outline generation/parse failed:", e.message);
+    throw new Error(`Outline generation failed: ${e.message}`);
   }
 }
 
