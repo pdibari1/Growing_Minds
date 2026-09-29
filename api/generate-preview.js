@@ -20,6 +20,27 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "Your submission contains inappropriate content. Please review your entries and try again." });
   }
 
+  const storyId = "story_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+
+  // Save the raw intake before calling Claude — previously nothing was persisted
+  // until after a successful response, so a transient failure (bad API key, rate
+  // limit, brief outage) silently erased everything the customer just typed, with
+  // no way to recover it. Short TTL since this is only useful until the request
+  // either succeeds (storyToken below covers everything from then on) or the
+  // customer gives up and doesn't come back.
+  try {
+    await fetch(`${process.env.UPSTASH_REDIS_REST_URL}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(['SET', `pending-intake:${storyId}`, JSON.stringify(req.body), 'EX', 604800])
+    });
+  } catch(e) {
+    console.error("Pending-intake save error:", e.message);
+  }
+
   const friendLine = friend && friend !== "none" ? `Their companion (pet, best friend, or sibling): ${friend}.` : "";
   const customLine = customDetails ? `\nCRITICAL CUSTOM DETAILS — these must be followed precisely:\n${customDetails}\nIMPORTANT NICKNAME RULE: If a nickname is provided for any character, use ONLY that nickname — never invent a different one, never shorten it, never substitute it with another name. Characters may be referred to by their full name OR a provided nickname, but never a made-up alternative.` : "";
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
@@ -61,7 +82,6 @@ INSTRUCTIONS:
     });
 
     const previewText = message.content[0].text.trim();
-    const storyId = "story_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
     const storyToken = Buffer.from(JSON.stringify({
       name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
@@ -127,10 +147,25 @@ INSTRUCTIONS:
       }
     }
 
+    // No longer needed — storyToken (and the customdetails/token keys above) now
+    // cover everything a recovery would need.
+    try {
+      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['DEL', `pending-intake:${storyId}`])
+      });
+    } catch(e) {
+      console.error("Pending-intake cleanup error:", e.message);
+    }
+
     return res.status(200).json({ preview: previewText, storyToken, storyId, childName: name, customerEmail: email, customDetails: customDetails || '' });
 
   } catch (error) {
-    console.error("Claude API error:", error);
+    console.error(`Claude API error (storyId ${storyId}, intake saved to pending-intake:${storyId} in Redis for recovery):`, error);
     return res.status(500).json({ error: "Story generation failed. Please try again." });
   }
 };
