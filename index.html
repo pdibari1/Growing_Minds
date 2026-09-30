@@ -499,9 +499,9 @@
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-text">
-        <div class="hero-badge">✨ Personalized book for your child</div>
-        <h1>A story where <em>your child</em> is the hero</h1>
-        <p>Every Growing Minds book is written just for your child — featuring their name, personality, hometown, and the milestone they're working on right now. No two stories are ever the same.</p>
+        <div class="hero-badge" id="heroBadge">✨ Personalized book for your child</div>
+        <h1 id="heroTitle">A story where <em>your child</em> is the hero</h1>
+        <p id="heroSub">Every Growing Minds book is written just for your child — featuring their name, personality, hometown, and the milestone they're working on right now. No two stories are ever the same.</p>
         <div class="hero-actions">
           <a href="intake-form.html" class="btn-primary">Create Their Story</a>
           <a href="#how-it-works" class="btn-secondary">See how it works →</a>
@@ -518,22 +518,22 @@
         <div class="floating-tag tag-1">📦 Ships to your door!</div>
         <div class="book-card">
           <div class="book-cover">
-            <div class="book-emoji">🦁</div>
-            <div class="book-title">Mia and the Brave New Day</div>
+            <div class="book-emoji" id="sampleEmoji">🦁</div>
+            <div class="book-title" id="sampleTitle">Mia and the Brave New Day</div>
             <div class="book-subtitle">A Growing Minds Story</div>
           </div>
           <div class="book-details">
             <div class="book-detail">
               <div class="book-detail-icon" style="background:#d8f3dc;">🧒</div>
-              <div>Child: <span>Mia, age 6 — Brave & Curious</span></div>
+              <div>Child: <span id="sampleChild">Mia, age 6 — Brave & Curious</span></div>
             </div>
             <div class="book-detail">
               <div class="book-detail-icon" style="background:#fff9e6;">🎯</div>
-              <div>Milestone: <span>Starting kindergarten</span></div>
+              <div>Milestone: <span id="sampleMilestone">Starting kindergarten</span></div>
             </div>
             <div class="book-detail">
               <div class="book-detail-icon" style="background:#e8f7fb;">📍</div>
-              <div>Set in: <span>Austin, Texas</span></div>
+              <div>Set in: <span id="samplePlace">Austin, Texas</span></div>
             </div>
           </div>
         </div>
@@ -541,6 +541,69 @@
       </div>
     </div>
   </section>
+
+  <script>
+    // Ad landing variants. An ad links to /?m=<key> (UTM params welcome); the
+    // hero is swapped to match the ad's message, and every "start" CTA goes
+    // straight to the express intake with that milestone pre-selected.
+    // Keys must match the milestone keys in intake-express.html.
+    // No ?m= (or an unknown key) leaves the general homepage untouched.
+    (function() {
+      var VARIANTS = {
+        feelings: {
+          badge: '💛 A story for big feelings',
+          title: 'A story that helps <em>your child</em> handle big feelings',
+          sub: 'Meltdowns, worries, frustration — when feelings get big, it helps to see a kid just like you work through them. Growing Minds writes a book where your child is the hero who learns how, with their name, personality, and world woven into every chapter.',
+          emoji: '🌈', sampleTitle: 'Leo and the Stormy Day', child: 'Leo, age 5 — Kind & Spirited',
+          milestone: 'Managing big feelings', place: 'Denver, Colorado'
+        },
+        friends: {
+          badge: '🤝 A story about making friends',
+          title: 'A story about finding friends — starring <em>your child</em>',
+          sub: 'For the kid who hangs back at the playground or isn\'t sure how to join in. Growing Minds writes a book where your child is the hero who discovers how to make — and be — a good friend, with their name, personality, and world in every chapter.',
+          emoji: '🌳', sampleTitle: 'Sam and the Treehouse Crew', child: 'Sam, age 7 — Shy & Creative',
+          milestone: 'Making friends', place: 'Portland, Oregon'
+        },
+        learning: {
+          badge: '⭐ For the child who says “I can\'t”',
+          title: 'A story where <em>your child</em> learns they can',
+          sub: 'Riding a bike, reading on their own, trying out for the team — Growing Minds writes a book where your child is the hero who keeps going when something new feels hard, with their name, personality, and world in every chapter.',
+          emoji: '🚲', sampleTitle: 'Nora and the Wobbly Wheels', child: 'Nora, age 6 — Determined & Funny',
+          milestone: 'Learning something new', place: 'Columbus, Ohio'
+        },
+        sibling: {
+          badge: '👶 Becoming a big brother or sister',
+          title: 'A story about becoming a big sibling — starring <em>your child</em>',
+          sub: 'A new baby changes everything. Growing Minds writes a book where your child is the hero of their brand-new role, with their name, personality, and world in every chapter.',
+          emoji: '🍼', sampleTitle: 'Theo and the Brand-New Baby', child: 'Theo, age 4 — Gentle & Curious',
+          milestone: 'New baby or sibling', place: 'Raleigh, North Carolina'
+        }
+      };
+      var params = new URLSearchParams(window.location.search);
+      var key = params.get('m');
+      var v = key && Object.prototype.hasOwnProperty.call(VARIANTS, key) ? VARIANTS[key] : null;
+      if (!v) return;
+
+      document.getElementById('heroBadge').textContent = v.badge;
+      document.getElementById('heroTitle').innerHTML = v.title;
+      document.getElementById('heroSub').textContent = v.sub;
+      document.getElementById('sampleEmoji').textContent = v.emoji;
+      document.getElementById('sampleTitle').textContent = v.sampleTitle;
+      document.getElementById('sampleChild').textContent = v.child;
+      document.getElementById('sampleMilestone').textContent = v.milestone;
+      document.getElementById('samplePlace').textContent = v.place;
+      document.title = 'Growing Minds — ' + v.milestone + ' — A Story Starring Your Child';
+
+      // Runs after the page is parsed so CTAs below the hero are included.
+      // Passes the whole query string along so UTM params reach the intake too.
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('a[href="intake-form.html"]').forEach(function(a) {
+          a.href = 'intake-express.html' + window.location.search;
+        });
+      });
+      if (typeof gtag !== 'undefined') gtag('event', 'landing_variant', { variant: key });
+    })();
+  </script>
 
   <!-- HOW IT WORKS -->
   <section class="section" id="how-it-works">
