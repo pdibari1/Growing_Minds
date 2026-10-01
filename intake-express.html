@@ -844,6 +844,15 @@ async function submitForm(){
 renderSidebar();
 renderProgress();
 initCharCounters();
+
+// Pre-select the milestone when arriving from an ad landing page (?m=friends).
+// The parent still sees step 1 and can change it; this just saves the click.
+(function(){
+  const key=new URLSearchParams(window.location.search).get('m');
+  if(!key||!/^[a-z]+$/.test(key)||key==='other')return;
+  const tile=document.querySelector(`.m-tile[onclick^="pickMilestone(this,'${key}',"]`);
+  if(tile)tile.click();
+})();
 </script>
 </body>
 </html>
