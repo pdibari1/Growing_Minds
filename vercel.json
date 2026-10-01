@@ -181,15 +181,6 @@
           "value": "noindex, nofollow"
         }
       ]
-    },
-    {
-      "source": "/backup/:path*",
-      "headers": [
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow"
-        }
-      ]
     }
   ]
 }
