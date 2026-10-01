@@ -820,7 +820,7 @@ async function submitForm(){
   document.getElementById('loadingSub').textContent=`Our storyteller is weaving a one-of-a-kind adventure just for ${name}. This usually takes about 20 seconds.`;
   document.getElementById('loadingOverlay').classList.add('show');
 
-  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:st.milestoneLabel,child_age:age,form_type:'express'});
+  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:st.milestoneLabel,form_type:'express'});
 
   const payload={name,age,gender:document.getElementById('childGender').value||'',ethnicity,hair:st.hair,hairLength:st.hairLength,hairStyle:st.hairStyle,eye:st.eye,trait:st.trait,favorite:fav,friend,city,region,milestone:milestoneStr,email,priorStoryId:document.getElementById('priorStoryId').value.trim()||'',customDetails,genre:st.genre||'',genreStyle:st.genreStyle||''};
 

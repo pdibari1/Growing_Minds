@@ -829,7 +829,7 @@ async function submitForm(){
   document.getElementById('loadingTitle').textContent=`Writing ${name}'s story opening…`;
   document.getElementById('loadingSub').textContent=`Our storyteller is weaving a one-of-a-kind adventure just for ${name}. This usually takes about 20 seconds.`;
   document.getElementById('loadingOverlay').classList.add('show');
-  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:state.milestoneLabel,child_age:age,form_type:'signature'});
+  if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:state.milestoneLabel,form_type:'signature'});
   const mqConfig=state.milestone?MILESTONE_QUESTIONS[state.milestone]:null;
   const parts=[];
   const storyAvoid=(document.getElementById('storyAvoid')?.value||'').trim();
