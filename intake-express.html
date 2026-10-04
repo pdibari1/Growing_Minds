@@ -221,6 +221,7 @@
       </div>
       <div class="other-milestone-wrap" id="otherWrap">
         <div class="field"><label>Describe it in your own words</label><input type="text" id="otherMilestone" placeholder="e.g. Learning to sleep in their own room for the first time" maxlength="80"/></div>
+        <div class="field-error" id="err-otherMilestone">Please describe it in a few words.</div>
       </div>
       <div class="milestone-confirm" id="milestoneConfirm">
         <div class="mc-icon" id="mcIcon"></div>
@@ -664,7 +665,9 @@ function goTo(step){
 function validate(step){
   const show=(id,on)=>{const el=document.getElementById(id);if(el)el.classList.toggle('show',on);};
   let ok=true;
-  if(step===0){if(!st.milestone)ok=false;}
+  if(step===0){if(!st.milestone)ok=false;
+    const otherMissing=st.milestone==='other'&&!document.getElementById('otherMilestone').value.trim();
+    show('err-otherMilestone',otherMissing);if(otherMissing)ok=false;}
   if(step===1){
     const email=document.getElementById('parentEmail').value.trim();
     const emailOk=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -810,7 +813,10 @@ async function submitForm(){
   const milestoneDetails=document.getElementById('milestoneDetails').value.trim();
   const storyAvoid=document.getElementById('storyAvoid').value.trim();
   const storyLesson=document.getElementById('storyLesson').value.trim();
-  const milestoneStr=milestoneDetails?`${st.milestoneLabel}. ${milestoneDetails}`:st.milestoneLabel;
+  // For "Something else", the parent's own description is the milestone.
+  const otherText=st.milestone==='other'?document.getElementById('otherMilestone').value.trim():'';
+  const milestoneBase=otherText||st.milestoneLabel;
+  const milestoneStr=milestoneDetails?`${milestoneBase}. ${milestoneDetails}`:milestoneBase;
   const constraintLines=[];
   if(storyAvoid)constraintLines.push(`FORBIDDEN — do not include in the story under any circumstances: ${storyAvoid}`);
   if(storyLesson)constraintLines.push(`REQUIRED OUTCOME OR LESSON — the story must end with this: ${storyLesson}`);
