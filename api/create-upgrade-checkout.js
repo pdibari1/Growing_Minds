@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
         quantity: 1,
       }],
       shipping_address_collection: {
-        allowed_countries: ["US", "CA", "GB", "AU"],
+        allowed_countries: ["US"],
       },
       customer_email: customerEmail || undefined,
       metadata: {

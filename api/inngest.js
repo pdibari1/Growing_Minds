@@ -330,7 +330,7 @@ const generateStoryOrder = inngest.createFunction(
               </div>` : ''}
               <p style="margin:0 0 1.25rem;"><a href="${fullPdfUrl}" style="color:#2d6a4f;font-weight:700;">📄 Open the full book PDF →</a></p>
               <p style="color:#6b7280;font-size:.85rem;margin-bottom:1.5rem;">Check the story and illustrations against the details above — especially anything the model could invent (companion animal species, appearance, named people).</p>
-              <p style="color:#b91c1c;font-size:.85rem;font-weight:700;margin-bottom:1.5rem;">⚠️ Clicking Approve & Send submits a real, chargeable print job to Lulu and emails the customer their book — there's no confirmation step after this.</p>
+              <p style="color:#b91c1c;font-size:.85rem;font-weight:700;margin-bottom:1.5rem;">⚠️ Clicking Approve & Send submits a real, chargeable print job to Lulu — there's no confirmation step after this.</p>
               <div style="text-align:center;">
                 <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2.5rem;border-radius:12px;box-shadow:0 4px 14px rgba(22,163,74,0.35);">✅ Approve & Send</a>
               </div>
@@ -361,40 +361,13 @@ const generateStoryOrder = inngest.createFunction(
       await step.run("approval-timeout-alert", async () => {
         await sendAlertEmail(
           `Book approval overdue — ${childName} (${storyId})`,
-          `No one approved ${childName}'s book within 7 days, so the customer was never emailed and nothing was sent to print.\n\nReview it here: ${fullPdfUrl}\n\nStory ID: ${storyId}`
+          `No one approved ${childName}'s book within 7 days, so nothing was sent to print.\n\nReview it here: ${fullPdfUrl}\n\nStory ID: ${storyId}`
         );
       });
     } else {
-      // Customer-facing "book is ready" email — the actual delivery moment full
-      // orders never had before. Links to the PDF rather than attaching it, since
-      // an illustrated 30-chapter book can be far larger than a 3-chapter preview.
-      await step.run("send-customer-email", async () => {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const quality = printQuality === 'premium' ? 'premium' : 'standard';
-        const { error } = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-          to: customerEmail,
-          subject: `🎉 ${childName}'s story is ready!`,
-          html: `
-            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
-              <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
-                <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
-              </div>
-              <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
-                <h2 style="color:#2d6a4f;">${childName}'s complete story is ready! 🎉</h2>
-                <p>All ${tier.chapCount} chapters, personalized just for ${childName}, are ready to read right now.</p>
-                <div style="text-align:center;margin:1.5rem 0;">
-                  <a href="${fullPdfUrl}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">📖 Read the Full Story →</a>
-                </div>
-                <p style="color:#6b7280;font-size:.9rem;">Your ${quality} softcover book is also being printed and mailed to the address you provided — we'll send tracking info once it ships.</p>
-                <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
-              </div>
-            </div>`
-        });
-        if (error) throw new Error(error.message || JSON.stringify(error));
-        console.log(`Customer book-ready email sent to ${customerEmail} for ${storyId}`);
-      });
-
+      // No customer email here: a full order is a printed book, not a PDF.
+      // The customer already got an order confirmation from webhook.js and
+      // gets a tracking email from lulu-webhook.js once Lulu ships it.
       // Submit the actual Lulu print job — only once a human has approved, and
       // only if Stripe actually collected a shipping address at checkout.
       await step.run("submit-lulu-print-job", async () => {
