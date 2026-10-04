@@ -588,25 +588,21 @@
 
   <script>
     function getMilestoneTitle(milestone) {
+      // Keys must match the milestone tile labels in intake-express.html and
+      // intake-signature.html. "Something else" falls through to the default.
       const map = {
-        "Starting kindergarten": "Brave New Day",
-        "Learning to read": "Magic of Words",
-        "Losing a first tooth": "Wobbly Tooth",
-        "Riding a bike without training wheels": "Great Bike Ride",
-        "Starting middle school": "New Adventure",
-        "Dealing with anxiety or school pressure": "Brave Heart",
-        "Trying something scary or new": "Leap of Courage",
-        "Navigating friendships and social dynamics": "Friend Quest",
-        "Joining a sports team or club": "Big Team",
-        "Dealing with big feelings or frustration": "Feeling Storm",
-        "Standing up for themselves or a friend": "Brave Stand",
-        "Taking on a new responsibility at home": "Big Helper",
-        "Learning to use the potty": "Big Step",
-        "Starting preschool or daycare": "First Day",
-        "Making a new friend": "Hello, Friend",
-        "Sharing with others": "Giving Heart",
+        "Starting school": "Brave New Day",
+        "New baby or sibling": "Brand-New Baby",
+        "Moving to a new home": "Big Move",
+        "Learning something new": "Leap of Courage",
+        "Making friends": "Friend Quest",
+        "Managing big feelings": "Feeling Storm",
+        "A big life change": "Brave Heart",
       };
-      return map[milestone] || "Big Adventure";
+      // The milestone string can carry the parent's notes after the label
+      // ("Managing big feelings. He screams when…") — match on the label only.
+      const label = (milestone || '').split('. ')[0];
+      return map[label] || "Big Adventure";
     }
 
     // ── PRINT QUALITY SELECTION ── (declared before use below, since these are
