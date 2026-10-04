@@ -411,11 +411,26 @@ const generateStoryOrder = inngest.createFunction(
           await redisRequest("SET", [`lulu-job:${storyId}`, String(job.id), "EX", 2592000]);
           await redisRequest("SET", [`lulu-job-story:${job.id}`, storyId, "EX", 2592000]);
           console.log(`Lulu print job created: ${job.id} for ${childName} (${storyId})`);
+
+          const a = shippingAddress.address || {};
+          await sendOrderNotification(
+            `Sent to Lulu — ${childName}'s book (${quality})`,
+            `${childName}'s book was submitted to Lulu for printing.\n\n` +
+            `Lulu print job ID: ${job.id}\n` +
+            `Story ID: ${storyId}\n` +
+            `Print quality: ${quality}\n` +
+            `Page count: ${pageCount}\n\n` +
+            `Shipping to: ${shippingAddress.name || 'n/a'}, ${[a.city, a.state, a.postal_code].filter(Boolean).join(', ') || 'n/a'}\n` +
+            `Customer email: ${customerEmail || 'n/a'}\n\n` +
+            `Interior PDF: ${fullPdfUrl}\n` +
+            `Cover PDF: ${coverUrl}\n\n` +
+            `The customer gets a tracking email automatically when Lulu marks it shipped.`
+          );
         } catch (e) {
           console.error(`Lulu order failed: ${e.message}`);
           await sendAlertEmail(
             `Lulu print submission failed — ${childName} (${storyId})`,
-            `createLuluPrintJob threw: ${e.message}\n\nThe customer was already emailed their PDF — this only affects the physical book. Retry manually via api/lulu-jobs.js once fixed.`
+            `createLuluPrintJob threw: ${e.message}\n\nNothing was sent to print and the customer has not been told. Retry manually via api/lulu-jobs.js once fixed.`
           );
         }
       });
@@ -447,19 +462,19 @@ const generateStoryOrder = inngest.createFunction(
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
 
-    // Step 8: Post-order feedback survey.
-    // TEMP: sleep set to 3d for testing — change back to "21d" before real launch.
-    // Gated behind ENABLE_POST_ORDER_SURVEY so this is built but stays off until
-    // we're ready to turn it on — flip the env var in Vercel, no redeploy needed.
-    // Also gated on `approval` — a timed-out approval means the customer was never
-    // actually sent their book, so asking "how did the story go?" would be asking
-    // about a book they never received.
-    if (approval && process.env.ENABLE_POST_ORDER_SURVEY === 'true' && customerEmail) {
-      await step.sleep("wait-for-post-order-survey", "3d");
+    // Step 8: Post-order feedback survey, 3 days after the order was placed
+    // (event.ts is when Stripe's payment reached us). TESTING VALUE: 3 days is
+    // set for testing; lengthen it (e.g. to after the book arrives) for launch. If approval took longer
+    // than that, sleepUntil returns immediately and it goes out right after.
+    // Skipped if the book was never approved, since nothing was made. Set
+    // DISABLE_POST_ORDER_SURVEY=true in Vercel to stop it without a redeploy.
+    if (approval && customerEmail && process.env.DISABLE_POST_ORDER_SURVEY !== 'true') {
+      await step.sleepUntil("wait-for-post-order-survey", new Date(event.ts + 3 * 24 * 60 * 60 * 1000));
       await step.run("send-post-order-survey-email", async () => {
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const milestone = childData.milestone || '';
-        const surveyUrl = `https://www.growingminds.io/post-order-survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}&milestone=${encodeURIComponent(milestone)}`;
+        // Label only ("Managing big feelings"), never the parent's notes.
+        const milestoneLabel = (childData.milestone || '').split('. ')[0];
+        const surveyUrl = `https://www.growingminds.io/post-order-survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}&milestone=${encodeURIComponent(milestoneLabel)}`;
         const { data, error } = await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
           to: customerEmail,
@@ -471,7 +486,7 @@ const generateStoryOrder = inngest.createFunction(
               </div>
               <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
                 <h2 style="color:#2d6a4f;">How did ${childName}'s story go?</h2>
-                <p>It's been a few weeks since ${childName}'s book arrived — we'd love three quick answers about how it went.</p>
+                <p>Thanks again for ordering ${childName}'s book! We'd love three quick answers about how it's going so far.</p>
                 <p style="margin-top:1rem;">Did it keep them engaged? Did it help them think about their milestone? Would you recommend us to a friend?</p>
                 <div style="text-align:center;margin:2rem 0;">
                   <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(45,106,79,0.3);">Share my feedback →</a>
