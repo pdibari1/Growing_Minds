@@ -225,117 +225,70 @@
 
     .purchase-card {
       background: var(--white);
-      border-radius: 24px;
-      border: 2px solid var(--green-pale);
-      overflow: hidden;
-      box-shadow: 0 8px 40px rgba(45,106,79,0.12);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 30px rgba(45,106,79,0.10);
+      padding: 1.5rem 1.4rem 1.25rem;
     }
+    .pc-eyebrow { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--green); }
+    .pc-title { font-family: 'Fraunces', serif; font-size: 1.4rem; line-height: 1.2; color: var(--text); margin: .25rem 0 .2rem; }
+    .pc-sub { font-size: .86rem; color: var(--muted); margin-bottom: 1.1rem; }
 
-    .purchase-top {
-      background: linear-gradient(135deg, var(--green), #1b4332);
-      padding: 1.8rem 1.6rem;
-      text-align: center;
+    /* Standard / Premium as radio rows */
+    .quality-toggle { display: flex; flex-direction: column; gap: .6rem; margin-bottom: 1rem; }
+    .quality-btn {
+      display: flex; align-items: center; gap: .75rem; width: 100%; text-align: left;
+      background: var(--white); border: 1.5px solid var(--border); border-radius: 14px;
+      padding: .8rem .9rem; cursor: pointer; font-family: 'Nunito', sans-serif; transition: border-color .15s, background .15s;
     }
-    .purchase-top-label {
-      font-size: .75rem; font-weight: 800;
-      text-transform: uppercase; letter-spacing: .1em;
-      color: rgba(255,255,255,0.6); margin-bottom: .5rem;
-    }
-    .purchase-price {
-      font-family: 'Fraunces', serif;
-      font-size: 3rem; font-weight: 700; color: white; line-height: 1;
-    }
-    .purchase-price sup { font-size: 1.2rem; vertical-align: super; }
-    .purchase-price-note { font-size: .82rem; color: rgba(255,255,255,0.65); margin-top: .3rem; }
+    .quality-btn:hover { border-color: var(--green-light); }
+    .quality-btn.selected { border-color: var(--green); background: #f3faf5; }
+    .quality-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cbd5e1; flex: none; position: relative; }
+    .quality-btn.selected .quality-radio { border-color: var(--green); }
+    .quality-btn.selected .quality-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--green); }
+    .quality-main { flex: 1; }
+    .quality-name { display: block; font-weight: 800; font-size: .95rem; color: var(--text); }
+    .quality-desc { display: block; font-size: .8rem; color: var(--muted); }
+    .quality-price { font-weight: 900; font-size: 1.05rem; color: var(--text); }
 
-    .purchase-body { padding: 1.6rem; }
-
-    .includes-title {
-      font-size: .75rem; font-weight: 800;
-      text-transform: uppercase; letter-spacing: .08em;
-      color: var(--muted); margin-bottom: .9rem;
-    }
-    .includes-list { list-style: none; margin-bottom: 1.6rem; }
-    .includes-list li {
-      display: flex; align-items: flex-start; gap: .75rem;
-      font-size: .92rem; font-weight: 700; color: var(--text);
-      padding: .5rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .includes-list li:last-child { border-bottom: none; }
-    .includes-list .li-icon {
-      width: 28px; height: 28px; border-radius: 8px;
-      background: var(--green-pale);
-      display: flex; align-items: center; justify-content: center;
-      font-size: .9rem; flex-shrink: 0;
-    }
-    .includes-list .li-info {}
-    .includes-list .li-title { font-weight: 800; font-size: .9rem; }
-    .includes-list .li-sub { font-size: .78rem; color: var(--muted); font-weight: 600; margin-top: .1rem; }
+    .includes-list { list-style: none; margin: 0 0 1.1rem; padding: 0; }
+    .includes-list li { display: flex; gap: .55rem; font-size: .86rem; color: #374151; padding: .2rem 0; }
+    .includes-list li::before { content: '✓'; color: var(--green); font-weight: 900; }
 
     .btn-buy {
       display: block; width: 100%;
       background: var(--yellow); color: var(--brown);
-      border: none; border-radius: 14px;
-      padding: 1rem;
-      font-family: 'Nunito', sans-serif;
-      font-weight: 900; font-size: 1.05rem;
+      border: none; border-radius: 14px; padding: .95rem;
+      font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 1.05rem;
       cursor: pointer; transition: all .2s;
-      box-shadow: 0 4px 20px rgba(249,199,79,0.4);
-      margin-bottom: .75rem;
-      text-align: center; text-decoration: none;
+      box-shadow: 0 4px 18px rgba(249,199,79,0.4);
     }
     .btn-buy:hover { background: var(--yellow-dark); color: white; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(249,199,79,0.5); }
+    .btn-buy:disabled { opacity: .7; cursor: default; transform: none; }
 
-    .btn-restart {
-      display: block; width: 100%; text-align: center;
-      background: none; border: 2px solid var(--border);
-      border-radius: 14px; padding: .75rem;
-      font-family: 'Nunito', sans-serif;
-      font-weight: 700; font-size: .88rem;
-      color: var(--muted); cursor: pointer; transition: all .2s;
-      text-decoration: none;
-    }
-    .btn-restart:hover { border-color: var(--green); color: var(--green); }
+    .pc-divider { display: flex; align-items: center; gap: .6rem; margin: 1.1rem 0 .75rem; font-size: .78rem; color: #9ca3af; font-weight: 700; }
+    .pc-divider::before, .pc-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-    .trust-strip {
-      display: flex; flex-direction: column; gap: .5rem;
-      margin-top: 1.2rem; padding-top: 1.2rem;
-      border-top: 1px solid var(--border);
+    .preview-offer { display: flex; align-items: center; gap: .75rem; border: 1.5px dashed #c7d9cf; border-radius: 14px; padding: .75rem .9rem; }
+    .preview-offer-main { flex: 1; }
+    .preview-offer-name { font-weight: 800; font-size: .92rem; color: var(--green); }
+    .preview-offer-desc { font-size: .78rem; color: var(--muted); }
+    .btn-preview {
+      border: 2px solid var(--green); background: var(--white); color: var(--green);
+      border-radius: 10px; padding: .5rem .8rem; font-family: 'Nunito', sans-serif;
+      font-weight: 800; font-size: .88rem; white-space: nowrap; cursor: pointer; transition: all .15s;
     }
-    .trust-item {
-      display: flex; align-items: center; gap: .5rem;
-      font-size: .8rem; font-weight: 700; color: var(--muted);
-    }
-    .trust-item span { font-size: .95rem; }
+    .btn-preview:hover { background: var(--green); color: white; }
 
-    /* ── PRINT QUALITY TOGGLE ── */
-    .quality-toggle {
-      display: flex; gap: .6rem;
-      margin-bottom: 1.2rem;
-    }
-    .quality-btn {
-      flex: 1;
-      background: white; border: 1.5px solid var(--border);
-      border-radius: 12px; padding: .7rem .6rem;
-      text-align: center; cursor: pointer;
-      font-family: 'Nunito', sans-serif;
-      transition: all .15s;
-    }
-    .quality-btn:hover { border-color: var(--green-light); }
-    .quality-btn.selected {
-      border-color: var(--green); background: var(--green-pale);
-    }
-    .quality-btn .quality-name {
-      display: block; font-size: .82rem; font-weight: 800; color: var(--text);
-    }
-    .quality-btn .quality-price {
-      display: block; font-size: .95rem; font-weight: 900; color: var(--green);
-      margin-top: .15rem;
-    }
-    .quality-btn .quality-desc {
-      display: block; font-size: .7rem; color: var(--muted); margin-top: .1rem;
-    }
+    .pc-links { margin-top: 1.1rem; padding-top: .9rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: .5rem; font-size: .8rem; }
+    .pc-links button, .pc-links a { background: none; border: none; padding: 0; font: 700 .8rem 'Nunito', sans-serif; color: var(--green); text-decoration: none; cursor: pointer; }
+    .pc-links a { color: var(--muted); }
+    .discount-box { display: none; gap: .5rem; margin-top: .75rem; }
+    .discount-box.open { display: flex; }
+    .discount-box input { flex: 1; min-width: 0; padding: .55rem .8rem; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: .9rem; outline: none; }
+    .discount-box button { padding: .55rem .9rem; background: var(--green); color: white; border: none; border-radius: 8px; font-size: .88rem; cursor: pointer; }
+    .discount-msg { font-size: .82rem; margin-top: .4rem; text-align: center; min-height: 0; }
+    .pc-fine { margin-top: .75rem; font-size: .74rem; color: #9ca3af; text-align: center; line-height: 1.5; }
 
     /* ── WHAT'S INSIDE SECTION ── */
     .whats-inside {
@@ -488,90 +441,53 @@
     <!-- PURCHASE SIDEBAR -->
     <div class="purchase-col">
       <div class="purchase-card">
+        <div class="pc-eyebrow">Complete the story</div>
+        <div class="pc-title" id="purchase-title">Your child's story</div>
+        <p class="pc-sub">A printed softcover book, shipped free.</p>
 
-        <div class="purchase-top">
-          <div class="purchase-top-label" id="purchase-child-name">Complete Your Story</div>
-          <div class="purchase-price" id="purchase-price"><sup>$</sup>35</div>
-          <div class="purchase-price-note">Their complete printed book, shipped free</div>
+        <div class="quality-toggle" id="quality-toggle">
+          <button type="button" class="quality-btn selected" data-quality="standard" onclick="selectQuality('standard')">
+            <span class="quality-radio"></span>
+            <span class="quality-main"><span class="quality-name">Standard</span><span class="quality-desc">Standard color print</span></span>
+            <span class="quality-price">$35</span>
+          </button>
+          <button type="button" class="quality-btn" data-quality="premium" onclick="selectQuality('premium')">
+            <span class="quality-radio"></span>
+            <span class="quality-main"><span class="quality-name">Premium</span><span class="quality-desc">Richer color, heavier paper</span></span>
+            <span class="quality-price">$50</span>
+          </button>
         </div>
 
-        <div class="purchase-body">
+        <ul class="includes-list">
+          <li>Ships in 13–15 business days</li>
+          <li id="li-unique-sub">Written only for your child, never repeated</li>
+          <li id="li-milestone-sub">Their milestone is the heart of the story</li>
+        </ul>
 
-          <div class="includes-title">Everything included</div>
-          <ul class="includes-list">
-            <li>
-              <div class="li-icon">📚</div>
-              <div class="li-info">
-                <div class="li-title">Printed Softcover Book</div>
-                <div class="li-sub">Ships in 13–15 business days</div>
-              </div>
-            </li>
-            <li>
-              <div class="li-icon">✨</div>
-              <div class="li-info">
-                <div class="li-title">100% Unique Story</div>
-                <div class="li-sub" id="li-unique-sub">Written only for your child, never repeated</div>
-              </div>
-            </li>
-            <li>
-              <div class="li-icon">🎯</div>
-              <div class="li-info">
-                <div class="li-title">Milestone Woven In</div>
-                <div class="li-sub" id="li-milestone-sub">Their milestone is the heart of the story</div>
-              </div>
-            </li>
-          </ul>
+        <button class="btn-buy" id="buy-btn" onclick="handlePurchase('full')">Get the Book — $35</button>
 
-          <div class="quality-toggle" id="quality-toggle">
-            <button type="button" class="quality-btn selected" data-quality="standard" onclick="selectQuality('standard')">
-              <span class="quality-name">Standard</span>
-              <span class="quality-price">$35</span>
-              <span class="quality-desc">Standard color print</span>
-            </button>
-            <button type="button" class="quality-btn" data-quality="premium" onclick="selectQuality('premium')">
-              <span class="quality-name">Premium</span>
-              <span class="quality-price">$50</span>
-              <span class="quality-desc">Richer color, heavier paper</span>
-            </button>
+        <div class="pc-divider">Not sure yet?</div>
+
+        <div class="preview-offer">
+          <div class="preview-offer-main">
+            <div class="preview-offer-name">Read the first 3 chapters</div>
+            <div class="preview-offer-desc">By email in minutes · $2.99 credited toward the book</div>
           </div>
-
-          <button class="btn-buy" id="buy-btn" onclick="handlePurchase('full')">
-            🌟 Get the Full Story — $35
-          </button>
-
-          <div style="text-align:center;margin:.8rem 0;font-size:.8rem;color:#9ca3af;">or try it first</div>
-
-          <button onclick="handlePurchase('preview')" style="width:100%;padding:.85rem;background:white;border:2px solid #2d6a4f;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:800;color:#2d6a4f;cursor:pointer;transition:all .2s;">
-            📖 Read First 3 Chapters — $2.99
-          </button>
-          <p style="font-size:.75rem;color:#9ca3af;text-align:center;margin-top:.4rem;">$2.99 credited toward the full $35 book</p>
-
-
-          <div style="margin-top:1rem;">
-            <div style="display:flex;gap:.5rem;align-items:center;max-width:320px;margin:0 auto;">
-              <input type="text" id="discount-code" placeholder="Discount code" 
-                style="flex:1;padding:.6rem .9rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:.9rem;outline:none;"
-                onkeydown="if(event.key==='Enter') applyDiscount()"
-              />
-              <button onclick="applyDiscount()" 
-                style="padding:.6rem 1rem;background:#2d6a4f;color:white;border:none;border-radius:8px;font-size:.9rem;cursor:pointer;white-space:nowrap;">
-                Apply
-              </button>
-            </div>
-            <div id="discount-msg" style="font-size:.85rem;margin-top:.4rem;text-align:center;min-height:1.2em;"></div>
-          </div>
-
-          <a href="intake-form.html" class="btn-restart">
-            ↩ Start a different story
-          </a>
-
-          <div class="trust-strip">
-            <div class="trust-item"><span>🔒</span> Secure checkout via Stripe</div>
-            <div class="trust-item"><span>📦</span> Free standard shipping</div>
-            <div class="trust-item"><span>💛</span> Every story is one of a kind</div>
-          </div>
-          <p style="font-size:.78rem;color:#9ca3af;text-align:center;margin-top:.75rem;line-height:1.5;">Because every book is written personally for your child, we're unable to offer refunds once your order is placed.</p>
+          <button type="button" class="btn-preview" onclick="handlePurchase('preview')">$2.99</button>
         </div>
+
+        <div id="discount-msg" class="discount-msg"></div>
+
+        <div class="pc-links">
+          <button type="button" onclick="document.getElementById('discount-box').classList.toggle('open')">Have a discount code?</button>
+          <a href="intake-form.html">Start a different story</a>
+        </div>
+        <div class="discount-box" id="discount-box">
+          <input type="text" id="discount-code" placeholder="Discount code" onkeydown="if(event.key==='Enter') applyDiscount()"/>
+          <button type="button" onclick="applyDiscount()">Apply</button>
+        </div>
+
+        <p class="pc-fine">🔒 Secure checkout via Stripe · Free US shipping<br/>Every book is made just for your child, so all sales are final.</p>
       </div>
     </div>
 
@@ -661,7 +577,8 @@
       document.getElementById('li-milestone-sub').textContent = milestoneLabel ? `${milestoneLabel} is the heart of the story` : `Their milestone is the heart of the story`;
 
       // ── UPDATE PURCHASE CARD ──
-      document.getElementById('purchase-child-name').textContent = `Complete ${childName}'s Story`;
+      document.getElementById('purchase-title').textContent = document.getElementById('story-title-name').textContent;
+      window._childName = childName;
       updateBuyButton();
 
       // ── STORE TOKEN FOR PURCHASE ──
@@ -687,8 +604,8 @@
 
     function updateBuyButton() {
       const price = QUALITY_PRICES[selectedQuality];
-      document.getElementById('purchase-price').innerHTML = `<sup>$</sup>${price}`;
-      document.getElementById('buy-btn').textContent = `🌟 Get the Full Story — $${price}`;
+      const name = window._childName;
+      document.getElementById('buy-btn').textContent = name ? `Get ${name}'s Book — $${price}` : `Get the Book — $${price}`;
     }
 
     // GA4 - handle purchase click
@@ -736,8 +653,8 @@
       } catch (err) {
         console.error(err);
         if (!isPreview) {
-          btn.textContent = '🌟 Get the Full Story — $35';
           btn.disabled = false;
+          updateBuyButton();
         }
         document.getElementById('discount-msg').style.color = '#dc2626';
         document.getElementById('discount-msg').textContent = err.message || 'Something went wrong. Please try again.';
