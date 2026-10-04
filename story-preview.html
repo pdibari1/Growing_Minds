@@ -221,9 +221,24 @@
     .cliff-sub { font-size: .88rem; color: #8c6e3c; line-height: 1.5; font-weight: 600; }
 
     /* ── PURCHASE SIDEBAR ── */
-    .purchase-col {
-      position: sticky; top: 80px;
+    .purchase-col {}
+
+    /* "Want to preview it first?" block above Everything included */
+    .preview-offer {
+      background: #fff9e6; border: 1.5px solid #f0d060;
+      border-radius: 14px; padding: 1rem 1.1rem 1.1rem;
+      margin-bottom: 1.4rem; text-align: center;
     }
+    .preview-offer-title { font-weight: 800; font-size: 1rem; color: var(--text); margin-bottom: .2rem; }
+    .preview-offer-sub { font-size: .82rem; color: #6b7280; margin-bottom: .8rem; }
+    .btn-preview {
+      width: 100%; padding: .85rem; background: white;
+      border: 2px solid #2d6a4f; border-radius: 12px;
+      font-family: 'Nunito', sans-serif; font-size: .95rem; font-weight: 800;
+      color: #2d6a4f; cursor: pointer; transition: all .2s;
+    }
+    .btn-preview:hover { background: #2d6a4f; color: white; }
+    .preview-offer-note { font-size: .75rem; color: #9ca3af; margin-top: .45rem; }
 
     .purchase-card {
       background: var(--white);
@@ -378,7 +393,6 @@
     /* ── RESPONSIVE ── */
     @media (max-width: 860px) {
       .main-layout { grid-template-columns: 1fr; }
-      .purchase-col { position: static; }
       nav { padding: .9rem 1.2rem; }
     }
   </style>
@@ -513,6 +527,15 @@
             </button>
           </div>
 
+          <div class="preview-offer">
+            <div class="preview-offer-title">Want to preview it first?</div>
+            <div class="preview-offer-sub">Get the first 3 chapters by email in minutes, and read them together tonight.</div>
+            <button class="btn-preview" onclick="handlePurchase('preview')">
+              📖 Read First 3 Chapters — $2.99
+            </button>
+            <div class="preview-offer-note">$2.99 credited toward the full $35 book</div>
+          </div>
+
           <div class="includes-title">Everything included</div>
           <ul class="includes-list">
             <li>
@@ -542,12 +565,6 @@
             🌟 Get the Full Story — $35
           </button>
 
-          <div style="text-align:center;margin:.8rem 0;font-size:.8rem;color:#9ca3af;">or try it first</div>
-
-          <button onclick="handlePurchase('preview')" style="width:100%;padding:.85rem;background:white;border:2px solid #2d6a4f;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:800;color:#2d6a4f;cursor:pointer;transition:all .2s;">
-            📖 Read First 3 Chapters — $2.99
-          </button>
-          <p style="font-size:.75rem;color:#9ca3af;text-align:center;margin-top:.4rem;">$2.99 credited toward the full $35 book</p>
 
           <div style="margin-top:1rem;">
             <div style="display:flex;gap:.5rem;align-items:center;max-width:320px;margin:0 auto;">
