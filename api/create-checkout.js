@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
       discounts: discounts.length > 0 ? discounts : undefined,
       allow_promotion_codes: discounts.length === 0, // Show promo field in Stripe UI if no code pre-applied
       shipping_address_collection: {
-        allowed_countries: ["US", "CA", "GB", "AU"],
+        allowed_countries: ["US"],
       },
       // storyToken is stored in Redis (key: token:{storyId}) — kept out of metadata to avoid Stripe's 500-char limit
       metadata: { storyId, childName, customerEmail: customerEmail || '', customDetails: (customDetails || '').slice(0, 500), printQuality: quality },

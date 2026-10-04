@@ -236,7 +236,7 @@
       <p class="panel-sub">Just the basics — this takes about a minute.</p>
       <div class="email-box">
         <label>📬 Where should we send the story?</label>
-        <p>We'll email the PDF the moment it's ready — usually within a few minutes of your order.</p>
+        <p>We'll only use this to send your story and order updates. No spam, ever.</p>
         <div class="field" style="margin:0;"><input type="email" id="parentEmail" placeholder="your@email.com" maxlength="120"/></div>
         <div class="field-error show" id="err-email" style="color:rgba(255,220,150,1);display:none;"></div>
       </div>
@@ -828,7 +828,7 @@ async function submitForm(){
     const response=await fetch('/api/generate-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!response.ok){const errData=await response.json().catch(()=>({}));throw new Error(errData.error||'Story generation failed');}
     const data=await response.json();
-    sessionStorage.setItem('storyPreview',JSON.stringify({preview:data.preview,storyToken:data.storyToken,storyId:data.storyId,childName:data.childName,customerEmail:email,customDetails:data.customDetails||customDetails,childData:payload}));
+    sessionStorage.setItem('storyPreview',JSON.stringify({preview:data.preview,storyToken:data.storyToken,storyId:data.storyId,childName:data.childName,customerEmail:email,customDetails:data.customDetails||customDetails,childData:{...payload,milestoneLabel:st.milestoneLabel}}));
     localStorage.setItem('gm_last_story_id',data.storyId);
     localStorage.setItem('gm_last_child_name',data.childName);
     if(typeof gtag!=='undefined')gtag('event','preview_generated',{story_id:data.storyId,form_type:'express'});

@@ -1,6 +1,6 @@
 // api/approve-print.js — admin clicks "Approve & Send" in the book-ready review email
 // Fires book/approved, which unblocks generateStoryOrder's step.waitForEvent gate —
-// only then does the customer get their email and the print job go to Lulu.
+// only then does the print job go to Lulu.
 const crypto = require("crypto");
 const https = require("https");
 
@@ -60,7 +60,7 @@ module.exports = async function handler(req, res) {
       <html><body style="font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;color:#1a1a2e;">
         <div style="font-size:2.5rem;margin-bottom:1rem;">✓</div>
         <h2 style="color:#16a34a;">Book approved!</h2>
-        <p style="color:#6b7280;">The customer is being emailed now, and the print job is being submitted to Lulu.</p>
+        <p style="color:#6b7280;">The print job is being submitted to Lulu. The customer will get a tracking email when it ships.</p>
       </body></html>
     `);
   } catch (err) {

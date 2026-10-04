@@ -24,31 +24,33 @@ async function sendAlertEmail(subject, details) {
   }
 }
 
-// Customer-facing purchase confirmation for an upgrade order — a very brief
-// reassurance note, not a status update, since generation hasn't started yet
-// at the moment this fires.
-async function sendUpgradeConfirmationEmail(customerEmail, childName) {
+// Customer-facing purchase confirmation for a full-book order (direct or
+// upgrade from a preview). Customers get a printed book, not a PDF, so this
+// and the Lulu tracking email are the only emails a full order sends them.
+async function sendOrderConfirmationEmail(customerEmail, childName, isUpgrade) {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
       to: customerEmail,
-      subject: `${childName}'s full book is on its way! 📖`,
+      subject: `${childName}'s book is being made! 📖`,
       html: `
         <div style="font-family:sans-serif;max-width:480px;margin:0 auto;color:#1a1a2e;">
           <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
             <h1 style="color:white;font-size:1.4rem;margin:0;">🌱 Growing Minds</h1>
           </div>
           <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
-            <p style="margin:0;">Thanks for upgrading! ${childName}'s complete story is being printed and will be mailed to you as soon as it's ready.</p>
+            <h2 style="color:#2d6a4f;margin-top:0;">Thank you for your order!</h2>
+            <p>${isUpgrade ? `We're picking up right where ${childName}'s preview left off` : `We're making ${childName}'s book now`} — writing every chapter and creating the illustrations, just for ${childName}.</p>
+            <p>Once it's printed, we'll email you a tracking link. Most books arrive within 13–15 business days.</p>
             <p style="color:#6b7280;font-size:.85rem;margin-top:1.25rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
           </div>
         </div>`
     });
     if (error) throw new Error(error.message || JSON.stringify(error));
-    console.log(`Upgrade confirmation email sent to ${customerEmail} (id: ${data?.id})`);
+    console.log(`Order confirmation email sent to ${customerEmail} (id: ${data?.id})`);
   } catch (e) {
-    console.error(`Upgrade confirmation email failed to send: ${e.message}`);
+    console.error(`Order confirmation email failed to send: ${e.message}`);
   }
 }
 
@@ -137,8 +139,9 @@ module.exports = async function handler(req, res) {
 
   console.log(`Inngest event sent for ${childName}: ${eventName}`);
 
-  if (payment_type === 'upgrade' && customerEmail) {
-    await sendUpgradeConfirmationEmail(customerEmail, childName);
+  // Preview orders get their 3-chapter email from Inngest instead.
+  if (!isPreview && customerEmail) {
+    await sendOrderConfirmationEmail(customerEmail, childName, payment_type === 'upgrade');
   }
 
   await sendOrderNotification(
