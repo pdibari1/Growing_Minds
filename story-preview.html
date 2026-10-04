@@ -328,8 +328,11 @@
 
     /* ── RESPONSIVE ── */
     @media (max-width: 860px) {
-      .main-layout { grid-template-columns: 1fr; }
+      /* minmax(0,1fr): the column may not grow past the screen to fit its content */
+      .main-layout { grid-template-columns: minmax(0, 1fr); padding: 2rem 1rem; gap: 2rem; }
       nav { padding: .9rem 1.2rem; }
+      .whats-inside { padding: 1.4rem 1.2rem; }
+      .wi-grid { grid-template-columns: 1fr; }
     }
   </style>
   <!-- Google Analytics 4 -->
