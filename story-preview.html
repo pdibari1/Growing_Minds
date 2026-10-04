@@ -311,15 +311,6 @@
     }
     .trust-item span { font-size: .95rem; }
 
-    /* urgency nudge */
-    .urgency-bar {
-      background: #fff9e6; border: 1px solid #f0d060;
-      border-radius: 10px; padding: .7rem 1rem;
-      display: flex; align-items: center; gap: .6rem;
-      font-size: .82rem; font-weight: 700; color: #8c6e3c;
-      margin-bottom: 1rem;
-    }
-
     /* ── PRINT QUALITY TOGGLE ── */
     .quality-toggle {
       display: flex; gap: .6rem;
@@ -511,14 +502,10 @@
         <div class="purchase-top">
           <div class="purchase-top-label" id="purchase-child-name">Complete Your Story</div>
           <div class="purchase-price" id="purchase-price"><sup>$</sup>35</div>
-          <div class="purchase-price-note">First half by email + complete book shipped free</div>
+          <div class="purchase-price-note">Full story by email + printed book shipped free</div>
         </div>
 
         <div class="purchase-body">
-
-          <div class="urgency-bar">
-            ⏳ Your story is saved for 24 hours
-          </div>
 
           <div class="quality-toggle" id="quality-toggle">
             <button type="button" class="quality-btn selected" data-quality="standard" onclick="selectQuality('standard')">
@@ -538,8 +525,8 @@
             <li>
               <div class="li-icon">📄</div>
               <div class="li-info">
-                <div class="li-title">First Half by Email</div>
-                <div class="li-sub">Sent to your email immediately</div>
+                <div class="li-title">Full Story by Email</div>
+                <div class="li-sub">Emailed as a PDF once your book is ready</div>
               </div>
             </li>
             <li>
@@ -651,13 +638,21 @@
     } else {
       const { preview, storyToken, storyId, childName, childData } = story;
       const { age, trait, city, region, milestone, friend, gender } = childData;
-      const milestoneLower = milestone ? milestone.charAt(0).toLowerCase() + milestone.slice(1) : "their milestone";
+      // childData.milestone is the tile label plus whatever the parent wrote
+      // about the child ("Managing big feelings. He screams when…") — that
+      // detail is for the story writer only and must never be shown here,
+      // where the child may be reading along. Display just the label.
+      // Sessions saved before milestoneLabel existed: the label is the part
+      // before the first ". ".
+      const rawLabel = childData.milestoneLabel || (milestone || '').split('. ')[0];
+      const milestoneLabel = rawLabel && rawLabel !== 'Something else' ? rawLabel : '';
+      const milestoneLower = milestoneLabel ? milestoneLabel.charAt(0).toLowerCase() + milestoneLabel.slice(1) : "their milestone";
 
       // ── UPDATE TAB TITLE ──
       document.title = `Growing Minds — ${childName}'s Story Preview`;
 
       // ── UPDATE HERO ──
-      document.getElementById('story-title-name').textContent = `${childName} and the ${getMilestoneTitle(milestone)}`;
+      document.getElementById('story-title-name').textContent = `${childName} and the ${getMilestoneTitle(milestoneLabel)}`;
       document.getElementById('story-subtitle').textContent = `A personalized Growing Minds adventure — written just for ${childName}`;
       document.getElementById('tag-name').textContent = `🧒 ${childName}, age ${age}`;
 
@@ -676,12 +671,14 @@
       document.getElementById('story-blurred-text').textContent =
         `${childName} took one slow step forward, heart racing. Whatever was about to happen next would change everything — and there was only one way to find out...`;
       document.getElementById('cliff-sub').textContent =
-        `${childName}'s adventure is just getting started. Unlock the full story to find out what happens next — and how ${childName} finds their way through ${milestoneLower}.`;
+        milestoneLabel
+          ? `${childName}'s adventure is just getting started. Unlock the full story to find out what happens next — and how ${childName} finds their way through ${milestoneLower}.`
+          : `${childName}'s adventure is just getting started. Unlock the full story to find out what happens next.`;
 
       // ── UPDATE MILESTONE COPY ──
       document.getElementById('wi-milestone-text').textContent = `${childName}'s story resolves around ${milestoneLower}`;
       document.getElementById('li-unique-sub').textContent = `Written only for ${childName}, never repeated`;
-      document.getElementById('li-milestone-sub').textContent = milestone ? `${milestone} is the heart of the story` : `Their milestone is the heart of the story`;
+      document.getElementById('li-milestone-sub').textContent = milestoneLabel ? `${milestoneLabel} is the heart of the story` : `Their milestone is the heart of the story`;
 
       // ── UPDATE PURCHASE CARD ──
       document.getElementById('purchase-child-name').textContent = `Complete ${childName}'s Story`;
