@@ -9,7 +9,7 @@
 // - No advanced matching: no email, name or other user data is passed to init.
 // - Pages only send standard events with a dollar value, never story details.
 (function () {
-  var PIXEL_ID = '1151321827561049';
+  var PIXEL_ID = '2542014622878829';
 
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
   n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
