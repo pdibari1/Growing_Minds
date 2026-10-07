@@ -644,6 +644,7 @@ function renderProgress(){
 function goTo(step){
   if(step>currentStep&&!validate(currentStep))return;
   if(typeof gtag!=='undefined')gtag('event','form_step_complete',{step_number:currentStep+1,form_type:'express'});
+  if(currentStep===0&&step===1&&typeof fbq!=='undefined')fbq('trackCustom','StartStory');
   if(currentStep===1&&step>1){
     const email=document.getElementById('parentEmail').value.trim();
     const name=document.getElementById('childName').value.trim();
@@ -827,6 +828,7 @@ async function submitForm(){
   document.getElementById('loadingOverlay').classList.add('show');
 
   if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:st.milestoneLabel,form_type:'express'});
+  if(typeof fbq!=='undefined')fbq('track','Lead');
 
   const payload={name,age,gender:document.getElementById('childGender').value||'',ethnicity,hair:st.hair,hairLength:st.hairLength,hairStyle:st.hairStyle,eye:st.eye,trait:st.trait,favorite:fav,friend,city,region,milestone:milestoneStr,email,priorStoryId:document.getElementById('priorStoryId').value.trim()||'',customDetails,genre:st.genre||'',genreStyle:st.genreStyle||''};
 
@@ -860,5 +862,6 @@ initCharCounters();
   if(tile)tile.click();
 })();
 </script>
+<script src="/meta-pixel.js"></script>
 </body>
 </html>
