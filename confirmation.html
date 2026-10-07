@@ -278,6 +278,23 @@
     }
   </style>
   <!-- Google Analytics 4 -->
+  <script>
+    // Analytics hits (Google, Meta) report this page's full URL, and Stripe /
+    // email links put the child's name in it (?name=…). Read it, then remove it
+    // from the address bar before any analytics code runs. Kept in
+    // sessionStorage so a refresh still has it.
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var n = p.get('name');
+      try { if (n) sessionStorage.setItem('gm_url_child_name', n); else n = sessionStorage.getItem('gm_url_child_name'); } catch (e) {}
+      window.__gmChildName = n || '';
+      if (p.has('name')) {
+        p.delete('name');
+        var q = p.toString();
+        history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+      }
+    })();
+  </script>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -402,7 +419,7 @@
     // ── PERSONALIZE FROM SESSION OR URL ──
     const params = new URLSearchParams(window.location.search);
     const urlStoryId = params.get('sid');
-    const urlChildName = params.get('name');
+    const urlChildName = window.__gmChildName || null;
     // 'full' (direct $35/$50 purchase) is the default when ?type= is absent —
     // covers any pre-existing session link created before this param existed.
     const purchaseType = params.get('type') || 'full';
@@ -524,5 +541,16 @@
       });
     }
   </script>
+<script src="/meta-pixel.js"></script>
+<script>
+  // Meta Purchase, once per order (a refresh of this page must not count twice).
+  (function () {
+    if (typeof fbq === 'undefined' || typeof price === 'undefined' || !storyId) return;
+    var key = 'gm_fb_purchase_' + storyId + '_' + purchaseType;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) {}
+    fbq('track', 'Purchase', { value: price, currency: 'USD', content_type: 'product',
+      content_name: purchaseType === 'preview' ? 'Preview' : 'Book' });
+  })();
+</script>
 </body>
 </html>

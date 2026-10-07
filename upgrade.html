@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+    // Analytics hits (Google, Meta) report this page's full URL, and Stripe /
+    // email links put the child's name in it (?name=…). Read it, then remove it
+    // from the address bar before any analytics code runs. Kept in
+    // sessionStorage so a refresh still has it.
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var n = p.get('name');
+      try { if (n) sessionStorage.setItem('gm_url_child_name', n); else n = sessionStorage.getItem('gm_url_child_name'); } catch (e) {}
+      window.__gmChildName = n || '';
+      if (p.has('name')) {
+        p.delete('name');
+        var q = p.toString();
+        history.replaceState(null, '', location.pathname + (q ? '?' + q : '') + location.hash);
+      }
+    })();
+  </script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Growing Minds — Complete the Story</title>
@@ -352,7 +369,7 @@
   // Read sid + name from URL
   const params = new URLSearchParams(window.location.search);
   const storyId = params.get('sid') || '';
-  const childName = params.get('name') || '';
+  const childName = window.__gmChildName || '';
 
   // Personalise hero
   if (childName) {
@@ -414,6 +431,7 @@
         throw new Error(data.error || 'Could not create checkout session.');
       }
 
+      if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { value: QUALITY_PRICES[selectedQuality].due, currency: 'USD' });
       window.location.href = data.checkoutUrl;
 
     } catch (err) {
@@ -426,5 +444,6 @@
   }
 </script>
 
+<script src="/meta-pixel.js"></script>
 </body>
 </html>

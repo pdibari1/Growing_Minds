@@ -620,6 +620,7 @@
       if (typeof gtag !== 'undefined') {
         gtag('event', 'begin_checkout', { currency: 'USD', value: price });
       }
+      if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { value: price, currency: 'USD' });
 
       const btn = document.getElementById('buy-btn');
       const discountCode = document.getElementById('discount-code').value.trim();
@@ -673,3 +674,4 @@
       msg.textContent = '✓ Code will be applied at checkout!';
     }
   </script>
+<script src="/meta-pixel.js"></script>
