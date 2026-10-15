@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, email, customDetails, genre, genreStyle } = req.body;
+  const { name, age, gender, ethnicity, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, email, customDetails, genre, genreStyle } = req.body;
 
   if (!name || !age || !trait || !favorite || !city || !milestone) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -83,7 +83,7 @@ INSTRUCTIONS:
 
     const previewText = message.content[0].text.trim();
     const storyToken = Buffer.from(JSON.stringify({
-      name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, genre, genreStyle
+      name, age, gender, ethnicity: ethnicity || '', hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
 
     // Generate and cache outline async (fire and forget — don't block response)

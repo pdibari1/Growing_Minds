@@ -147,9 +147,10 @@ const generateStoryOrder = inngest.createFunction(
           const keys = allImageKeys.slice(start, start + IMG_BATCH);
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
-          const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
+          const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
           const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-          const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+          const ethnicityDesc = ethnicity ? `${ethnicity} ` : '';
+          const charDesc = `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes`;
 
           // Only the primary character (and any secondary character with an explicit
           // physical description) gets drawn as a specific, identifiable individual —
@@ -302,7 +303,7 @@ const generateStoryOrder = inngest.createFunction(
       const resend = new Resend(process.env.RESEND_API_KEY);
       const token = adminToken(storyId);
       const approveUrl = `https://www.growingminds.io/api/approve-print?storyId=${encodeURIComponent(storyId)}&token=${token}`;
-      const { friend, city, region, milestone, age, genre } = childData;
+      const { friend, city, region, milestone, age, genre, ethnicity } = childData;
 
       const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
@@ -317,6 +318,7 @@ const generateStoryOrder = inngest.createFunction(
               <div style="font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b8f71;margin-bottom:.6rem;">What the family actually told us</div>
               <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;">
                 <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;width:140px;">Child</td><td style="padding:.4rem 0;font-weight:700;">${childName}, age ${age}</td></tr>
+                <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Ethnicity</td><td style="padding:.4rem 0;">${ethnicity || '(not specified)'}</td></tr>
                 <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Milestone</td><td style="padding:.4rem 0;">${milestone || '—'}</td></tr>
                 <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Hometown</td><td style="padding:.4rem 0;">${city || '—'}, ${region || '—'}</td></tr>
                 <tr><td style="padding:.4rem 0;color:#6b8f71;font-size:.85rem;">Companion</td><td style="padding:.4rem 0;">${friend && friend !== 'none' ? friend : '(none)'}</td></tr>
@@ -551,9 +553,10 @@ const generatePreviewChapters = inngest.createFunction(
 
     // Generate cover illustration
     await step.run("generate-preview-cover", async () => {
-      const { name, age, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
+      const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
       const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-      const charDesc = `a young child with ${hairDesc} hair and ${eye} eyes`;
+      const ethnicityDesc = ethnicity ? `${ethnicity} ` : '';
+      const charDesc = `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes`;
       // Only the primary character (and any secondary character with an explicit
       // physical description) gets drawn as a specific, identifiable individual —
       // see the same policy in the full-order illustration step for why.

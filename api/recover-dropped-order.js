@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
 
   const {
     storyId, childName, customerEmail, paymentType,
-    name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend,
+    name, age, gender, ethnicity, hair, hairLength, hairStyle, eye, trait, favorite, friend,
     city, region, milestone, genre, genreStyle, customDetails
   } = req.body || {};
 
@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
   try {
     // Reconstruct the exact storyToken shape generate-preview.js originally created.
     const storyToken = Buffer.from(JSON.stringify({
-      name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend,
+      name, age, gender, ethnicity: ethnicity || '', hair, hairLength, hairStyle, eye, trait, favorite, friend,
       city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
 
