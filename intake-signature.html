@@ -854,9 +854,17 @@ async function submitForm(){
   if(strengths||nickname){parts.push(`\n=== ABOUT ${name.toUpperCase()} ===`);if(strengths)parts.push(`Great at: ${strengths}`);if(nickname)parts.push(`Nickname: ${nickname}`);}
   if(cantDo||realFeel||wouldCorr||extra){parts.push('\n=== THINGS THE STORY MUST GET RIGHT ===');if(cantDo)parts.push(`Can't do yet: ${cantDo}`);if(realFeel)parts.push(`Real feelings: ${realFeel}`);if(wouldCorr)parts.push(`Would correct: ${wouldCorr}`);if(extra)parts.push(`Additional: ${extra}`);}
   const customDetails=parts.join('\n');
+  // 'friend' (used downstream for the illustration COMPANION RULE — locking a pet's
+  // species/appearance so it doesn't get reinvented per scene) was previously set to
+  // the Family textarea by mistake, injecting things like "Ramona, her sister is 11
+  // years old" into the companion-species prompt. This form has no dedicated
+  // structured companion field — any pet mentioned in Family/Friends/Others still
+  // reaches the story-text prompt via customDetails above, it just won't get the
+  // species-lock illustration protection Express-form orders get from their
+  // dedicated companion field.
   let milestoneStr=state.milestoneLabel||'';
   if(mqConfig){const details=mqConfig.questions.slice(0,3).map((q,i)=>(document.getElementById(`mq_${i}`)?.value||'').trim()).filter(Boolean).join('. ');if(details)milestoneStr=`${milestoneStr}. ${details}`;}
-  const payload={name,age,gender,ethnicity,hair:state.hair||'',hairLength:state.hairLength||'',hairStyle:state.hairStyle||'',eye:state.eye||'',trait:personality,favorite:interests,friend:family||'none',city,region,milestone:milestoneStr,email,priorStoryId,customDetails,genre:state.genre||'',genreStyle:state.genreStyle||''};
+  const payload={name,age,gender,ethnicity,hair:state.hair||'',hairLength:state.hairLength||'',hairStyle:state.hairStyle||'',eye:state.eye||'',trait:personality,favorite:interests,friend:'none',city,region,milestone:milestoneStr,email,priorStoryId,customDetails,genre:state.genre||'',genreStyle:state.genreStyle||''};
   try{
     const response=await fetch('/api/generate-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.error||'Story generation failed');}
