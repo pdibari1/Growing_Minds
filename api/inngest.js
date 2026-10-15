@@ -999,12 +999,41 @@ Write all ${endIdx - startIdx} chapters now. Nothing else.`;
   return chapTexts.slice(0, endIdx - startIdx);
 }
 
+// Gemini returns a 503 "This model is currently experiencing high demand..."
+// during real capacity spikes — transient, not specific to any one prompt.
+// Without a retry here, that single overload kills the ENTIRE illustration
+// step (every image in the book, including the character reference that
+// every other image depends on), not just the one request that happened to
+// land during the spike. This is exactly what took down Imogen's order
+// (storyId story_1792075662270_pailm...) on 2026-10-15.
+function isGeminiOverloadError(message) {
+  return /high demand|UNAVAILABLE|\b503\b/i.test(message || "");
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callGeminiImage(parts, imageConfig, attempt = 1) {
+  try {
+    return await callGeminiImageOnce(parts, imageConfig);
+  } catch (err) {
+    if (attempt < 3 && isGeminiOverloadError(err.message)) {
+      const delay = attempt * 5000;
+      console.log(`Gemini overloaded (attempt ${attempt}/3) — retrying in ${delay}ms`);
+      await sleep(delay);
+      return callGeminiImage(parts, imageConfig, attempt + 1);
+    }
+    throw err;
+  }
+}
+
 // Nano Banana Pro (gemini-3-pro-image). `parts` follows Gemini's generateContent
 // content-part format: [{ text }] and/or [{ inlineData: { mimeType, data (base64) } }]
 // for feeding a reference image back in. `imageConfig` is { aspectRatio, imageSize }
 // — imageSize "1K"/"2K"/"4K", default "1K" if omitted. No free tier; billing must be
 // enabled on the Google Cloud project behind GEMINI_API_KEY.
-function callGeminiImage(parts, imageConfig) {
+function callGeminiImageOnce(parts, imageConfig) {
   const payload = JSON.stringify({
     contents: [{ parts }],
     generationConfig: imageConfig ? { imageConfig } : undefined,
