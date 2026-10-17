@@ -276,11 +276,6 @@
         </select>
         <div id="ethnicityOtherWrap" style="display:none;margin-top:.7rem;"><input type="text" id="ethnicityOther" placeholder="Please describe…" maxlength="80"/></div>
       </div>
-      <div class="field">
-        <label>Family Story ID <span class="opt">(optional — from a previous order)</span></label>
-        <input type="text" id="priorStoryId" placeholder="e.g. story_1773029275842_vmum15" maxlength="60"/>
-        <p class="field-hint">Have a previous story? Enter the ID to continue their world in this new adventure.</p>
-      </div>
       <div class="nav"><button class="btn-back" onclick="goTo(0)">← Back</button><button class="btn-next" onclick="goTo(2)">Next: Their Look →</button></div>
     </div>
 
@@ -830,7 +825,7 @@ async function submitForm(){
   if(typeof gtag!=='undefined')gtag('event','form_complete',{milestone:st.milestoneLabel,form_type:'express'});
   if(typeof fbq!=='undefined')fbq('track','Lead');
 
-  const payload={name,age,gender:document.getElementById('childGender').value||'',ethnicity,hair:st.hair,hairLength:st.hairLength,hairStyle:st.hairStyle,eye:st.eye,trait:st.trait,favorite:fav,friend,city,region,milestone:milestoneStr,email,priorStoryId:document.getElementById('priorStoryId').value.trim()||'',customDetails,genre:st.genre||'',genreStyle:st.genreStyle||''};
+  const payload={name,age,gender:document.getElementById('childGender').value||'',ethnicity,hair:st.hair,hairLength:st.hairLength,hairStyle:st.hairStyle,eye:st.eye,trait:st.trait,favorite:fav,friend,city,region,milestone:milestoneStr,email,customDetails,genre:st.genre||'',genreStyle:st.genreStyle||''};
 
   try{
     const response=await fetch('/api/generate-preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
