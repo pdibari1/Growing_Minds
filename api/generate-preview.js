@@ -1,6 +1,12 @@
 // api/generate-preview.js
 const Anthropic = require("@anthropic-ai/sdk");
 
+// Matches STORY_DATA_TTL in api/inngest.js — keep these in sync. A customer can
+// realistically take weeks or months to decide on the full book after seeing
+// this free preview, so the token/outline/customDetails need to survive at
+// least that long or the full order silently regenerates from scratch later.
+const STORY_DATA_TTL = 60 * 60 * 24 * 180; // 180 days
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -102,7 +108,7 @@ INSTRUCTIONS:
       const s = raw.indexOf("["), e2 = raw.lastIndexOf("]");
       if (s !== -1 && e2 !== -1) raw = raw.slice(s, e2 + 1);
       const outline = JSON.parse(raw);
-      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/set/outline:${storyId}/${encodeURIComponent(JSON.stringify(outline))}?EX=604800`, { headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } });
+      await fetch(`${process.env.UPSTASH_REDIS_REST_URL}/set/outline:${storyId}/${encodeURIComponent(JSON.stringify(outline))}?EX=${STORY_DATA_TTL}`, { headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` } });
       console.log(`Saved outline to Redis for ${storyId}`);
     } catch(e) { console.error("Outline cache error:", e.message); } })();
 
@@ -119,7 +125,7 @@ INSTRUCTIONS:
           Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(['SET', `token:${storyId}`, storyToken, 'EX', 2592000])
+        body: JSON.stringify(['SET', `token:${storyId}`, storyToken, 'EX', STORY_DATA_TTL])
       });
       const redisData = await redisResp.json();
       console.log(`Saved storyToken to Redis for ${storyId}: ${JSON.stringify(redisData)}`);
@@ -139,7 +145,7 @@ INSTRUCTIONS:
             Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(['SET', `customdetails:${storyId}`, customDetails, 'EX', 2592000])
+          body: JSON.stringify(['SET', `customdetails:${storyId}`, customDetails, 'EX', STORY_DATA_TTL])
         });
         console.log(`Saved full customDetails to Redis for ${storyId}`);
       } catch(e) {

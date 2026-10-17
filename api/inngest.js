@@ -23,6 +23,14 @@ const inngest = new Inngest({
   eventKey: process.env.INNGEST_EVENT_KEY
 });
 
+// How long story-related Redis keys (outline, chapters, character reference,
+// illustrations) survive. A customer who buys the $2.99 preview can realistically
+// take weeks or months to decide on the full $35 book — a shorter TTL here meant
+// the cache could vanish before they came back, causing the full order to silently
+// regenerate everything from scratch (different outline, different chapters 1-3)
+// rather than continuing what they already read and paid for.
+const STORY_DATA_TTL = 60 * 60 * 24 * 180; // 180 days
+
 // ── STORY TIERS BY AGE ──
 function getStoryTier(age) {
   const a = parseInt(age);
@@ -81,7 +89,7 @@ const generateStoryOrder = inngest.createFunction(
         } catch(e) {}
       }
       const result = await generateOutline(childData, tier);
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 2592000]);
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", STORY_DATA_TTL]);
       console.log(`Saved outline with ${result.length} chapters to Redis`);
       return result;
     });
@@ -538,8 +546,8 @@ const generatePreviewChapters = inngest.createFunction(
     // Generate outline
     const outline = await step.run("generate-preview-outline", async () => {
       const result = await generateOutline(childData, tier);
-      // 30-day TTL — must still be here whenever the customer upgrades to the full book.
-      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", 2592000]);
+      // Must still be here whenever the customer upgrades to the full book.
+      await redisRequest("SET", [`outline:${storyId}`, JSON.stringify(result), "EX", STORY_DATA_TTL]);
       return result;
     });
 
@@ -1123,7 +1131,7 @@ async function getOrCreateCharacterReference(storyId, prompt) {
     access: 'public',
     contentType: 'image/png'
   });
-  await redisRequest("SET", [`charref:${storyId}`, blob.url, "EX", 2592000]);
+  await redisRequest("SET", [`charref:${storyId}`, blob.url, "EX", STORY_DATA_TTL]);
   console.log(`Character reference created for ${storyId}: ${blob.url}`);
   return gen.bytes;
 }
@@ -1756,9 +1764,9 @@ async function redisRequest(command, args) {
 
 async function saveChaptersToRedis(storyId, priorChapters, newChapters) {
   const allChapters = [...priorChapters, ...newChapters];
-  // 30-day TTL — the preview's chapters must still be here whenever the customer
-  // upgrades to the full book, which can happen well outside a 2h window.
-  await redisRequest("SET", [`story:${storyId}`, JSON.stringify(allChapters), "EX", 2592000]);
+  // The preview's chapters must still be here whenever the customer upgrades to
+  // the full book, which can happen well outside a 2h window.
+  await redisRequest("SET", [`story:${storyId}`, JSON.stringify(allChapters), "EX", STORY_DATA_TTL]);
   console.log(`Saved ${allChapters.length} chapters to Redis for ${storyId}`);
 }
 
@@ -1775,10 +1783,10 @@ async function deleteChaptersFromRedis(storyId) {
 }
 
 async function saveIllustrationsToRedis(storyId, newIllustrations) {
-  // 30-day TTL, not 2h — the preview's cover must still be findable whenever the
+  // Not a short TTL — the preview's cover must still be findable whenever the
   // customer upgrades to the full book, which can happen well outside a 2h window.
   for (const [key, url] of Object.entries(newIllustrations)) {
-    await redisRequest("SET", [`img:${storyId}:${key}`, url, "EX", 2592000]);
+    await redisRequest("SET", [`img:${storyId}:${key}`, url, "EX", STORY_DATA_TTL]);
   }
   console.log(`Saved ${Object.keys(newIllustrations).length} illustration URLs to Redis for ${storyId}`);
 }
