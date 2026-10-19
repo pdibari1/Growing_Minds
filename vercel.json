@@ -34,6 +34,9 @@
     "api/post-order-survey.js": {
       "maxDuration": 15
     },
+    "api/post-order-survey-results.js": {
+      "maxDuration": 15
+    },
     "api/waitlist.js": {
       "maxDuration": 10
     },
@@ -110,6 +113,10 @@
       "destination": "/post-order-survey.html"
     },
     {
+      "source": "/post-order-survey-results",
+      "destination": "/post-order-survey-results.html"
+    },
+    {
       "source": "/returns",
       "destination": "/returns.html"
     },
@@ -175,6 +182,24 @@
     },
     {
       "source": "/survey-results.html",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/post-order-survey-results",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/post-order-survey-results.html",
       "headers": [
         {
           "key": "X-Robots-Tag",

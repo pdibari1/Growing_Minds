@@ -177,7 +177,7 @@
   <div class="dash-header">
     <div>
       <h1>📊 Survey Results — Growing Minds</h1>
-      <div class="meta" id="headerMeta">Loading…</div>
+      <div class="meta" id="headerMeta">Loading… &nbsp;·&nbsp; <a href="/post-order-survey-results" style="color:var(--green-pale);font-size:0.82rem;text-decoration:underline;">View post-order survey instead →</a></div>
     </div>
     <button onclick="logout()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;padding:0.5rem 1rem;border-radius:999px;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:700;">Log out</button>
   </div>
@@ -339,7 +339,7 @@
   // ── Summary stats ──
   function renderSummary(data) {
     const n = data.length;
-    document.getElementById('headerMeta').textContent = `${n} total response${n !== 1 ? 's' : ''}`;
+    document.getElementById('headerMeta').innerHTML = `${n} total response${n !== 1 ? 's' : ''} &nbsp;·&nbsp; <a href="/post-order-survey-results" style="color:var(--green-pale);font-size:0.82rem;text-decoration:underline;">View post-order survey instead →</a>`;
     document.getElementById('s-total').textContent = n;
 
     if (n === 0) return;
