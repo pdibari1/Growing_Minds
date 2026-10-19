@@ -87,8 +87,18 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
   readers, 4/chapter for younger readers) — cost math worked out, no
   decision made yet on whether to build it.
 - Batch-mode routing for interior illustrations — decided, not yet built.
-- Non-ad growth channel: leaning toward a referral/word-of-mouth program
-  leveraging current testers — sketched, not built.
+- Non-ad growth channel: referral/word-of-mouth program — sketched, not built.
+  Concept: "Give $10, Get $10" — a referred friend gets $10 off their first
+  full book (Stripe coupon code), the referring parent gets a $10 credit
+  toward their next book once the referred order completes. Triggered off
+  the post-order survey's NPS score — invite promoters (9–10) only at first,
+  not every customer. Lean v1: referral link is just a `?ref=<code>` param
+  on the intake form (tracked like a UTM param), reward-back side handled
+  manually (admin emails a promo code once a referred order completes) until
+  volume justifies automating it. Note: this doesn't fix the admin-approval
+  scaling bottleneck — every order, referred or not, still needs a manual
+  "Approve & Send" click — it just gets better-fit customers at lower cost
+  than ads within whatever volume the approval gate can already handle.
 - Manuscript rules #4/#5 (mentor humanizing crack; generalizing the
   magic-metaphor principle) — discussed, not drafted.
 
