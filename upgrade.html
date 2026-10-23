@@ -18,6 +18,15 @@
       }
     })();
   </script>
+  <!-- Google Analytics — loaded after the URL-scrubbing script above, so the
+       child's name (read from ?name= before this runs) never reaches GA. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-P6FLSR57GV');
+  </script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Growing Minds — Complete the Story</title>
@@ -432,6 +441,7 @@
       }
 
       if (typeof fbq !== 'undefined') fbq('track', 'InitiateCheckout', { value: QUALITY_PRICES[selectedQuality].due, currency: 'USD' });
+      if (typeof gtag !== 'undefined') gtag('event', 'begin_checkout', { value: QUALITY_PRICES[selectedQuality].due, currency: 'USD', print_quality: selectedQuality });
       window.location.href = data.checkoutUrl;
 
     } catch (err) {
