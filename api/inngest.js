@@ -502,7 +502,7 @@ const generateStoryOrder = inngest.createFunction(
                   <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(45,106,79,0.3);">Share my feedback →</a>
                 </div>
                 <p style="color:#6b7280;font-size:.85rem;">Takes about 30 seconds. We read every response.</p>
-                <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+                <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
               </div>
             </div>`
         });
@@ -680,7 +680,7 @@ const generatePreviewChapters = inngest.createFunction(
                 <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID when ordering the full book!</p>
               </div>
               <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">This link and ${childName}'s story stay active for 30 days from today — upgrade anytime in that window to pick up right where the preview left off.</p>
-              <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+              <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
             </div>
           </div>
         `
@@ -759,7 +759,7 @@ const generatePreviewChapters = inngest.createFunction(
                     <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
                   </div>
                   <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">${childName}'s story and this link stay active for 30 days from your preview purchase.</p>
-                  <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+                  <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
                 </div>
               </div>
             `

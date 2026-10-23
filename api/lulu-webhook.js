@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
                 </a>
               </p>` : ""}
               <p style="margin-top:2rem;font-size:.85rem;color:#9ca3af;">
-                Questions? Reply to this email or contact us at hello@growingminds.io
+                Questions? Reply to this email or contact us at help@growingminds.io
               </p>
             </div>
           `,

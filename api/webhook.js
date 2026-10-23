@@ -43,7 +43,7 @@ async function sendOrderConfirmationEmail(customerEmail, childName, isUpgrade) {
             <h2 style="color:#2d6a4f;margin-top:0;">Thank you for your order!</h2>
             <p>${isUpgrade ? `We're picking up right where ${childName}'s preview left off` : `We're making ${childName}'s book now`} — writing every chapter and creating the illustrations, just for ${childName}.</p>
             <p>Once it's printed, we'll email you a tracking link. Most books arrive within 13–15 business days.</p>
-            <p style="color:#6b7280;font-size:.85rem;margin-top:1.25rem;">Questions? Email us at <a href="mailto:hello@growingminds.io" style="color:#2d6a4f;">hello@growingminds.io</a></p>
+            <p style="color:#6b7280;font-size:.85rem;margin-top:1.25rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
           </div>
         </div>`
     });
