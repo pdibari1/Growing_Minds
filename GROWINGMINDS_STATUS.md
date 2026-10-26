@@ -69,7 +69,7 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
   route all full-order **interior** image generation through batch
   (already async in the background, no UX cost) — the **cover** stays on
   real-time generation (needs to feel instant on the free preview page).
-  Not yet implemented.
+  Built, feature-flagged off by default — see Open Items below.
 - **Lulu print cost** (confirmed via `/api/lulu-cost-check` against Lulu's
   real cost-calculation endpoint, for a 150-page book, print cost only —
   excludes shipping/tax): **~$9.57 standard, ~$22.83 premium color**.
@@ -86,7 +86,17 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
 - Image-count-per-chapter increase (currently exploring 2/chapter for older
   readers, 4/chapter for younger readers) — cost math worked out, no
   decision made yet on whether to build it.
-- Batch-mode routing for interior illustrations — decided, not yet built.
+- Batch-mode routing for interior illustrations — built, feature-flagged off
+  by default (`USE_BATCH_ILLUSTRATIONS`, see `env.example.txt`). Cover always
+  stays real-time (needs to feel instant on the free preview); interior images
+  submit as one bundled Gemini batch job, polled with a backoff schedule
+  spanning ~19 hours, with automatic real-time fallback for anything the batch
+  job doesn't deliver. Request/response shapes confirmed against a real
+  completed test job (not guessed from docs, which disagree with each other
+  and with a live bug report of batch image jobs losing results) — see
+  `check-batch-full.js`. A 2-image test job completed in ~1.5 minutes, nowhere
+  near Gemini's 24h worst-case SLA. Not yet tested against a real full order —
+  do that before flipping the flag on for all traffic.
 - Non-ad growth channel: referral/word-of-mouth program — sketched, not built.
   Concept: "Give $10, Get $10" — a referred friend gets $10 off their first
   full book (Stripe coupon code), the referring parent gets a $10 credit

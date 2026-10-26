@@ -44,6 +44,12 @@ const generateStoryOrder = inngest.createFunction(
   {
     id: "generate-story-order",
     retries: 2,
+    // This bounds step EXECUTION time, not total wall-clock duration — it does
+    // NOT cap how long step.sleep/step.waitForEvent can durably wait within a
+    // single run. Proven by the 7-day admin-approval wait below, and relied on
+    // again by the illustration batch-mode poll loop (up to ~19h of step.sleep
+    // across its backoff schedule) — neither would work if this were a hard
+    // wall-clock ceiling on the whole run.
     timeout: "60m",
     // Catch-all safety net: fires once a run exhausts its retries and fails for good,
     // no matter which step or line caused it — so a failure mode nobody specifically
@@ -146,6 +152,141 @@ const generateStoryOrder = inngest.createFunction(
       // Always ensure chapter 0 (cover) gets an image
       if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
       console.log(`IMAGE KEYS: outline.length=${freshOutline.length}, tier.imageCount=${tier.imageCount}, keys=${allImageKeys.length}, step2=${step2}`);
+
+      if (process.env.USE_BATCH_ILLUSTRATIONS === "true") {
+        // ── Batch path: cover stays real-time (needs to feel instant on the free
+        // preview), every interior image routes through Gemini's batch endpoint —
+        // confirmed ~half the per-image cost, at the price of taking longer
+        // (confirmed via a real completed test job: ~1.5 minutes for 2 images,
+        // nowhere near Gemini's 24h worst-case SLA). Safe to let this take a
+        // while regardless: the order already waits on a human "Approve & Send"
+        // click (up to 7 days) and Lulu print+ship (days) before the customer
+        // sees the book, so illustration turnaround doesn't change when the
+        // book actually arrives.
+        const interiorKeys = allImageKeys.filter((k) => k !== '0-0');
+
+        const coverResult = await step.run("generate-cover", async () => {
+          const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
+          const existingUrls = await getIllustrationsFromRedis(storyId);
+          const referenceBytes = await getOrCreateCharacterReference(storyId, promptCtx.referencePrompt);
+          let coverUrl = existingUrls['0-0'];
+          if (coverUrl) {
+            console.log(`Cover reused from preview: ${coverUrl.slice(0, 60)}`);
+          } else {
+            const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene('0-0');
+            const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" });
+            const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
+            coverUrl = blob.url;
+            await saveIllustrationsToRedis(storyId, { '0-0': coverUrl });
+            console.log(`Cover generated (4K, real-time)`);
+          }
+          return { coverUrl, referenceBytesBase64: referenceBytes.toString('base64') };
+        });
+        illustrations['0-0'] = coverResult.coverUrl;
+
+        if (interiorKeys.length > 0) {
+          const batchJobName = await step.run("submit-illustration-batch", async () => {
+            const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
+            const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
+            const items = interiorKeys.map((key) => {
+              const { scenePrompt } = promptCtx.buildScene(key);
+              return {
+                key,
+                parts: buildCharacterParts(referenceBytes, scenePrompt),
+                imageConfig: { aspectRatio: "4:3", imageSize: "2K" },
+              };
+            });
+            const jobName = await submitBatchImageJob(items);
+            console.log(`Submitted illustration batch job ${jobName} for ${interiorKeys.length} images`);
+            return jobName;
+          });
+
+          // Bounded poll with increasing backoff — extraction and Blob upload
+          // happen INSIDE this step.run once a terminal state is seen, so the
+          // (large, base64-image-laden) raw job response never has to be
+          // returned as step output and bloat Inngest's memoized state.
+          const POLL_SCHEDULE = ["1m", "2m", "5m", "10m", "15m", "30m", "30m", "1h", "1h", "2h", "2h", "4h", "4h", "4h"];
+          let batchReachedTerminal = false;
+          for (let i = 0; i < POLL_SCHEDULE.length; i++) {
+            await step.sleep(`batch-poll-wait-${i}`, POLL_SCHEDULE[i]);
+            const pollResult = await step.run(`batch-poll-check-${i}`, async () => {
+              const job = await checkBatchJob(batchJobName);
+              const state = job?.metadata?.state || "";
+              const terminal = /SUCCEED|FAIL|CANCEL|EXPIR/i.test(state);
+              if (!terminal) return { terminal: false, state };
+
+              const saved = [];
+              if (/SUCCEED/i.test(state)) {
+                const results = extractBatchResults(job);
+                const toSave = {};
+                for (const key of interiorKeys) {
+                  const r = results.get(key);
+                  if (r?.bytes) {
+                    const blob = await put(`illustrations/${storyId}/${key}.png`, r.bytes, { access: 'public', contentType: 'image/png' });
+                    toSave[key] = blob.url;
+                    saved.push(key);
+                  }
+                }
+                if (saved.length) await saveIllustrationsToRedis(storyId, toSave);
+              } else {
+                console.error(`Illustration batch job ${batchJobName} ended in state ${state}`);
+              }
+              return { terminal: true, state, saved };
+            });
+            if (pollResult.terminal) {
+              batchReachedTerminal = true;
+              console.log(`Batch poll ${i + 1}: reached terminal state ${pollResult.state}, saved ${pollResult.saved.length}/${interiorKeys.length}`);
+              break;
+            }
+            console.log(`Batch poll ${i + 1}: state=${pollResult.state}`);
+          }
+          if (!batchReachedTerminal) {
+            console.error(`Illustration batch job ${batchJobName} still not done after full poll schedule — falling back to real-time for anything missing`);
+          }
+
+          // Cheap re-read (URLs only, not image bytes) to see what batch actually saved.
+          const savedFromBatch = await getIllustrationsFromRedis(storyId);
+          for (const key of interiorKeys) {
+            if (savedFromBatch[key]) illustrations[key] = savedFromBatch[key];
+          }
+
+          // Real-time fallback for anything batch didn't deliver — a job that
+          // errored, timed out, or had an individual image missing/rejected.
+          const stillMissing = interiorKeys.filter((k) => !illustrations[k]);
+          if (stillMissing.length > 0) {
+            const fallback = await step.run("generate-illustrations-fallback", async () => {
+              const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
+              const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
+              const result = {};
+              const failures = [];
+              for (const key of stillMissing) {
+                try {
+                  const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene(key);
+                  const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" });
+                  const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
+                  result[key] = blob.url;
+                  console.log(`Image ${key} generated via real-time fallback (2K)`);
+                } catch (err) {
+                  console.error(`Image ${key} failed (batch + fallback both failed): ${err.message}`);
+                  failures.push({ key, error: err.message });
+                }
+              }
+              if (Object.keys(result).length) await saveIllustrationsToRedis(storyId, result);
+              return { saved: result, failed: failures };
+            });
+            Object.assign(illustrations, fallback.saved);
+            if (fallback.failed.length > 0) {
+              await sendAlertEmail(
+                `Illustration failures — ${childName}'s book (${storyId})`,
+                `Batch mode: ${fallback.failed.length}/${stillMissing.length} images failed after both batch and real-time fallback.\n\n` +
+                fallback.failed.map((f) => `${f.key}: ${f.error}`).join('\n')
+              );
+            }
+          }
+        }
+
+      } else {
+
       const imgBatches = Math.ceil(allImageKeys.length / IMG_BATCH);
       console.log(`STARTING ${imgBatches} illustration batches`);
 
@@ -258,6 +399,8 @@ const generateStoryOrder = inngest.createFunction(
           }
           return { saved: Object.keys(result).length, failed: failures.length };
         });
+      }
+
       }
     } else {
       console.log("Skipping illustrations");
@@ -1096,17 +1239,205 @@ function callGeminiImageOnce(parts, imageConfig) {
 // at all. Retrying once with a generic, unmistakably safe scene (same
 // character/setting, no specific action) recovers an image instead.
 async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, imageConfig) {
-  const buildParts = (scene) => [
-    { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
-    { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene}` }
-  ];
   try {
-    return await callGeminiImage(buildParts(scenePrompt), imageConfig);
+    return await callGeminiImage(buildCharacterParts(referenceBytes, scenePrompt), imageConfig);
   } catch (err) {
     if (!err.message.includes("PROHIBITED_CONTENT")) throw err;
     console.log(`Scene blocked by Gemini safety filter (PROHIBITED_CONTENT) — retrying with a generic fallback scene`);
-    return await callGeminiImage(buildParts(fallbackScenePrompt), imageConfig);
+    return await callGeminiImage(buildCharacterParts(referenceBytes, fallbackScenePrompt), imageConfig);
   }
+}
+
+// Shared by the real-time path above and the batch path below — same reference-
+// image-conditioning parts either way, just a different transport underneath.
+function buildCharacterParts(referenceBytes, scene) {
+  return [
+    { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
+    { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene}` }
+  ];
+}
+
+// ════════════════════════════════════════════
+// GEMINI BATCH MODE (interior illustrations only — see USE_BATCH_ILLUSTRATIONS)
+// ════════════════════════════════════════════
+//
+// Confirmed against a real completed batch job (not guessed from docs, which
+// disagree with each other and with a live bug report of batch image jobs
+// losing results): state values are BATCH_STATE_* (PENDING → RUNNING →
+// SUCCEEDED/FAILED/CANCELLED/EXPIRED), results live at
+// response.inlinedResponses.inlinedResponses[], each entry carries back the
+// exact metadata.key it was submitted with (reliable for matching a result to
+// its chapter/image key), and the image itself is at the same
+// candidates[0].content.parts[].inlineData shape the real-time endpoint uses.
+// A real 2-image test job completed in ~1.5 minutes — nowhere near Gemini's
+// 24h worst-case SLA.
+
+// Bundles every interior image for one book into a SINGLE batch job (not one
+// job per image) — Gemini's batch API supports multiple requests per job, each
+// tagged with its own metadata.key, so this is both fewer HTTP calls and a
+// single job to poll instead of up to 15.
+function submitBatchImageJob(items) {
+  const requests = items.map((item) => ({
+    request: {
+      contents: [{ parts: item.parts }],
+      generationConfig: item.imageConfig ? { imageConfig: item.imageConfig } : undefined,
+    },
+    metadata: { key: item.key },
+  }));
+  const payload = JSON.stringify({
+    batch: {
+      display_name: `illustrations-${Date.now()}`,
+      input_config: { requests: { requests } },
+    },
+  });
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "generativelanguage.googleapis.com",
+        path: `/v1beta/models/gemini-3-pro-image:batchGenerateContent?key=${process.env.GEMINI_API_KEY}`,
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+        timeout: 60000,
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          try {
+            const data = JSON.parse(body);
+            if (data.error) return reject(new Error(data.error.message));
+            if (!data.name) return reject(new Error("Batch submission returned no job name: " + body.slice(0, 300)));
+            resolve(data.name);
+          } catch (e) {
+            reject(new Error("Batch submit parse error: " + body.slice(0, 300)));
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("Batch submit timeout")));
+    req.write(payload);
+    req.end();
+  });
+}
+
+// Returns the raw job resource (includes full results once terminal) — caller
+// is responsible for not returning this directly from a step.run once results
+// are present, since the base64 image data for a whole book's worth of images
+// is large enough to be worth keeping out of Inngest's step-memoization state.
+function checkBatchJob(jobName) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "generativelanguage.googleapis.com",
+        path: `/v1beta/${jobName}?key=${process.env.GEMINI_API_KEY}`,
+        method: "GET",
+        timeout: 30000,
+      },
+      (res) => {
+        let body = "";
+        res.on("data", (c) => (body += c));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch (e) {
+            reject(new Error("Batch status parse error: " + body.slice(0, 300)));
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("Batch status check timeout")));
+    req.end();
+  });
+}
+
+// Maps each completed batch job's results back to the key (image/chapter) it
+// was submitted for. Checks both response.inlinedResponses and
+// metadata.output.inlinedResponses — a completed job carries the same results
+// in both places; using either is fine, this just isn't picky about which.
+function extractBatchResults(jobResponse) {
+  const items =
+    jobResponse?.response?.inlinedResponses?.inlinedResponses ||
+    jobResponse?.metadata?.output?.inlinedResponses?.inlinedResponses ||
+    [];
+  const results = new Map();
+  for (const item of items) {
+    const key = item?.metadata?.key;
+    if (!key) continue;
+    const parts = item?.response?.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p) => p.inlineData?.data);
+    if (imagePart) {
+      results.set(key, {
+        bytes: Buffer.from(imagePart.inlineData.data, "base64"),
+        mimeType: imagePart.inlineData.mimeType || "image/png",
+      });
+    } else {
+      results.set(key, { error: `No image in batch result for key ${key}` });
+    }
+  }
+  return results;
+}
+
+// All the per-story prompt text (style, character/companion policy, reference
+// prompt) needed to generate any image in the book — identical whether the
+// actual generation happens real-time or via batch, so both paths share this
+// instead of duplicating ~60 lines of prompt construction.
+function buildIllustrationPromptContext(childData, freshOutline, tier) {
+  const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
+  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+  const ethnicityDesc = ethnicity ? `${ethnicity} ` : '';
+  const charDesc = `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes`;
+
+  const illustrationDetails = extractIllustrationDetails(customDetails);
+  const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person in the scene — parents, siblings, friends, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. Do not include them even as a generic, faceless, or turned-away figure — omit them completely and focus the illustration on ${name} and the setting/action instead, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
+  const companionPolicy = friend && friend !== 'none'
+    ? `\n\nCOMPANION RULE: ${name}'s established companion(s) — ${friend} — must be drawn to match exactly what's already established (species, breed, coloring, etc.) whenever they appear in a scene. Never substitute a different kind of animal or a different person than what's specified — for example, never draw a dog if the companion is a cat.`
+    : '';
+
+  const genreVisual = {
+    'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
+    'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
+    'Friendly Dragons': 'bright colorful dragon, friendly fantasy world',
+    'Animal Kingdom': 'beatrix potter style, cozy anthropomorphic animals',
+    'Cozy Magic': 'studio ghibli inspired, warm town setting, everyday magic',
+    'Unicorns & Magic': 'rainbow meadows, sparkle and shimmer, magical creatures',
+    'Wizard Academy': 'magical boarding school, gothic architecture, warm torch light',
+    'Dragon Rider': 'epic mountain vistas, dragon in flight, sweeping skies',
+    'Enchanted Quest': 'classic fantasy landscape, portal worlds, magical kingdoms',
+    'Superhero Origin': 'dynamic comic book style, action poses, bright colors',
+    'Mystery & Magic': 'atmospheric fog, mysterious glowing clues, enchanted detective',
+    'Space & Stars': 'nebula backgrounds, alien worlds, bioluminescent colors',
+    'Underwater Kingdom': 'bioluminescent ocean, coral castles, flowing water light',
+    'Epic Fantasy': 'sweeping epic landscape, dramatic lighting, ancient world',
+    'Dark Magic': 'moody atmospheric, forbidden library, mysterious shadows',
+    'Sci-Fi Adventure': 'futuristic world, neon lights, sleek technology',
+    'Superhero Chronicles': 'cinematic comic style, dramatic skies, hero silhouette',
+    'Dragon & Sword': 'high fantasy, ancient ruins, epic dragon scale detail',
+    'Time & Portals': 'swirling portals, multiple time periods, glowing edges',
+  }[genre] || genreStyle || 'whimsical fantasy illustration, warm colors';
+
+  const baseStyle = getIllustrationBaseStyle(age);
+  const styleGuide = parseInt(age) <= 5
+    ? `${baseStyle} Softer and gentler energy for a younger reader. ${genreVisual}`
+    : parseInt(age) <= 9
+    ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
+    : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
+
+  const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
+
+  return {
+    referencePrompt,
+    buildScene(key) {
+      const [ci] = key.split('-').map(Number);
+      const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
+      const isCover = key === '0-0';
+      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
+      const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment during their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
+      return { scenePrompt, fallbackScenePrompt, isCover };
+    },
+  };
 }
 
 // One private reference image per story, anchoring character consistency across
