@@ -50,11 +50,13 @@ module.exports = async function handler(req, res) {
       city, region, milestone, storyId, genre, genreStyle
     })).toString("base64url");
 
-    // Re-save to Redis (30-day TTL, matching the normal path) so later retries or an
-    // upgrade-from-this-preview can still find it, same as the original flow.
-    await redisSet(`token:${storyId}`, storyToken, 2592000);
+    // Re-save to Redis (matching STORY_DATA_TTL in inngest.js/generate-preview.js —
+    // 180 days) so later retries or an upgrade-from-this-preview can still find it,
+    // same as the original flow.
+    const STORY_DATA_TTL = 60 * 60 * 24 * 180;
+    await redisSet(`token:${storyId}`, storyToken, STORY_DATA_TTL);
     if (customDetails) {
-      await redisSet(`customdetails:${storyId}`, customDetails, 2592000);
+      await redisSet(`customdetails:${storyId}`, customDetails, STORY_DATA_TTL);
     }
 
     const eventName = paymentType === "preview" ? "story/preview.purchased" : "order/completed";

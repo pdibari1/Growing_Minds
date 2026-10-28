@@ -113,11 +113,12 @@ INSTRUCTIONS:
     } catch(e) { console.error("Outline cache error:", e.message); } })();
 
     // Save storyToken to Redis so webhook can retrieve it after Stripe payment.
-    // 30-day TTL, matching outline/customDetails/chapters/images for this storyId —
-    // an upgrade purchase can happen any time after the preview (the follow-up
-    // survey alone reaches out at T+48h and T+9d), so this must outlive that whole
-    // window. A shorter TTL here previously caused upgrade payments to complete in
-    // Stripe with no storyToken left to find, silently dropping the order.
+    // STORY_DATA_TTL (180 days), matching outline/customDetails/chapters/images
+    // for this storyId — an upgrade purchase can happen any time after the
+    // preview (the follow-up survey alone reaches out at T+48h and T+9d), so
+    // this must outlive that whole window. A shorter TTL here previously
+    // caused upgrade payments to complete in Stripe with no storyToken left to
+    // find, silently dropping the order.
     try {
       const redisResp = await fetch(`${process.env.UPSTASH_REDIS_REST_URL}`, {
         method: 'POST',

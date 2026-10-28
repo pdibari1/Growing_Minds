@@ -817,12 +817,7 @@ const generatePreviewChapters = inngest.createFunction(
                 <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is credited toward the full price</p>
               </div>
 
-              <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:center;">
-                <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
-                <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
-                <p style="font-size:.8rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID when ordering the full book!</p>
-              </div>
-              <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">This link and ${childName}'s story stay active for 30 days from today — upgrade anytime in that window to pick up right where the preview left off.</p>
+              <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">This link and ${childName}'s story stay active for 180 days from today — upgrade anytime in that window to pick up right where the preview left off.</p>
               <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
             </div>
           </div>
@@ -847,26 +842,26 @@ const generatePreviewChapters = inngest.createFunction(
       // reasoning as the token/images below. The full order reuses this exact
       // outline and these exact chapters 1-3 on upgrade, instead of asking Claude to
       // write different prose from scratch for chapters the customer already read.
-      // Both now carry their own 30-day TTL.
+      // Both now carry their own STORY_DATA_TTL (180 days).
       // Do NOT delete img:${storyId}:* here — same reasoning. The full order's
       // illustration step looks up the preview's cover (and the character
       // reference) to reuse them; deleting them here meant every upgrade got a
       // mismatched cover generated from scratch instead of the one the customer
-      // already saw. Illustration URLs now carry a 30-day TTL of their own.
+      // already saw. Illustration URLs now carry their own STORY_DATA_TTL too.
       try {
         await del(pdfUrl);
       } catch(e) { console.error("Preview PDF blob cleanup error:", e.message); }
       // Do NOT delete token:${storyId} here — webhook.js needs it to process the
       // upgrade purchase later, which reuses this same storyId. It already has its
-      // own 30-day TTL from generate-preview.js; deleting it here meant every upgrade
-      // purchase failed with "No storyToken found" the moment a customer actually
-      // clicked through their preview email to buy the full book.
+      // own STORY_DATA_TTL from generate-preview.js; deleting it here meant every
+      // upgrade purchase failed with "No storyToken found" the moment a customer
+      // actually clicked through their preview email to buy the full book.
       console.log(`Cleaned up preview PDF blob for ${storyId}`);
     });
 
     // Follow-up reminder for previews that never upgrade — the story and upgrade
-    // link stay live for 30 days total, so a nudge partway through that window
-    // catches families who read the preview but forgot to act.
+    // link stay live for STORY_DATA_TTL (180 days), so a nudge partway through
+    // that window catches families who read the preview but forgot to act.
     await step.sleep("wait-before-upgrade-reminder", "4d");
 
     const alreadyUpgraded = await step.run("check-upgrade-status", async () => {
@@ -897,11 +892,7 @@ const generatePreviewChapters = inngest.createFunction(
                     <a href="https://www.growingminds.io/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full 30-Chapter Book →</a>
                     <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is still credited toward the full price</p>
                   </div>
-                  <div style="background:white;border:2px solid #86efac;border-radius:12px;padding:1.2rem;margin-top:1rem;text-align:center;">
-                    <div style="font-size:.75rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
-                    <div style="font-family:monospace;font-size:1rem;font-weight:700;color:#14532d;background:#f0fdf4;border-radius:6px;padding:.4rem .8rem;display:inline-block;margin:.3rem 0;">${storyId}</div>
-                  </div>
-                  <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">${childName}'s story and this link stay active for 30 days from your preview purchase.</p>
+                  <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">${childName}'s story and this link stay active for 180 days from your preview purchase.</p>
                   <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
                 </div>
               </div>

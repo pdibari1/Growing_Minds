@@ -111,6 +111,15 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
   than ads within whatever volume the approval gate can already handle.
 - Manuscript rules #4/#5 (mentor humanizing crack; generalizing the
   magic-metaphor principle) — discussed, not drafted.
+- Post-order survey timing (`api/inngest.js`, "send-post-order-survey-email")
+  fires 3 days after payment — explicitly a testing stopgap per the code's own
+  comment ("TESTING VALUE... lengthen it for launch"), left unfixed on
+  purpose since it needs your call, not mine. The book takes 13–15 business
+  days to print and ship, so the survey ("Did it keep them engaged?") can
+  currently go out *before the physical book has even arrived*. Options:
+  push the fixed delay out past the shipping window, or make it event-driven
+  off Lulu's actual SHIPPED status (`lulu-status:{storyId}`, already tracked
+  by `api/lulu-webhook.js`) — more accurate per-order, more work to wire up.
 
 ## Pre-launch checklist (before real traffic)
 

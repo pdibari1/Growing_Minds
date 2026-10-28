@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// ── Gemini 2.5 Flash Image API call ──
+// ── Gemini image API call (gemini-3-pro-image / Nano Banana Pro) ──
 // `parts` follows Gemini's generateContent content-part format: [{ text }] and/or
 // [{ inlineData: { mimeType, data (base64) } }] for reference images.
 // Returns { bytes: Buffer, mimeType: string } for the first image part in the response.

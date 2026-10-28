@@ -376,14 +376,6 @@
       </div>
     </div>
 
-    <!-- FAMILY STORY ID -->
-    <div style="background:#f0fdf4;border:2px solid #86efac;border-radius:16px;padding:1.5rem;margin-top:1.5rem;text-align:center;">
-      <div style="font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#16a34a;margin-bottom:.4rem;">Your Family Story ID</div>
-      <div id="family-story-id" style="font-family:monospace;font-size:1.2rem;font-weight:700;color:#14532d;letter-spacing:.05em;background:white;border:1px solid #bbf7d0;border-radius:8px;padding:.5rem 1rem;display:inline-block;margin:.5rem 0;">—</div>
-      <p style="font-size:.82rem;color:#4b7c5a;margin:.5rem 0 0 0;">Save this ID! Use it when ordering a sequel or a story for a sibling to continue your family's world.</p>
-      <button onclick="copyStoryId()" style="margin-top:.75rem;background:#16a34a;color:white;border:none;border-radius:8px;padding:.5rem 1.2rem;font-size:.85rem;font-weight:700;cursor:pointer;">📋 Copy ID</button>
-    </div>
-
     <!-- SHARE -->
     <div class="share-section">
       <h3>Know another parent who'd love this? 💛</h3>
@@ -518,19 +510,6 @@
       }
 
       sessionStorage.removeItem('storyPreview');
-    }
-
-    if (storyId) {
-      document.getElementById('family-story-id').textContent = storyId;
-    }
-
-    function copyStoryId() {
-      const id = document.getElementById('family-story-id').textContent;
-      navigator.clipboard.writeText(id).then(() => {
-        const btn = event.target;
-        btn.textContent = '✓ Copied!';
-        setTimeout(() => btn.textContent = '📋 Copy ID', 2000);
-      });
     }
 
     // ── COPY LINK ──

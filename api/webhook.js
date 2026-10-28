@@ -93,6 +93,19 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ received: true });
   }
 
+  // Stripe redelivers webhooks (network retries, a slow response) using the
+  // same event.id each time. Without this, a replay would re-fire the Inngest
+  // event — regenerating the entire book a second time, real Claude/Gemini
+  // cost — and re-send the customer's confirmation email. Fails OPEN (treats
+  // an uncertain result as "not a duplicate") on any Redis error, since
+  // wrongly skipping a genuine new order is far worse than occasionally
+  // double-processing a rare real replay.
+  const isNewDelivery = await markWebhookDeliveryIfNew(event.id);
+  if (!isNewDelivery) {
+    console.log(`Duplicate Stripe webhook delivery for event ${event.id} — already processed, skipping`);
+    return res.status(200).json({ received: true });
+  }
+
   const session = event.data.object;
   const { storyId, childName, customDetails: metaCustomDetails, payment_type, printQuality } = session.metadata;
   const customerEmail = session.customer_details?.email;
@@ -151,6 +164,39 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({ received: true });
 };
+
+// Returns true if this is the first time we've seen this Stripe event.id
+// (safe to process), false if we've already marked it processed (a replay).
+// Uses Redis SET...NX so two near-simultaneous deliveries can't both pass.
+async function markWebhookDeliveryIfNew(eventId) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: new URL(process.env.UPSTASH_REDIS_REST_URL).hostname,
+      port: 443,
+      path: `/set/stripe-webhook:${eventId}/1/NX/EX/86400`,
+      method: 'GET',
+      headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}` },
+      timeout: 10000
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          // Upstash returns {"result":"OK"} when SET...NX succeeds (key was new —
+          // first delivery) or {"result":null} when NX blocked it (key already
+          // existed — a replay).
+          resolve(parsed.result === "OK");
+        } catch (e) {
+          resolve(true); // fail open — see comment at the call site
+        }
+      });
+    });
+    req.on('error', () => resolve(true)); // fail open — see comment at the call site
+    req.end();
+  });
+}
 
 async function getTokenFromRedis(storyId) {
   return new Promise((resolve) => {

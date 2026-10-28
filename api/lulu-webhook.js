@@ -36,12 +36,16 @@ module.exports = async function handler(req, res) {
   // Simplest: store both directions
   const storyId = await redisRequest("GET", [`lulu-job-story:${jobId}`]);
 
+  let previousStatus = null;
   if (storyId) {
+    previousStatus = await redisRequest("GET", [`lulu-status:${storyId}`]);
     await redisRequest("SET", [`lulu-status:${storyId}`, status, "EX", 2592000]);
   }
 
-  // If shipped, send a tracking email to the customer
-  if (status === "SHIPPED" && storyId) {
+  // Only email on a genuine transition INTO "SHIPPED" — like any webhook
+  // provider, Lulu can redeliver the same event, and without this check a
+  // replay would re-send the tracking email to the customer every time.
+  if (status === "SHIPPED" && storyId && previousStatus !== "SHIPPED") {
     try {
       const customerEmail = await redisRequest("GET", [`customeremail:${storyId}`]);
       const childName     = await redisRequest("GET", [`childname:${storyId}`]);

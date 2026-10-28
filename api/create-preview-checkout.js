@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
           unit_amount: PREVIEW_PRICE_CENTS,
           product_data: {
             name: `${childName}'s Story Preview — First 3 Chapters`,
-            description: "Read the opening 3 chapters of your personalized story. $2.99 is credited toward the full $35 hardcover book.",
+            description: "Read the opening 3 chapters of your personalized story. $2.99 is credited toward the full $35 softcover book.",
           },
         },
         quantity: 1,
