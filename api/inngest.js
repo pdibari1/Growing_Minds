@@ -31,6 +31,15 @@ const inngest = new Inngest({
 // rather than continuing what they already read and paid for.
 const STORY_DATA_TTL = 60 * 60 * 24 * 180; // 180 days
 
+// Case-insensitive, whitespace-tolerant — a strict === "true" check against a
+// human-typed Vercel env var silently fell back to real-time generation when
+// this was set to "True" instead of "true", with nothing in the logs to
+// explain why. Confirmed live: this exact typo was the actual cause of a real
+// test order running real-time instead of batch.
+function isBatchIllustrationsEnabled() {
+  return (process.env.USE_BATCH_ILLUSTRATIONS || "").trim().toLowerCase() === "true";
+}
+
 // ── STORY TIERS BY AGE ──
 function getStoryTier(age) {
   const a = parseInt(age);
@@ -138,7 +147,7 @@ const generateStoryOrder = inngest.createFunction(
 
     // Step 3: Generate illustrations in batches of 10
     let illustrations = {};
-    console.log(`ILLUSTRATIONS CHECK: GEMINI_API_KEY=${!!process.env.GEMINI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}, USE_BATCH_ILLUSTRATIONS=${JSON.stringify(process.env.USE_BATCH_ILLUSTRATIONS)} (batch mode ${process.env.USE_BATCH_ILLUSTRATIONS === "true" ? "ON" : "OFF"})`);
+    console.log(`ILLUSTRATIONS CHECK: GEMINI_API_KEY=${!!process.env.GEMINI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}, USE_BATCH_ILLUSTRATIONS=${JSON.stringify(process.env.USE_BATCH_ILLUSTRATIONS)} (batch mode ${isBatchIllustrationsEnabled() ? "ON" : "OFF"})`);
     if (process.env.GEMINI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
       const IMG_BATCH = 10;
       // Retrieve outline fresh from Redis — Inngest state may be empty on replay
@@ -153,7 +162,7 @@ const generateStoryOrder = inngest.createFunction(
       if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
       console.log(`IMAGE KEYS: outline.length=${freshOutline.length}, tier.imageCount=${tier.imageCount}, keys=${allImageKeys.length}, step2=${step2}`);
 
-      if (process.env.USE_BATCH_ILLUSTRATIONS === "true") {
+      if (isBatchIllustrationsEnabled()) {
         // ── Batch path: cover stays real-time (needs to feel instant on the free
         // preview), every interior image routes through Gemini's batch endpoint —
         // confirmed ~half the per-image cost, at the price of taking longer
