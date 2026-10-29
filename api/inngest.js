@@ -138,7 +138,7 @@ const generateStoryOrder = inngest.createFunction(
 
     // Step 3: Generate illustrations in batches of 10
     let illustrations = {};
-    console.log(`ILLUSTRATIONS CHECK: GEMINI_API_KEY=${!!process.env.GEMINI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}`);
+    console.log(`ILLUSTRATIONS CHECK: GEMINI_API_KEY=${!!process.env.GEMINI_API_KEY}, SKIP_ILLUSTRATIONS=${process.env.SKIP_ILLUSTRATIONS}, USE_BATCH_ILLUSTRATIONS=${JSON.stringify(process.env.USE_BATCH_ILLUSTRATIONS)} (batch mode ${process.env.USE_BATCH_ILLUSTRATIONS === "true" ? "ON" : "OFF"})`);
     if (process.env.GEMINI_API_KEY && process.env.SKIP_ILLUSTRATIONS !== "true") {
       const IMG_BATCH = 10;
       // Retrieve outline fresh from Redis — Inngest state may be empty on replay
