@@ -504,9 +504,30 @@
       document.getElementById('summary-name').textContent = childName;
       document.getElementById('order-total-value').textContent = `$${price.toFixed(2)}`;
 
-      // GA4 - purchase complete
+      // GA4 - purchase complete, once per order (a refresh of this page must not
+      // count twice). transaction_id is stable per order so GA can also dedupe.
       if (typeof gtag !== 'undefined') {
-        gtag('event', 'purchase', { currency: 'USD', value: price, transaction_id: Date.now().toString() });
+        const txnId = storyId ? `${storyId}_${purchaseType}` : Date.now().toString();
+        const gaKey = 'gm_ga_purchase_' + txnId;
+        let alreadySent = false;
+        try { alreadySent = !!localStorage.getItem(gaKey); localStorage.setItem(gaKey, '1'); } catch (e) {}
+        if (!alreadySent) {
+          const itemName = purchaseType === 'preview' ? 'Story Preview'
+            : purchaseType === 'upgrade' ? `Upgrade to Book (${qualityLabel})`
+            : `Full Book (${qualityLabel})`;
+          gtag('event', 'purchase', {
+            currency: 'USD',
+            value: price,
+            transaction_id: txnId,
+            items: [{
+              item_id: purchaseType === 'preview' ? 'preview' : `${purchaseType}_${quality}`,
+              item_name: itemName,
+              item_category: purchaseType,
+              price: price,
+              quantity: 1,
+            }],
+          });
+        }
       }
 
       sessionStorage.removeItem('storyPreview');
