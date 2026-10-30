@@ -134,3 +134,9 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
 - [ ] Decide how much manual review scales — the admin-approval gate
       requires a human to click every single order; this doesn't scale to
       high volume as-is
+- [ ] Turn off the pre-launch waitlist: set `PRELAUNCH` to `false` in
+      `prelaunch.js` and redeploy. Until then the homepage's "start" buttons
+      open a waitlist signup and the intake pages redirect to it; testers get
+      the full flow by opening any page once with `?tester=1`. Export the list
+      with `GET /api/waitlist?token=<ADMIN_WEBHOOK_SECRET>&format=csv`, create
+      the founding-family promotion code in Stripe, and email the list.

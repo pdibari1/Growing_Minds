@@ -4,6 +4,13 @@
   <meta charset="UTF-8"/>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!-- Pre-launch: send the public to the homepage waitlist (see prelaunch.js) -->
+  <script src="/prelaunch.js"></script>
+  <script>
+    if (window.GM_WAITLIST_MODE) {
+      location.replace('/' + (location.search ? location.search + '&' : '?') + 'waitlist=1');
+    }
+  </script>
   <title>Growing Minds — Let's Write Your Child's Story (Signature)</title>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-P6FLSR57GV');</script>
