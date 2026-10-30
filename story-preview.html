@@ -289,9 +289,6 @@
     .discount-box button { padding: .55rem .9rem; background: var(--green); color: white; border: none; border-radius: 8px; font-size: .88rem; cursor: pointer; }
     .discount-msg { font-size: .82rem; margin-top: .4rem; text-align: center; min-height: 0; }
     .pc-fine { margin-top: .75rem; font-size: .74rem; color: #9ca3af; text-align: center; line-height: 1.5; }
-    .prelaunch-note { display: none; margin-top: 1rem; padding: 1rem; border-radius: 12px; background: #f0faf4; color: #2d6a4f; font-size: .9rem; line-height: 1.5; text-align: center; }
-    html.gm-prelaunch #checkout-ui { display: none; }
-    html.gm-prelaunch .prelaunch-note { display: block; }
 
     /* ── WHAT'S INSIDE SECTION ── */
     .whats-inside {
@@ -338,20 +335,6 @@
       .wi-grid { grid-template-columns: 1fr; }
     }
   </style>
-  <script>
-    // Pre-launch: hide checkout from the public while Stripe and Lulu are still
-    // in test mode. Set PRELAUNCH to false on launch day. Testers can still buy:
-    // open this page with ?tester=1 once (remembered in this browser), ?tester=0 to undo.
-    const PRELAUNCH = true;
-    (function () {
-      var t = new URLSearchParams(location.search).get('tester');
-      try { if (t === '1') localStorage.setItem('gm_tester', '1'); else if (t === '0') localStorage.removeItem('gm_tester'); } catch (e) {}
-      var isTester = false;
-      try { isTester = localStorage.getItem('gm_tester') === '1'; } catch (e) {}
-      window.__gmCheckoutHidden = PRELAUNCH && !isTester;
-      if (window.__gmCheckoutHidden) document.documentElement.classList.add('gm-prelaunch');
-    })();
-  </script>
   <!-- Google Analytics 4 -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-P6FLSR57GV"></script>
   <script>
@@ -465,9 +448,6 @@
         <div class="pc-title" id="purchase-title">Your child's story</div>
         <p class="pc-sub">A printed softcover book, shipped free.</p>
 
-        <div class="prelaunch-note" id="prelaunch-note">📚 Ordering opens soon. We'll email you the moment you can order the full book.</div>
-
-        <div id="checkout-ui">
         <div class="quality-toggle" id="quality-toggle">
           <button type="button" class="quality-btn selected" data-quality="standard" onclick="selectQuality('standard')">
             <span class="quality-radio"></span>
@@ -511,7 +491,6 @@
         </div>
 
         <p class="pc-fine">🔒 Secure checkout via Stripe · Free US shipping<br/>Every book is made just for your child, so all sales are final.</p>
-        </div>
         <p class="pc-fine">Questions? Email <a href="mailto:help@growingminds.io">help@growingminds.io</a></p>
       </div>
     </div>
@@ -635,7 +614,6 @@
 
     // GA4 - handle purchase click
     async function handlePurchase(type = 'full') {
-      if (window.__gmCheckoutHidden) return;
       const isPreview = type === 'preview';
       const price = isPreview ? 2.99 : QUALITY_PRICES[selectedQuality];
       const endpoint = isPreview ? '/api/create-preview-checkout' : '/api/create-checkout';
