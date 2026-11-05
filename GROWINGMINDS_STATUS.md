@@ -53,6 +53,15 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
 - **Lulu's webhook is registered against sandbox only.** Re-run
   `POST /api/register-lulu-webhook?secret=...` once `LULU_SANDBOX` flips to
   `false`, since sandbox and live are separate registrations.
+- **Digital copy follows the physical book, not the other way around.** Full
+  orders never emailed the PDF before — deliberate, since the deliverable is
+  the printed book. Now, once Lulu's webhook reports a genuine SHIPPED
+  transition, `api/lulu-webhook.js` fires a `book/shipped` event; a new
+  Inngest function (`sendFullBookPdfEmail` in `api/inngest.js`) waits 10 more
+  days past that (Lulu's own shipping estimate is 5–10 business days) before
+  emailing the customer a link to their full book PDF — so the family unboxes
+  the physical book first. This is a fixed delay, not real delivery
+  confirmation — see Scale backlog below for the real version of this.
 - Still testing with outside testers before flipping Stripe and Lulu live
   together (doing one without the other risks real print jobs for orders
   that never collected real payment).
@@ -120,6 +129,23 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
   push the fixed delay out past the shipping window, or make it event-driven
   off Lulu's actual SHIPPED status (`lulu-status:{storyId}`, already tracked
   by `api/lulu-webhook.js`) — more accurate per-order, more work to wire up.
+
+## Scale backlog (not worth building until volume justifies it)
+
+Things identified as the "right" version of something we deliberately built
+simpler/manual for now. Revisit once order volume makes the gap worth the
+engineering time.
+
+- **Delivery-confirmation-triggered digital-copy email**, replacing the
+  fixed 10-day-after-SHIPPED buffer in `sendFullBookPdfEmail`
+  (`api/inngest.js`). The fixed delay is an estimate, not a fact — it can
+  send too early (book still in transit) or needlessly late (book arrived
+  days ago). The real version polls the carrier's tracking API (USPS/UPS/
+  FedEx — whichever `trackingUrl`'s carrier is, captured in
+  `api/lulu-webhook.js`) for an actual delivered event before sending. More
+  accurate per-order, meaningfully more work (carrier API integration,
+  polling schedule) for a gain that matters more once enough orders are
+  shipping that the fixed-delay misses start adding up.
 
 ## Pre-launch checklist (before real traffic)
 

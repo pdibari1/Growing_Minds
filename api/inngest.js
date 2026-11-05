@@ -527,9 +527,12 @@ const generateStoryOrder = inngest.createFunction(
         );
       });
     } else {
-      // No customer email here: a full order is a printed book, not a PDF.
-      // The customer already got an order confirmation from webhook.js and
-      // gets a tracking email from lulu-webhook.js once Lulu ships it.
+      // No customer email here — the customer already got an order
+      // confirmation from webhook.js, gets a tracking email from
+      // lulu-webhook.js once Lulu ships it, and a digital copy of the full
+      // book (sendFullBookPdfEmail, below) once it should have arrived. The
+      // physical book is the deliverable; the PDF deliberately follows it,
+      // not the other way around.
       // Submit the actual Lulu print job — only once a human has approved, and
       // only if Stripe actually collected a shipping address at checkout.
       await step.run("submit-lulu-print-job", async () => {
@@ -922,8 +925,61 @@ const generatePreviewChapters = inngest.createFunction(
   }
 );
 
+// Fired by api/lulu-webhook.js once a print job genuinely transitions to
+// SHIPPED (not on redelivery — that guard lives in lulu-webhook.js). Sends
+// the customer a digital copy of their full book, deliberately AFTER the
+// physical book should already be in their hands — a parent should unbox the
+// printed book first, not get the whole story spoiled by email while the
+// package is still in transit. fullPdfUrl/customerEmail/childName are passed
+// in the event payload (read from Redis once, at SHIPPED time) rather than
+// re-read here, so this doesn't depend on those 30-day-TTL'd keys still
+// being there after the wait below.
+const sendFullBookPdfEmail = inngest.createFunction(
+  { id: "send-full-book-pdf-email", retries: 2 },
+  { event: "book/shipped" },
+  async ({ event, step }) => {
+    const { storyId, childName, customerEmail, fullPdfUrl } = event.data;
+    if (!customerEmail || !fullPdfUrl) {
+      console.log(`send-full-book-pdf-email: missing customerEmail or fullPdfUrl for ${storyId}, skipping`);
+      return;
+    }
+
+    // Lulu's own shipping estimate (see the tracking email in lulu-webhook.js)
+    // is 5-10 business days from SHIPPED to arrival. Wait past that rather
+    // than racing the mail truck — this is a fixed buffer, not real delivery
+    // confirmation; see GROWINGMINDS_STATUS.md's scale backlog for the
+    // carrier-tracking-based version of this that would replace it.
+    await step.sleep("wait-for-delivery-window", "10d");
+
+    await step.run("send-full-book-pdf-email", async () => {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+        to: customerEmail,
+        subject: `📖 A digital copy of ${childName}'s book`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+            <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+              <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
+            </div>
+            <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+              <h2 style="color:#2d6a4f;">A digital copy of ${childName}'s book</h2>
+              <p>We hope ${childName}'s printed book has arrived and you've had a chance to read it together! As a bonus, here's a digital copy you can keep forever, share with family, or read on the go.</p>
+              <div style="text-align:center;margin:2rem 0;">
+                <a href="${fullPdfUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(45,106,79,0.3);">📄 Open ${childName}'s book →</a>
+              </div>
+              <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
+            </div>
+          </div>`
+      });
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      console.log(`Full book PDF email sent to ${customerEmail} for ${storyId} (id: ${data?.id})`);
+    });
+  }
+);
+
 // ── SERVE ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters] });
+const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, sendFullBookPdfEmail] });
 module.exports = handler;
 
 // ════════════════════════════════════════════

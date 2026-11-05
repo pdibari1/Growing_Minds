@@ -3,6 +3,7 @@
 // with { url: "https://growingminds.io/api/lulu-webhook", topics: ["PRINT_JOB_STATUS_CHANGED"] }
 
 const { Resend } = require("resend");
+const https = require("https");
 
 const REDIS_URL   = process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -12,6 +13,35 @@ async function redisRequest(command, args) {
     headers: { Authorization: `Bearer ${REDIS_TOKEN}` },
   });
   return (await res.json()).result;
+}
+
+// Same pattern as api/approve-print.js — this file isn't an Inngest function
+// itself, so it reaches Inngest the same way: a direct POST to its event API.
+function sendInngestEvent(event) {
+  const payload = JSON.stringify(event);
+  const eventKey = process.env.INNGEST_EVENT_KEY;
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "inn.gs",
+      port: 443,
+      path: "/e/" + eventKey,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload)
+      },
+      timeout: 10000
+    };
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", chunk => body += chunk);
+      res.on("end", () => resolve(body));
+    });
+    req.on("error", reject);
+    req.on("timeout", () => reject(new Error("Inngest timeout")));
+    req.write(payload);
+    req.end();
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -81,6 +111,24 @@ module.exports = async function handler(req, res) {
           `,
         });
         console.log(`Shipping email sent to ${customerEmail} for ${storyId}`);
+      }
+
+      // Queue the delayed "here's a digital copy" email — deliberately a
+      // separate Inngest run (sendFullBookPdfEmail in api/inngest.js), not
+      // sent here, since it needs to wait out the delivery window before
+      // firing. fullPdfUrl is read and handed off now, at SHIPPED time,
+      // rather than re-read after that wait, so the send doesn't depend on
+      // fullbookurl:{storyId}'s 30-day TTL still being there 10+ days later.
+      if (customerEmail) {
+        const fullPdfUrl = await redisRequest("GET", [`fullbookurl:${storyId}`]);
+        if (fullPdfUrl) {
+          await sendInngestEvent({
+            name: "book/shipped",
+            data: { storyId, childName, customerEmail, fullPdfUrl }
+          });
+        } else {
+          console.error(`No fullbookurl found for ${storyId} at SHIPPED time — skipping digital-copy email`);
+        }
       }
     } catch(e) {
       console.error(`Shipping email failed: ${e.message}`);
