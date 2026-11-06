@@ -700,7 +700,10 @@ function goTo(step){
     const age=document.getElementById('childAge').value;
     if(email){
       fetch('/api/capture-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,childName:name,childAge:age})}).catch(()=>{});
-      if(typeof gtag!=='undefined')gtag('config','G-P6FLSR57GV',{user_id:btoa(email).replace(/=/g,'')});
+      if(typeof gtag!=='undefined'){
+        gtag('config','G-P6FLSR57GV',{user_id:btoa(email).replace(/=/g,'')});
+        gtag('event','generate_lead',{form_type:'signature'});
+      }
     }
   }
   if(typeof gtag!=='undefined')gtag('event','form_step_complete',{step_number:currentPanel+1,form_type:'signature'});
