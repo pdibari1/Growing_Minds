@@ -1,6 +1,6 @@
 # Growing Minds — Project Status
 
-_Last updated: 2026-10-08._
+_Last updated: 2026-11-10._
 
 ## What this is
 
@@ -120,15 +120,6 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
   than ads within whatever volume the approval gate can already handle.
 - Manuscript rules #4/#5 (mentor humanizing crack; generalizing the
   magic-metaphor principle) — discussed, not drafted.
-- Post-order survey timing (`api/inngest.js`, "send-post-order-survey-email")
-  fires 3 days after payment — explicitly a testing stopgap per the code's own
-  comment ("TESTING VALUE... lengthen it for launch"), left unfixed on
-  purpose since it needs your call, not mine. The book takes 13–15 business
-  days to print and ship, so the survey ("Did it keep them engaged?") can
-  currently go out *before the physical book has even arrived*. Options:
-  push the fixed delay out past the shipping window, or make it event-driven
-  off Lulu's actual SHIPPED status (`lulu-status:{storyId}`, already tracked
-  by `api/lulu-webhook.js`) — more accurate per-order, more work to wire up.
 
 ## Scale backlog (not worth building until volume justifies it)
 
@@ -154,13 +145,23 @@ engineering time.
   volume actually makes the single-admin bottleneck the limiting factor,
   not before.
 
-## Pre-launch checklist (before real traffic)
+## Go-live list (before real traffic)
 
 - [ ] Flip Stripe to a live (`sk_live_...`) key and stop sharing the test
-      card — do this together with the Lulu flip, not separately
-- [ ] Flip `LULU_SANDBOX` to `false` and redeploy
-- [ ] Re-register Lulu's webhook against live
-- [ ] Confirm Lulu account has a valid payment method on file
+      card — do this together with the Lulu flip, not separately: flipping
+      Stripe alone risks real print jobs going out for orders that never
+      actually paid.
+- [ ] Flip `LULU_SANDBOX` to `false` and redeploy.
+- [ ] Re-register Lulu's webhook against live — it's currently only
+      registered against sandbox (`POST /api/register-lulu-webhook`).
+- [ ] Confirm Lulu's account has a valid payment method on file before it
+      starts billing for real print jobs.
+- [ ] Fix post-order survey timing (`api/inngest.js`,
+      "send-post-order-survey-email") — still fires 3 days after payment, an
+      explicit testing stopgap. The real book won't have arrived yet at that
+      point. Push the fixed delay out past the shipping window, or make it
+      event-driven off Lulu's SHIPPED status
+      (`lulu-status:{storyId}`, already tracked by `api/lulu-webhook.js`).
 - [x] Confirmed: current `ANTHROPIC_API_KEY` has no expiration date set. The
       previous key expired unnoticed and took down story generation sitewide
       until a tester happened to report it — worth a periodic manual check
