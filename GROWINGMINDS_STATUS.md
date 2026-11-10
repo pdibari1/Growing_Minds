@@ -156,12 +156,12 @@ engineering time.
       registered against sandbox (`POST /api/register-lulu-webhook`).
 - [ ] Confirm Lulu's account has a valid payment method on file before it
       starts billing for real print jobs.
-- [ ] Fix post-order survey timing (`api/inngest.js`,
-      "send-post-order-survey-email") — still fires 3 days after payment, an
-      explicit testing stopgap. The real book won't have arrived yet at that
-      point. Push the fixed delay out past the shipping window, or make it
-      event-driven off Lulu's SHIPPED status
-      (`lulu-status:{storyId}`, already tracked by `api/lulu-webhook.js`).
+- [x] Fixed post-order survey timing. Used to fire a flat 3 days after
+      payment — a testing stopgap that could go out before the book had even
+      shipped. Now event-driven: `sendPostOrderSurveyEmail` (`api/inngest.js`)
+      listens for the same `book/shipped` event as the new digital-copy email
+      and waits the same 10-day delivery buffer past Lulu's SHIPPED status
+      before sending.
 - [x] Confirmed: current `ANTHROPIC_API_KEY` has no expiration date set. The
       previous key expired unnoticed and took down story generation sitewide
       until a tester happened to report it — worth a periodic manual check

@@ -113,22 +113,23 @@ module.exports = async function handler(req, res) {
         console.log(`Shipping email sent to ${customerEmail} for ${storyId}`);
       }
 
-      // Queue the delayed "here's a digital copy" email — deliberately a
-      // separate Inngest run (sendFullBookPdfEmail in api/inngest.js), not
-      // sent here, since it needs to wait out the delivery window before
-      // firing. fullPdfUrl is read and handed off now, at SHIPPED time,
-      // rather than re-read after that wait, so the send doesn't depend on
-      // fullbookurl:{storyId}'s 30-day TTL still being there 10+ days later.
+      // Queue the delayed follow-up emails — two separate Inngest functions
+      // (sendFullBookPdfEmail and sendPostOrderSurveyEmail in api/inngest.js)
+      // both listen for this one event, not sent here, since both need to
+      // wait out the delivery window before firing. fullPdfUrl/milestoneLabel
+      // are read and handed off now, at SHIPPED time, rather than re-read
+      // after that wait, so neither send depends on those 30-day-TTL'd Redis
+      // keys still being there 10+ days later.
       if (customerEmail) {
-        const fullPdfUrl = await redisRequest("GET", [`fullbookurl:${storyId}`]);
-        if (fullPdfUrl) {
-          await sendInngestEvent({
-            name: "book/shipped",
-            data: { storyId, childName, customerEmail, fullPdfUrl }
-          });
-        } else {
-          console.error(`No fullbookurl found for ${storyId} at SHIPPED time — skipping digital-copy email`);
+        const fullPdfUrl     = await redisRequest("GET", [`fullbookurl:${storyId}`]);
+        const milestoneLabel = await redisRequest("GET", [`milestonelabel:${storyId}`]);
+        if (!fullPdfUrl) {
+          console.error(`No fullbookurl found for ${storyId} at SHIPPED time — digital-copy email will be skipped`);
         }
+        await sendInngestEvent({
+          name: "book/shipped",
+          data: { storyId, childName, customerEmail, fullPdfUrl, milestoneLabel }
+        });
       }
     } catch(e) {
       console.error(`Shipping email failed: ${e.message}`);

@@ -451,6 +451,11 @@ const generateStoryOrder = inngest.createFunction(
       await redisRequest("SET", [`fullbookurl:${storyId}`, fullPdfUrl, "EX", 2592000]);
       await redisRequest("SET", [`customeremail:${storyId}`, customerEmail || '', "EX", 2592000]);
       await redisRequest("SET", [`childname:${storyId}`, childName, "EX", 2592000]);
+      // Label only ("Managing big feelings"), never the parent's notes — same
+      // split the old inline survey step used. Saved here, not re-derived from
+      // customDetails later, since lulu-webhook.js (which fires the event that
+      // triggers the survey) never has childData, only Redis.
+      await redisRequest("SET", [`milestonelabel:${storyId}`, (childData.milestone || '').split('. ')[0], "EX", 2592000]);
     });
 
     // Human review gate: an AI mistake (wrong companion animal, a hostile-looking
@@ -627,44 +632,11 @@ const generateStoryOrder = inngest.createFunction(
       console.log(`Cleaned up Redis and Blob for ${storyId}`);
     });
 
-    // Step 8: Post-order feedback survey, 3 days after the order was placed
-    // (event.ts is when Stripe's payment reached us). TESTING VALUE: 3 days is
-    // set for testing; lengthen it (e.g. to after the book arrives) for launch. If approval took longer
-    // than that, sleepUntil returns immediately and it goes out right after.
-    // Skipped if the book was never approved, since nothing was made. Set
-    // DISABLE_POST_ORDER_SURVEY=true in Vercel to stop it without a redeploy.
-    if (approval && customerEmail && process.env.DISABLE_POST_ORDER_SURVEY !== 'true') {
-      await step.sleepUntil("wait-for-post-order-survey", new Date(event.ts + 3 * 24 * 60 * 60 * 1000));
-      await step.run("send-post-order-survey-email", async () => {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        // Label only ("Managing big feelings"), never the parent's notes.
-        const milestoneLabel = (childData.milestone || '').split('. ')[0];
-        const surveyUrl = `https://www.growingminds.io/post-order-survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}&milestone=${encodeURIComponent(milestoneLabel)}`;
-        const { data, error } = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
-          to: customerEmail,
-          subject: `How did ${childName}'s story go? 📖`,
-          html: `
-            <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
-              <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
-                <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
-              </div>
-              <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
-                <h2 style="color:#2d6a4f;">How did ${childName}'s story go?</h2>
-                <p>Thanks again for ordering ${childName}'s book! We'd love three quick answers about how it's going so far.</p>
-                <p style="margin-top:1rem;">Did it keep them engaged? Did it help them think about their milestone? Would you recommend us to a friend?</p>
-                <div style="text-align:center;margin:2rem 0;">
-                  <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(45,106,79,0.3);">Share my feedback →</a>
-                </div>
-                <p style="color:#6b7280;font-size:.85rem;">Takes about 30 seconds. We read every response.</p>
-                <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
-              </div>
-            </div>`
-        });
-        if (error) throw new Error(error.message || JSON.stringify(error));
-        console.log(`Post-order survey email sent to ${customerEmail} (id: ${data?.id})`);
-      });
-    }
+    // Post-order survey moved off this function entirely — see
+    // sendPostOrderSurveyEmail below, triggered by the same book/shipped
+    // event as sendFullBookPdfEmail. It used to fire a fixed 3 days after
+    // payment, before the book had even shipped; now it waits for a real
+    // signal (Lulu's SHIPPED status) instead of guessing.
 
     console.log(`✅ Complete for ${childName}`);
     return { success: true, childName, tier: tier.label };
@@ -978,8 +950,60 @@ const sendFullBookPdfEmail = inngest.createFunction(
   }
 );
 
+// Also fired by api/lulu-webhook.js on the same book/shipped event as
+// sendFullBookPdfEmail above — a separate Inngest function rather than a
+// second step in that one, so a failure in either email doesn't block the
+// other. Used to fire a fixed 3 days after payment (a testing stopgap that
+// could go out before the book had even shipped); now waits for the same
+// real SHIPPED signal instead of guessing. Set DISABLE_POST_ORDER_SURVEY=true
+// in Vercel to stop it without a redeploy.
+const sendPostOrderSurveyEmail = inngest.createFunction(
+  { id: "send-post-order-survey-email", retries: 2 },
+  { event: "book/shipped" },
+  async ({ event, step }) => {
+    const { storyId, childName, customerEmail, milestoneLabel } = event.data;
+    if (!customerEmail || process.env.DISABLE_POST_ORDER_SURVEY === 'true') {
+      console.log(`send-post-order-survey-email: skipping for ${storyId} (no customerEmail or disabled)`);
+      return;
+    }
+
+    // Same delivery-window reasoning as sendFullBookPdfEmail — give the
+    // family time to actually read some of the book before asking how it's
+    // going, rather than asking before it's even arrived.
+    await step.sleep("wait-for-delivery-window", "10d");
+
+    await step.run("send-post-order-survey-email", async () => {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const surveyUrl = `https://www.growingminds.io/post-order-survey?sid=${encodeURIComponent(storyId)}&name=${encodeURIComponent(childName)}&em=${encodeURIComponent(customerEmail)}&milestone=${encodeURIComponent(milestoneLabel || '')}`;
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Growing Minds <stories@growingminds.io>",
+        to: customerEmail,
+        subject: `How did ${childName}'s story go? 📖`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+            <div style="background:#2d6a4f;padding:2rem;text-align:center;border-radius:12px 12px 0 0;">
+              <h1 style="color:white;font-size:1.5rem;margin:0;">🌱 Growing Minds</h1>
+            </div>
+            <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+              <h2 style="color:#2d6a4f;">How did ${childName}'s story go?</h2>
+              <p>Thanks again for ordering ${childName}'s book! We'd love three quick answers about how it's going so far.</p>
+              <p style="margin-top:1rem;">Did it keep them engaged? Did it help them think about their milestone? Would you recommend us to a friend?</p>
+              <div style="text-align:center;margin:2rem 0;">
+                <a href="${surveyUrl}" style="display:inline-block;background:#2d6a4f;color:#fff;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(45,106,79,0.3);">Share my feedback →</a>
+              </div>
+              <p style="color:#6b7280;font-size:.85rem;">Takes about 30 seconds. We read every response.</p>
+              <p style="color:#6b7280;font-size:.85rem;margin-top:1.5rem;">Questions? Email us at <a href="mailto:help@growingminds.io" style="color:#2d6a4f;">help@growingminds.io</a></p>
+            </div>
+          </div>`
+      });
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      console.log(`Post-order survey email sent to ${customerEmail} for ${storyId} (id: ${data?.id})`);
+    });
+  }
+);
+
 // ── SERVE ──
-const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, sendFullBookPdfEmail] });
+const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, sendFullBookPdfEmail, sendPostOrderSurveyEmail] });
 module.exports = handler;
 
 // ════════════════════════════════════════════
