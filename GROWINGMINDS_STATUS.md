@@ -147,6 +147,13 @@ engineering time.
   polling schedule) for a gain that matters more once enough orders are
   shipping that the fixed-delay misses start adding up.
 
+- **Scaling past one admin clicking every order.** No plan exists yet for
+  what replaces or augments the manual approval gate — automating some
+  fraction of review, sampling instead of reviewing every order, or hiring
+  a second reviewer are all open, undecided options. Revisit once order
+  volume actually makes the single-admin bottleneck the limiting factor,
+  not before.
+
 ## Pre-launch checklist (before real traffic)
 
 - [ ] Flip Stripe to a live (`sk_live_...`) key and stop sharing the test
@@ -157,9 +164,13 @@ engineering time.
 - [ ] Confirm `ANTHROPIC_API_KEY` has no silent expiration date set (the
       previous key expired unnoticed and took down story generation
       sitewide until a tester happened to report it)
-- [ ] Decide how much manual review scales — the admin-approval gate
-      requires a human to click every single order; this doesn't scale to
-      high volume as-is
+- [x] Decided: keep the manual admin-approval gate as-is for launch. A human
+      clicking every single order doesn't scale to high volume, but it's the
+      only thing catching AI mistakes (wrong companion species, a hostile
+      cover, named people appearing without a description) before a real
+      family gets a physical book — worth the bottleneck at launch volume.
+      Revisit once volume makes it the actual constraint — see Scale
+      backlog.
 - [ ] Turn off the pre-launch waitlist: set `PRELAUNCH` to `false` in
       `prelaunch.js` and redeploy. Until then the homepage's "start" buttons
       open a waitlist signup and the intake pages redirect to it; testers get
