@@ -174,6 +174,13 @@ engineering time.
       registered against sandbox (`POST /api/register-lulu-webhook`).
 - [ ] Confirm Lulu's account has a valid payment method on file before it
       starts billing for real print jobs.
+- [ ] Decide whether to keep the higher image-count-per-chapter experiment
+      (1/2/3 images per chapter by age tier, `getStoryTier` in
+      `api/inngest.js`) as the real default, or revert it. Currently live for
+      every order, not just the two test orders it was built for — approve it
+      for real traffic, dial it back down, or pick different counts based on
+      how those two test books actually turn out and the real cost math
+      (age≤5 real-time runs ~$11.90/book in images alone against $35 pricing).
 - [x] Fixed post-order survey timing. Used to fire a flat 3 days after
       payment — a testing stopgap that could go out before the book had even
       shipped. Now event-driven: `sendPostOrderSurveyEmail` (`api/inngest.js`)
