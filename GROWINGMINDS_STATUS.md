@@ -161,9 +161,10 @@ engineering time.
 - [ ] Flip `LULU_SANDBOX` to `false` and redeploy
 - [ ] Re-register Lulu's webhook against live
 - [ ] Confirm Lulu account has a valid payment method on file
-- [ ] Confirm `ANTHROPIC_API_KEY` has no silent expiration date set (the
-      previous key expired unnoticed and took down story generation
-      sitewide until a tester happened to report it)
+- [x] Confirmed: current `ANTHROPIC_API_KEY` has no expiration date set. The
+      previous key expired unnoticed and took down story generation sitewide
+      until a tester happened to report it — worth a periodic manual check
+      since Anthropic's console doesn't alert on this.
 - [x] Decided: keep the manual admin-approval gate as-is for launch. A human
       clicking every single order doesn't scale to high volume, but it's the
       only thing catching AI mistakes (wrong companion species, a hostile
