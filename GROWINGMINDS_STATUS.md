@@ -92,9 +92,27 @@ See `CLAUDE.md` for the key-files table and architecture conventions.
 - Bibliotherapy mechanism in the story prompts, parent discussion bridge,
   milestone-arc depth, and an outside expert review pass are all still
   open/undecided — see conversation history for the research behind each.
-- Image-count-per-chapter increase (currently exploring 2/chapter for older
-  readers, 4/chapter for younger readers) — cost math worked out, no
-  decision made yet on whether to build it.
+- **Image-count-per-chapter increase — built, live as a deliberate experiment
+  for two real test orders (2026-11-10), not a permanent default yet.**
+  `getStoryTier` (`api/inngest.js`) now asks for `imagesPerChap` distinct
+  illustrated moments per interior chapter — 1 (age>9), 2 (age≤9), 3
+  (age≤5) — up from the original flat 5/10/15 total images per book.
+  `generateOutline`'s prompt now returns an `imagePrompts` array per chapter
+  (genuinely different beats, not variations of one scene) instead of a
+  single string; the image-generation loop and PDF assembly both walk that
+  array (`getChapterImagePrompt` handles old cached outlines gracefully).
+  Real cost per book: age>9 ~$4.13 real-time / ~$2.18 batch; age≤9 ~$8.01 /
+  ~$4.13; age≤5 ~$11.90 / ~$6.07 (before Lulu print, Claude text, overhead)
+  — likely too high for age≤5 against $35/$50 pricing at real-time rates.
+  **This applies to every order placed while it's live, not just the two
+  test orders** — there's no per-order override mechanism, and it's only
+  safe right now because the site's in pre-launch waitlist mode (testers
+  only). Revert `imagesPerChap` back to something cheaper after these two
+  tests unless you decide to keep it. One real risk worth watching: the
+  age≤5 tier now submits an 87-image single batch job, much bigger than the
+  ~2-image job this pipeline was originally validated against — the
+  existing real-time fallback for anything batch doesn't deliver covers a
+  partial loss, just at double the per-image cost for whatever falls back.
 - Batch-mode routing for interior illustrations — built, feature-flagged off
   by default (`USE_BATCH_ILLUSTRATIONS`, see `env.example.txt`). Cover always
   stays real-time (needs to feel instant on the free preview); interior images

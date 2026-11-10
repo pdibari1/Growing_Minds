@@ -41,11 +41,43 @@ function isBatchIllustrationsEnabled() {
 }
 
 // ── STORY TIERS BY AGE ──
+// imagesPerChap = distinct illustrated moments per interior chapter (chapter 0
+// never gets an interior image — see the "Skip chapter 0" comment in
+// generatePDF — its sole imagePrompt only ever becomes the cover). TEMPORARY
+// EXPERIMENT (2026-11-10, two real test orders, cost accepted deliberately):
+// bumped from the original flat 5/10/15 total images to 1/chapter (age>9),
+// 2/chapter (age<=9), 3/chapter (age<=5) — i.e. 1+29, 1+58, 1+87 images total.
+// Real cost per book (cover $0.24 real-time + interior at $0.134 real-time or
+// ~$0.067 batch): age>9 ~$4.12 real-time / ~$2.18 batch; age<=9 ~$8.01 /
+// ~$4.13; age<=5 ~$11.89 / ~$6.07 — before Lulu print ($9.57-$22.83), Claude
+// text, and Resend/Blob/Vercel overhead. Revisit against $35/$50 pricing
+// before this becomes the real default — may not hold up for age<=5 at
+// real-time rates. Known risk: a single batch job this size (up to 87 images
+// for age<=5) is much bigger than the ~2-image job this pipeline was
+// originally validated against — the existing real-time fallback for
+// anything batch doesn't deliver (see submit-illustration-batch below)
+// covers a partial loss, just at higher per-image cost for whatever falls
+// back.
 function getStoryTier(age) {
   const a = parseInt(age);
-  if (a <= 5) return { chapCount: 30, minWords: 200, maxWords: 400, maxTokensPerChap: 800,  imageCount: 15, imagesPerChap: 0, label: "illustrated novel" };
-  if (a <= 9) return { chapCount: 30, minWords: 300, maxWords: 600, maxTokensPerChap: 1200, imageCount: 10, imagesPerChap: 0, label: "illustrated chapter book" };
-  return       { chapCount: 30, minWords: 400, maxWords: 800, maxTokensPerChap: 1600, imageCount: 5,  imagesPerChap: 0, label: "novel" };
+  if (a <= 5) return { chapCount: 30, minWords: 200, maxWords: 400, maxTokensPerChap: 800,  imagesPerChap: 3, label: "illustrated novel" };
+  if (a <= 9) return { chapCount: 30, minWords: 300, maxWords: 600, maxTokensPerChap: 1200, imagesPerChap: 2, label: "illustrated chapter book" };
+  return       { chapCount: 30, minWords: 400, maxWords: 800, maxTokensPerChap: 1600, imagesPerChap: 1, label: "novel" };
+}
+
+// Each outline chapter now carries an array of distinct imagePrompts (one per
+// illustrated moment in that chapter, see generateOutline) rather than a
+// single string. subIndex selects which one; falls back gracefully to index 0
+// or the old singular `imagePrompt` field for any outline still cached in
+// Redis from before this schema existed (STORY_DATA_TTL keeps outlines around
+// up to 180 days, so an in-flight preview-to-full-order upgrade can hit this).
+function getChapterImagePrompt(chap, subIndex, fallbackPrompt) {
+  if (!chap) return fallbackPrompt;
+  if (Array.isArray(chap.imagePrompts) && chap.imagePrompts.length > 0) {
+    return chap.imagePrompts[subIndex] || chap.imagePrompts[0];
+  }
+  if (chap.imagePrompt) return chap.imagePrompt;
+  return fallbackPrompt;
 }
 
 // ── MAIN INNGEST FUNCTION ──
@@ -154,13 +186,18 @@ const generateStoryOrder = inngest.createFunction(
       const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
       const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
       console.log(`Fresh outline length: ${freshOutline.length}`);
-      const step2 = Math.floor(freshOutline.length / tier.imageCount);
-      const allImageKeys = Array.from({ length: tier.imageCount }, (_, i) =>
-        `${Math.min(i * step2, freshOutline.length - 1)}-0`
-      );
-      // Always ensure chapter 0 (cover) gets an image
-      if (!allImageKeys.includes('0-0')) allImageKeys[0] = '0-0';
-      console.log(`IMAGE KEYS: outline.length=${freshOutline.length}, tier.imageCount=${tier.imageCount}, keys=${allImageKeys.length}, step2=${step2}`);
+      // Chapter 0 contributes only the cover (key "0-0") — see the "Skip
+      // chapter 0" comment in generatePDF for why it never also gets an
+      // interior illustration. Every other chapter gets tier.imagesPerChap
+      // distinct images, keyed "{chapterIndex}-{subIndex}".
+      const imagesPerChap = tier.imagesPerChap || 1;
+      const allImageKeys = ['0-0'];
+      for (let ci = 1; ci < freshOutline.length; ci++) {
+        for (let sub = 0; sub < imagesPerChap; sub++) {
+          allImageKeys.push(`${ci}-${sub}`);
+        }
+      }
+      console.log(`IMAGE KEYS: outline.length=${freshOutline.length}, imagesPerChap=${imagesPerChap}, keys=${allImageKeys.length}`);
 
       if (isBatchIllustrationsEnabled()) {
         // ── Batch path: cover stays real-time (needs to feel instant on the free
@@ -372,10 +409,13 @@ const generateStoryOrder = inngest.createFunction(
           const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt);
 
           for (const key of keys) {
-            const [ci] = key.split('-').map(Number);
-            const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
+            const [ciStr, subStr] = key.split('-');
+            const ci = Number(ciStr);
+            const sub = Number(subStr);
+            const chap = freshOutline[ci];
+            const promptText = getChapterImagePrompt(chap, sub, `${name} on an adventure in ${city}`);
             const isCover = key === '0-0';
-            const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
+            const scenePrompt = `${styleGuide}. Scene: ${promptText} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
 
             if (isCover && existingUrls['0-0']) {
               result['0-0'] = existingUrls['0-0'];
@@ -732,8 +772,9 @@ const generatePreviewChapters = inngest.createFunction(
         : parseInt(age) <= 9
         ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
         : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
-      const chap = outline[0] || { imagePrompt: `${name} leaning forward mid-step, caught in a moment of discovery in ${city}` };
-      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
+      const chap = outline[0];
+      const promptText = getChapterImagePrompt(chap, 0, `${name} leaning forward mid-step, caught in a moment of discovery in ${city}`);
+      const scenePrompt = `${styleGuide}. Scene: ${promptText} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
       try {
         // Same private-reference pattern as the full order — see getOrCreateCharacterReference.
         // This reference (and, once generated, the cover itself) both survive on their own
@@ -1086,16 +1127,18 @@ Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "carriesForward": one sentence naming the specific problem, goal, question, or emotion carried over from the previous chapter that drives this chapter's events (for Chapter 1, describe the everyday-world hook that pulls the reader in instead)
 - "summary": 2-3 sentence summary of what happens, written so it clearly follows from "carriesForward" rather than starting a fresh, disconnected scene
-- "imagePrompt": a 1-sentence description of the key visual moment in this chapter, written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer. Describe ONLY ${name} and the setting/action — never write any other person (friends, siblings, classmates, a teacher, etc.) into this visual description, even if they're part of this chapter's events. If the moment involves someone else, frame it as ${name}'s own reaction or action in response to them (what ${name} is doing, reaching for, looking at) rather than describing that other person's presence, face, or appearance — an illustrator cannot draw a real person's likeness from a chapter summary alone.
+- "imagePrompts": an array of EXACTLY ${tier.imagesPerChap} one-sentence description(s) of key visual moments in this chapter${tier.imagesPerChap > 1 ? ` — each one a genuinely DIFFERENT beat from this chapter's events (e.g. an early moment, a middle moment, a later moment), never the same instant described twice in different words or minor variations of one pose` : ''}. Each one written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer. Describe ONLY ${name} and the setting/action — never write any other person (friends, siblings, classmates, a teacher, etc.) into this visual description, even if they're part of this chapter's events. If a moment involves someone else, frame it as ${name}'s own reaction or action in response to them (what ${name} is doing, reaching for, looking at) rather than describing that other person's presence, face, or appearance — an illustrator cannot draw a real person's likeness from a chapter summary alone.
 
 The Chapter 1 object only must ALSO include:
 - "bookSubtitle": a short, distinctive 2-4 word title capturing THIS story's specific invented adventure or hook (e.g. "Balloon Blaster," "The Whispering Woods," "Rocket to the Stars") — it becomes the book's title as "${name} and the [bookSubtitle]." It must be specific to what actually happens in this story, never a generic phrase like "Big Adventure" and never just a restatement of the milestone (${milestone}).
 
 No markdown, no explanation, just the JSON array.`;
 
-  // 6000 was too tight for 30 chapters with the fuller imagePrompt descriptions —
-  // caused mid-string JSON truncation, silently falling back to generic chapters.
-  const raw = await callClaude(prompt, 12000);
+  // 6000 was too tight for 30 chapters even with a single imagePrompt per
+  // chapter — caused mid-string JSON truncation, silently falling back to
+  // generic chapters. Scaled up further for tier.imagesPerChap > 1, since
+  // each extra prompt per chapter (×30 chapters) adds real output length.
+  const raw = await callClaude(prompt, 12000 + (tier.imagesPerChap - 1) * 3000);
   try {
     // Strip markdown, find the JSON array
     let cleaned = raw.replace(/```json|```/g, "").trim();
@@ -1511,10 +1554,13 @@ function buildIllustrationPromptContext(childData, freshOutline, tier) {
   return {
     referencePrompt,
     buildScene(key) {
-      const [ci] = key.split('-').map(Number);
-      const chap = freshOutline[ci] || { imagePrompt: `${name} on an adventure in ${city}` };
+      const [ciStr, subStr] = key.split('-');
+      const ci = Number(ciStr);
+      const sub = Number(subStr);
+      const chap = freshOutline[ci];
+      const promptText = getChapterImagePrompt(chap, sub, `${name} on an adventure in ${city}`);
       const isCover = key === '0-0';
-      const scenePrompt = `${styleGuide}. Scene: ${chap.imagePrompt} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
+      const scenePrompt = `${styleGuide}. Scene: ${promptText} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
       const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment during their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
       return { scenePrompt, fallbackScenePrompt, isCover };
     },
@@ -1660,11 +1706,16 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
 
     const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
 
-    // Check if this chapter has an illustration — use URL directly
-    // Skip chapter 0: its image (key "0-0") is already shown full-bleed as the cover
-    const key = `${ci}-0`;
-    const illustrationHtml = (ci > 0 && illustrations[key])
-      ? `<img src="${illustrations[key]}" />`
+    // Check if this chapter has illustration(s) — use URL(s) directly.
+    // Skip chapter 0: its image (key "0-0") is already shown full-bleed as
+    // the cover. Every other chapter can carry tier.imagesPerChap distinct
+    // images (keys "{ci}-0", "{ci}-1", ...) — stack whichever of those
+    // actually got generated/saved, in order.
+    const illustrationHtml = ci > 0
+      ? Array.from({ length: tier.imagesPerChap || 1 }, (_, sub) => illustrations[`${ci}-${sub}`])
+          .filter(Boolean)
+          .map(url => `<img src="${url}" />`)
+          .join('')
       : '';
 
     return `
