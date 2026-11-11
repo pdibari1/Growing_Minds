@@ -466,11 +466,6 @@
           <div class="field-error" id="err-region">Please enter their state or region.</div>
         </div>
       </div>
-      <div class="field">
-        <label>Tell us more about this milestone <span class="opt">(optional — but this is what makes the story feel real)</span></label>
-        <p class="field-hint" style="margin-bottom:.65rem;">What's making it exciting, scary, or hard? Write like you're texting a friend about it.</p>
-        <textarea id="milestoneDetails" placeholder="e.g. She's been so excited about school she's been pretending to be the teacher at home for weeks…" maxlength="500" rows="4"></textarea>
-      </div>
       <div style="margin-top:1.2rem;margin-bottom:1.4rem;">
         <label class="consent-label">
           <input type="checkbox" id="consentCheckbox"/>
@@ -478,8 +473,14 @@
         </label>
         <div class="field-error" id="err-consent">Please agree to the Terms of Service and Privacy Policy to continue.</div>
       </div>
-      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin-top:1.2rem;margin-bottom:.25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#2d6a4f;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
       <div class="nav"><button class="btn-back" onclick="goTo(4)">← Back</button><button class="btn-submit" onclick="submitForm()">✨ Generate My Preview!</button></div>
+      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin-top:1.2rem;margin-bottom:.25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#2d6a4f;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:1.5rem 0;">
+      <div class="field">
+        <label>Tell us more about this milestone <span class="opt">(optional — but this is what makes the story feel real)</span></label>
+        <p class="field-hint" style="margin-bottom:.65rem;">What's making it exciting, scary, or hard? Write like you're texting a friend about it.</p>
+        <textarea id="milestoneDetails" placeholder="e.g. She's been so excited about school she's been pretending to be the teacher at home for weeks…" maxlength="500" rows="4"></textarea>
+      </div>
     </div>
 
   </main>
