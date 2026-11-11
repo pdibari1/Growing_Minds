@@ -49,6 +49,9 @@
     "api/recover-dropped-order.js": {
       "maxDuration": 15
     },
+    "api/recover-missing-illustrations.js": {
+      "maxDuration": 800
+    },
     "api/lulu-cost-check.js": {
       "maxDuration": 15
     },

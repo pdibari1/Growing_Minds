@@ -594,12 +594,23 @@ const generateStoryOrder = inngest.createFunction(
           const coverImageUrl = illustrationUrls['0-0'] || null;
           const quality = printQuality === 'premium' ? 'premium' : 'standard';
 
+          // Re-read fullbookurl fresh from Redis rather than trusting the
+          // fullPdfUrl closure variable from create-full-pdf, memoized back
+          // when that step first ran — possibly days ago, before the admin
+          // approval wait below. If an admin recovery tool (e.g. regenerating
+          // missing illustrations) rebuilds the PDF and updates Redis while
+          // this run is still paused at wait-for-approval, this step needs
+          // to pick up that corrected URL once it resumes, not silently ship
+          // the stale one. Falls back to the closure value only if the
+          // Redis key is somehow gone.
+          const liveFullPdfUrl = (await redisRequest("GET", [`fullbookurl:${storyId}`])) || fullPdfUrl;
+
           // Measure the real page count from the generated PDF — the cover's spine
           // width depends on it, and getting that wrong is a real print defect,
           // not just a cosmetic one.
           let pageCount;
           try {
-            const pdfBytes = await fetchImageBytes(fullPdfUrl);
+            const pdfBytes = await fetchImageBytes(liveFullPdfUrl);
             const doc = await PDFDocument.load(pdfBytes);
             pageCount = doc.getPageCount();
           } catch (e) {
@@ -609,7 +620,7 @@ const generateStoryOrder = inngest.createFunction(
 
           const coverUrl = await buildCoverPdf(storyId, childName, pageCount, coverImageUrl, quality);
           const job = await createLuluPrintJob({
-            interiorUrl: fullPdfUrl,
+            interiorUrl: liveFullPdfUrl,
             coverUrl,
             shippingDetails: shippingAddress,
             customerEmail,
@@ -632,7 +643,7 @@ const generateStoryOrder = inngest.createFunction(
             `Page count: ${pageCount}\n\n` +
             `Shipping to: ${shippingAddress.name || 'n/a'}, ${[a.city, a.state, a.postal_code].filter(Boolean).join(', ') || 'n/a'}\n` +
             `Customer email: ${customerEmail || 'n/a'}\n\n` +
-            `Interior PDF: ${fullPdfUrl}\n` +
+            `Interior PDF: ${liveFullPdfUrl}\n` +
             `Cover PDF: ${coverUrl}\n\n` +
             `The customer gets a tracking email automatically when Lulu marks it shipped.`
           );
@@ -1046,6 +1057,25 @@ const sendPostOrderSurveyEmail = inngest.createFunction(
 // ── SERVE ──
 const handler = serve({ client: inngest, functions: [generateStoryOrder, generatePreviewChapters, sendFullBookPdfEmail, sendPostOrderSurveyEmail] });
 module.exports = handler;
+
+// Named exports for admin recovery tools (e.g. api/recover-missing-illustrations.js)
+// that need to reuse this file's internals without duplicating ~100 lines of
+// prompt-building, retry, and Redis-helper logic. This file is still the Vercel
+// request handler (module.exports is the function serve() returns, used as-is
+// by Vercel) — these are just extra properties attached to that same function
+// object, which Vercel ignores and a plain require() from another file can read.
+Object.assign(handler, {
+  getStoryTier,
+  decodeStoryData,
+  buildIllustrationPromptContext,
+  getOrCreateCharacterReference,
+  callGeminiImageWithSafeRetry,
+  getIllustrationsFromRedis,
+  saveIllustrationsToRedis,
+  redisRequest,
+  getChaptersFromRedis,
+  generatePDF,
+});
 
 // ════════════════════════════════════════════
 // STORY GENERATION
