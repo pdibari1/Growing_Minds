@@ -478,16 +478,20 @@
     <div class="panel" id="panel-8">
       <div class="eyebrow">✓ All done</div>
       <h1 class="panel-title">Here's what we've got</h1>
-      <p class="panel-sub">Review your answers, then hit the button — we'll write the opening of your child's story.</p>
-      <div id="summaryContent"></div>
+      <p class="panel-sub">Ready now, or scroll down to double-check your answers first.</p>
       <label style="display:flex;align-items:flex-start;gap:0.65rem;font-size:0.88rem;color:#555;line-height:1.5;margin-bottom:1rem;cursor:pointer;">
         <input type="checkbox" id="consentCheckbox" style="margin-top:0.2rem;flex-shrink:0;accent-color:#6c63ff;width:1rem;height:1rem;">
         <span>I confirm I am a parent or guardian providing this information on behalf of my child, and I agree to the <a href="https://www.growingminds.io/privacy-policy" target="_blank" style="color:#6c63ff;text-decoration:underline;">Privacy Policy</a> and <a href="https://www.growingminds.io/terms" target="_blank" style="color:#6c63ff;text-decoration:underline;">Terms of Service</a>.</span>
       </label>
-      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin:.5rem 0 .25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#6c63ff;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
       <div class="nav" style="flex-direction:column;align-items:flex-start;gap:1rem;">
         <button class="btn-submit" onclick="submitForm()">✨ Generate my preview →</button>
-        <button class="btn-back" style="margin-top:0;" onclick="goTo(7)">← Go back and edit</button>
+      </div>
+      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin:1rem 0 .25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#6c63ff;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:1.5rem 0;">
+      <p class="panel-sub" style="margin-bottom:.75rem;">Review your answers:</p>
+      <div id="summaryContent"></div>
+      <div class="nav">
+        <button class="btn-back" onclick="goTo(7)">← Go back and edit</button>
       </div>
     </div>
 
