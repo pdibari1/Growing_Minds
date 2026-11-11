@@ -163,6 +163,17 @@ engineering time.
   volume actually makes the single-admin bottleneck the limiting factor,
   not before.
 
+- **Concurrency/throttle limit on `generateStoryOrder`'s API calls.** Right
+  now orders run one or two at a time (testing), so there's no parallel load
+  to protect against. Once real order volume means multiple orders' Claude
+  (text) and Gemini (illustration) calls fire at the same time, that's
+  exactly the kind of spike that risks hitting those APIs' own rate limits
+  across orders, not just one. Inngest's `throttling` config (per-second
+  rate limits) is likely the more relevant fit here than `concurrency`
+  (total in-flight requests), since Claude/Gemini cap requests-per-minute
+  rather than concurrent connections. Not worth setting up before there's
+  real concurrent volume to protect against.
+
 ## Go-live list (before real traffic)
 
 - [ ] Flip Stripe to a live (`sk_live_...`) key and stop sharing the test
