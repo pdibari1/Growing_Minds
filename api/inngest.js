@@ -256,7 +256,18 @@ const generateStoryOrder = inngest.createFunction(
           for (let i = 0; i < POLL_SCHEDULE.length; i++) {
             await step.sleep(`batch-poll-wait-${i}`, POLL_SCHEDULE[i]);
             const pollResult = await step.run(`batch-poll-check-${i}`, async () => {
-              const job = await checkBatchJob(batchJobName);
+              // A single failed status check (network blip, a response big
+              // enough to still time out even at 120s) shouldn't kill the
+              // whole order — treat it the same as "not terminal yet" and
+              // let the next scheduled poll try again, rather than letting
+              // it throw and, after retries exhaust, fail the entire run.
+              let job;
+              try {
+                job = await checkBatchJob(batchJobName);
+              } catch (e) {
+                console.error(`Batch poll ${i + 1} check failed, will retry next scheduled poll: ${e.message}`);
+                return { terminal: false, state: "CHECK_FAILED" };
+              }
               const state = job?.metadata?.state || "";
               const terminal = /SUCCEED|FAIL|CANCEL|EXPIR/i.test(state);
               if (!terminal) return { terminal: false, state };
@@ -1487,7 +1498,14 @@ function checkBatchJob(jobName) {
         hostname: "generativelanguage.googleapis.com",
         path: `/v1beta/${jobName}?key=${process.env.GEMINI_API_KEY}`,
         method: "GET",
-        timeout: 30000,
+        // 30s was validated against a 2-image test job only. A terminal
+        // response for a book's worth of images (up to 87 at the age<=5
+        // tier) embeds every image's base64 data directly in this same
+        // status JSON — a much bigger response to transfer and buffer than
+        // the still-running, metadata-only responses this mostly returns.
+        // Matches the 120s this file already uses elsewhere for calls that
+        // can return a large image payload (callGeminiImageOnce).
+        timeout: 120000,
       },
       (res) => {
         let body = "";
@@ -1502,7 +1520,10 @@ function checkBatchJob(jobName) {
       }
     );
     req.on("error", reject);
-    req.on("timeout", () => reject(new Error("Batch status check timeout")));
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Batch status check timeout"));
+    });
     req.end();
   });
 }
