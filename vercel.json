@@ -60,6 +60,18 @@
     },
     "api/register-lulu-webhook.js": {
       "maxDuration": 15
+    },
+    "api/blog.js": {
+      "maxDuration": 10,
+      "includeFiles": "blog-posts/**"
+    },
+    "api/blog-post.js": {
+      "maxDuration": 10,
+      "includeFiles": "blog-posts/**"
+    },
+    "api/sitemap.js": {
+      "maxDuration": 10,
+      "includeFiles": "blog-posts/**"
     }
   },
   "rewrites": [
@@ -126,6 +138,18 @@
     {
       "source": "/favicon.ico",
       "destination": "/favicon.svg"
+    },
+    {
+      "source": "/blog",
+      "destination": "/api/blog"
+    },
+    {
+      "source": "/blog/:slug",
+      "destination": "/api/blog-post?slug=:slug"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
     }
   ],
   "headers": [

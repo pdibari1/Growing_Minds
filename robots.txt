@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /confirmation
+Disallow: /story-preview
+Disallow: /upgrade
+Disallow: /survey
+Disallow: /survey-results
+Disallow: /post-order-survey
+Disallow: /post-order-survey-results
+Disallow: /test
+Disallow: /test2
+Disallow: /tester-instructions
+
+Sitemap: https://www.growingminds.io/sitemap.xml
