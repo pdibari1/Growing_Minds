@@ -1092,8 +1092,48 @@ Object.assign(handler, {
 // STORY GENERATION
 // ════════════════════════════════════════════
 
+// Confirmed via two real test outlines for the same milestone type (different
+// genres, default temperature 1.0): the model kept converging on the same plot
+// skeleton regardless — an external object that reflects the hero's emotional/
+// energy state, a parent revealing they had the exact same struggle, an
+// apology-after-a-sports-mishap beat, a school-presentation climax. Nothing
+// about those axes is pinned down by the other rules, so with no run-to-run
+// memory to avoid repeating itself, the model just reaches for the same
+// highest-probability default each time. Randomly pinning these specific axes
+// in code — not leaving them to the model's own judgment — is what actually
+// forces different outlines for similar inputs, rather than hoping a model
+// already at temperature 1.0 will somehow diversify further on its own.
+function pickStoryVarietyLines(name) {
+  const devices = [
+    `a physical object (not alive) that changes, reacts, or responds somehow to ${name}'s internal state — invented specific to this story's genre, never a generic unexplained trinket`,
+    `an animal or creature companion (it does not have to be the established pet/companion) whose behavior visibly shifts in response to ${name}'s internal state`,
+    `no external device, prop, or companion at all — ${name} learns to notice and name a specific internal physical sensation already occurring in their own body, with no magical or invented aid whatsoever`,
+    `a specific repeated action or ritual (a phrase said aloud, a physical motion, a particular place returned to) rather than any object or creature`,
+    `a peer or secondary character (not an adult, not the one established best friend) who has independently figured out a version of the same skill and becomes an unlikely model ${name} learns from by watching, not by being directly taught`,
+  ];
+  const mentorReveals = [
+    `An adult in ${name}'s life may reveal, if it fits naturally, that they once struggled with something similar themselves.`,
+    `No adult in this story reveals that they personally struggled with anything similar to ${name}'s milestone — do not invent a parallel struggle for a parent, teacher, or other adult. Any adult support in this story comes from attentive observation and care, not a shared personal history.`,
+  ];
+  const climaxSettings = [
+    `a scheduled performance or presentation in front of a group (a class, a team, an audience)`,
+    `a spontaneous, unplanned real-world moment with high personal (not public) stakes — nobody is watching or grading it, but it still matters enormously to ${name}`,
+    `a hands-on collaborative project with a small group of peers, where the climax is about finishing or fixing something together rather than performing for an audience`,
+    `a one-on-one moment with a single other character — not a group, not an audience`,
+  ];
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  return `
+
+STORY DEVICE RULE: The way ${name}'s internal experience of the milestone becomes visible or trackable in this story must be: ${pick(devices)}
+
+MENTOR BACKSTORY RULE: ${pick(mentorReveals)}
+
+CLIMAX SETTING RULE: The climax of this story takes place in ${pick(climaxSettings)}`;
+}
+
 async function generateOutline(child, tier) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, genre, genreStyle } = child;
+  const storyVarietyLines = pickStoryVarietyLines(name);
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
@@ -1161,6 +1201,7 @@ SCENE CONTINUITY RULE: Never open a chapter with a hard reset to a new setting j
 
 ADVENTURE INTEGRATION RULE: The ${genre || 'fantasy'} adventure must not stay confined to a separate "adventure world" that ${name} visits and then cleanly leaves behind, resetting ordinary life back to mundane in between. Once ignited in Chapters 1–2, it follows ${name} home and stays active in their everyday settings (home, school, family, friends) for the rest of the book — a magic object lives in ${name}'s room, a power shows up at the dinner table, a consequence follows ${name} to school the next day, and so on, whatever fits this story. Ordinary life and the adventure should read as one continuous, escalating thing happening to ${name}, never as two separate categories of scene that alternate. By Chapters 25–30, the adventure's effects should be fully present in ${name}'s ordinary life rather than something wrapped up and left behind in a special separate place.
 ${emotionFramingLine}${coRegulationLine}
+${storyVarietyLines}
 
 You MUST return EXACTLY ${tier.chapCount} chapters — no more, no fewer.
 
