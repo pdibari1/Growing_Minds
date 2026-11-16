@@ -1459,7 +1459,7 @@ async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbac
 function buildCharacterParts(referenceBytes, scene) {
   return [
     { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
-    { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene}` }
+    { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never the reference photo itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing it. The reference image is for your likeness guidance only and must not appear anywhere in the output image.` }
   ];
 }
 
