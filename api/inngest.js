@@ -1674,7 +1674,15 @@ async function getOrCreateCharacterReference(storyId, prompt) {
     }
   }
   const gen = await callGeminiImage(
-    [{ text: `${prompt}\n\nCharacter reference sheet — full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.` }],
+    // "Character reference sheet" alone pulls toward real-world photographic
+    // conventions (a studio headshot) even with the art-style description
+    // earlier in the prompt — confirmed on a real generation that came out
+    // photo-realistic instead of in the story's cartoon style, which then
+    // made Gemini treat it as a literal photo to preserve rather than loose
+    // stylistic guidance in later scenes (see buildCharacterParts). Restating
+    // the style requirement right next to "reference sheet," and explicitly
+    // ruling out photorealism, is the fix.
+    [{ text: `${prompt}\n\nCharacter reference sheet, rendered as a fully illustrated cartoon character in the exact art style described above — NOT a photograph, NOT photorealistic, NOT a real person's headshot. Full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.` }],
     { aspectRatio: "3:4", imageSize: "2K" }
   );
   const blob = await put(`illustrations/${storyId}/reference.png`, gen.bytes, {
