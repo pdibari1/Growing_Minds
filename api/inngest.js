@@ -248,7 +248,7 @@ const generateStoryOrder = inngest.createFunction(
         const coverResult = await step.run("generate-cover", async () => {
           const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
           const existingUrls = await getIllustrationsFromRedis(storyId);
-          const referenceBytes = await getOrCreateCharacterReference(storyId, promptCtx.referencePrompt);
+          const referenceBytes = await getOrCreateCharacterReference(storyId, promptCtx.referencePrompt, promptCtx.fallbackReferencePrompt);
           let coverUrl = existingUrls['0-0'];
           if (coverUrl) {
             console.log(`Cover reused from preview: ${coverUrl.slice(0, 60)}`);
@@ -449,7 +449,12 @@ const generateStoryOrder = inngest.createFunction(
           // via its own long-lived Redis key, never regenerated as a side effect of
           // generating the cover.
           const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
-          const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt);
+          // Simplified fallback if the full prompt trips Gemini's safety filter —
+          // drops the setting and the characterPolicy block (lots of language
+          // about "real people," which a reference sheet alone doesn't need
+          // anyway, having no scene or other characters to apply it to).
+          const fallbackReferencePrompt = `${styleGuide}. The main character is ${charDesc}.`;
+          const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
 
           for (const key of keys) {
             const [ciStr, subStr] = key.split('-');
@@ -832,7 +837,8 @@ const generatePreviewChapters = inngest.createFunction(
         // This reference (and, once generated, the cover itself) both survive on their own
         // long-lived Redis keys, so the full order reuses this exact cover on upgrade.
         const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
-        const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt);
+        const fallbackReferencePrompt = `${styleGuide}. The main character is ${charDesc}.`;
+        const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
         const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment about to begin their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
         const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" });
         const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, {
@@ -1670,9 +1676,11 @@ function buildIllustrationPromptContext(childData, freshOutline, tier) {
     : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
 
   const referencePrompt = `${styleGuide}. The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
+  const fallbackReferencePrompt = `${styleGuide}. The main character is ${charDesc}.`;
 
   return {
     referencePrompt,
+    fallbackReferencePrompt,
     buildScene(key) {
       const [ciStr, subStr] = key.split('-');
       const ci = Number(ciStr);
@@ -1692,7 +1700,7 @@ function buildIllustrationPromptContext(childData, freshOutline, tier) {
 // preview→upgrade boundary. Never shown to the customer — no scene, no other
 // characters, no text or labels — so the cover no longer has to double as a
 // reference sheet and risk Gemini fusing both into one composite image.
-async function getOrCreateCharacterReference(storyId, prompt) {
+async function getOrCreateCharacterReference(storyId, prompt, fallbackPrompt) {
   const existingUrl = await redisRequest("GET", [`charref:${storyId}`]);
   if (existingUrl) {
     try {
@@ -1701,18 +1709,37 @@ async function getOrCreateCharacterReference(storyId, prompt) {
       console.error(`Failed to fetch existing character reference, regenerating: ${e.message}`);
     }
   }
-  const gen = await callGeminiImage(
-    // "Character reference sheet" alone pulls toward real-world photographic
-    // conventions (a studio headshot) even with the art-style description
-    // earlier in the prompt — confirmed on a real generation that came out
-    // photo-realistic instead of in the story's cartoon style, which then
-    // made Gemini treat it as a literal photo to preserve rather than loose
-    // stylistic guidance in later scenes (see buildCharacterParts). Restating
-    // the style requirement right next to "reference sheet," and explicitly
-    // ruling out photorealism, is the fix.
-    [{ text: `${prompt}\n\nCharacter reference sheet, rendered as a fully illustrated cartoon character in the exact art style described above — NOT a photograph, NOT photorealistic, NOT a real person's headshot. Full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.` }],
-    { aspectRatio: "3:4", imageSize: "2K" }
-  );
+  const referenceSuffix = `\n\nCharacter reference sheet, rendered as a fully illustrated cartoon character in the exact art style described above — NOT a photograph, NOT photorealistic, NOT a real person's headshot. Full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.`;
+  let gen;
+  try {
+    gen = await callGeminiImage(
+      // "Character reference sheet" alone pulls toward real-world photographic
+      // conventions (a studio headshot) even with the art-style description
+      // earlier in the prompt — confirmed on a real generation that came out
+      // photo-realistic instead of in the story's cartoon style, which then
+      // made Gemini treat it as a literal photo to preserve rather than loose
+      // stylistic guidance in later scenes (see buildCharacterParts). Restating
+      // the style requirement right next to "reference sheet," and explicitly
+      // ruling out photorealism, is the fix.
+      [{ text: `${prompt}${referenceSuffix}` }],
+      { aspectRatio: "3:4", imageSize: "2K" }
+    );
+  } catch (err) {
+    // Every OTHER image call site in this file (cover, interior, batch) already
+    // retries once with a simplified prompt on a Gemini safety-filter block —
+    // this was the one call site without that safety net, and a reference-sheet
+    // generation failing kills the entire order outright, since every other
+    // image depends on this one existing first. Confirmed on a real order: this
+    // exact call threw PROHIBITED_CONTENT with no fallback and took the whole
+    // run down. If no fallbackPrompt was given, this still throws — same as
+    // before — rather than silently using a wrong-looking character.
+    if (!err.message.includes("PROHIBITED_CONTENT") || !fallbackPrompt) throw err;
+    console.log(`Character reference blocked by Gemini safety filter (PROHIBITED_CONTENT) for ${storyId} — retrying with a simplified fallback description`);
+    gen = await callGeminiImage(
+      [{ text: `${fallbackPrompt}${referenceSuffix}` }],
+      { aspectRatio: "3:4", imageSize: "2K" }
+    );
+  }
   const blob = await put(`illustrations/${storyId}/reference.png`, gen.bytes, {
     access: 'public',
     contentType: 'image/png'
