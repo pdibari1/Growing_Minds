@@ -80,6 +80,40 @@ function getChapterImagePrompt(chap, subIndex, fallbackPrompt) {
   return fallbackPrompt;
 }
 
+// The intake form's raw hairLength values ("crew cut", "to the shoulders",
+// etc.) fed straight into a prompt as "to the shoulders, straight, blonde
+// hair" read awkwardly — the length modifier sits three words away from
+// "hair" instead of right next to it. Confirmed on a real generation: a boy
+// with hairLength "to the shoulders" came out with short hair anyway, which
+// also fits image models' well-known tendency to skew shoulder-length/long
+// hair female regardless of the character's stated gender. Mapping to a
+// cleaner descriptor AND reordering so length sits immediately before "hair"
+// (strongest position) is the fix for the phrasing half of this; see
+// buildCharDesc below for the explicit anti-bias instruction, the other half.
+const HAIR_LENGTH_DESCRIPTORS = {
+  "crew cut": "very short, buzzed",
+  "regular cut": "short",
+  "past the ears": "medium-length, just past the ears",
+  "to the shoulders": "shoulder-length",
+  "long": "long, past the shoulders",
+};
+
+function buildHairDescriptor(hair, hairLength, hairStyle) {
+  const lengthDesc = HAIR_LENGTH_DESCRIPTORS[(hairLength || "").toLowerCase()] || hairLength;
+  return [hair, hairStyle, lengthDesc].filter(Boolean).join(", ").toLowerCase();
+}
+
+// Shared character description for image-generation prompts specifically
+// (not the text-only "Hero:" line in generateOutline/generateChapterBatch,
+// where an LLM writing prose has no equivalent gender-bias-in-hair-length
+// failure mode). The explicit anti-bias sentence is the other half of the
+// hair-length fix above.
+function buildCharDesc(ethnicity, hair, hairLength, hairStyle, eye) {
+  const ethnicityDesc = ethnicity ? `${ethnicity} ` : "";
+  const hairDesc = buildHairDescriptor(hair, hairLength, hairStyle);
+  return `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes. Hair length must be drawn exactly as described, regardless of the character's gender.`;
+}
+
 // ── MAIN INNGEST FUNCTION ──
 const generateStoryOrder = inngest.createFunction(
   {
@@ -354,9 +388,7 @@ const generateStoryOrder = inngest.createFunction(
           console.log(`Generating illustration batch ${b + 1}/${imgBatches}: ${keys.length} images`);
 
           const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
-          const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-          const ethnicityDesc = ethnicity ? `${ethnicity} ` : '';
-          const charDesc = `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes`;
+          const charDesc = buildCharDesc(ethnicity, hair, hairLength, hairStyle, eye);
 
           // Only the primary character (and any secondary character with an explicit
           // physical description) gets drawn as a specific, identifiable individual —
@@ -751,9 +783,7 @@ const generatePreviewChapters = inngest.createFunction(
     // Generate cover illustration
     await step.run("generate-preview-cover", async () => {
       const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
-      const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-      const ethnicityDesc = ethnicity ? `${ethnicity} ` : '';
-      const charDesc = `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes`;
+      const charDesc = buildCharDesc(ethnicity, hair, hairLength, hairStyle, eye);
       // Only the primary character (and any secondary character with an explicit
       // physical description) gets drawn as a specific, identifiable individual —
       // see the same policy in the full-order illustration step for why.
@@ -1135,7 +1165,7 @@ async function generateOutline(child, tier) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, genre, genreStyle } = child;
   const storyVarietyLines = pickStoryVarietyLines(name);
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
-  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+  const hairDesc = buildHairDescriptor(hair, hairLength, hairStyle);
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
   const genreLine = genre ? `\nSTORY GENRE & STYLE: ${genre} — ${genreStyle}` : '';
   const customLine = customDetails ? `\n\nCRITICAL CUSTOM DETAILS — these must be followed precisely:\n${customDetails}\nIMPORTANT NICKNAME RULE: If a nickname is provided for any character, use ONLY that nickname — never invent a different one, never shorten it, never substitute it with another name. Characters may be referred to by their full name OR a provided nickname, but never a made-up alternative.` : "";
@@ -1264,7 +1294,7 @@ No markdown, no explanation, just the JSON array.`;
 async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapters, tier) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails } = child;
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
-  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
+  const hairDesc = buildHairDescriptor(hair, hairLength, hairStyle);
   const friendLine = friend && friend !== "none" ? `Companion: ${friend}.` : "";
 
   // Full outline for arc awareness
@@ -1602,9 +1632,7 @@ function extractBatchResults(jobResponse) {
 // instead of duplicating ~60 lines of prompt construction.
 function buildIllustrationPromptContext(childData, freshOutline, tier) {
   const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
-  const hairDesc = [hairLength, hairStyle, hair].filter(Boolean).join(", ").toLowerCase();
-  const ethnicityDesc = ethnicity ? `${ethnicity} ` : '';
-  const charDesc = `a young ${ethnicityDesc}child with ${hairDesc} hair and ${eye} eyes`;
+  const charDesc = buildCharDesc(ethnicity, hair, hairLength, hairStyle, eye);
 
   const illustrationDetails = extractIllustrationDetails(customDetails);
   const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person — parents, siblings, friends, classmates, a teacher, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. This overrides the scene description above: if that scene mentions, implies, or is about another person (friends celebrating with ${name}, a teacher listening to ${name}, classmates nearby, a group, etc.) and no physical description for them is given below, do NOT draw that person at all — not as a named figure, not as a generic faceless or turned-away figure, not as a blurred or out-of-focus shape in the background. Re-frame the shot to show only ${name} — their own action, reaction, or expression — and the setting, as if everyone else had been cropped out of frame, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
