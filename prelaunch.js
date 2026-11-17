@@ -32,6 +32,16 @@
   var isTester = false;
   try { isTester = localStorage.getItem('gm_tester') === '1'; } catch (e) {}
 
+  // The cookie (not localStorage) is what api/prelaunch-lib.js actually checks.
+  // Browsers can drop cookies independently of localStorage — e.g. Brave Shields,
+  // or any "clear cookies on exit" setting — leaving a browser that still shows
+  // the tester badge but whose requests get server-side blocked anyway. Re-assert
+  // the cookie from localStorage on every load so it self-heals instead of only
+  // being set at the moment ?tester=1 appears in the URL.
+  if (isTester) {
+    try { document.cookie = 'gm_tester=1; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {}
+  }
+
   window.GM_WAITLIST_MODE = PRELAUNCH && !isTester;
 
   // Tester mode banner: a small badge on every page so testers (and you) can
