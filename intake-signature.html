@@ -145,17 +145,20 @@
     .btn-next{padding:.9rem 2.2rem;border-radius:12px;border:none;background:var(--green);font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:white;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(45,106,79,0.3);display:flex;align-items:center;gap:.5rem;}
     .btn-next:hover{background:var(--green-mid);transform:translateY(-1px);box-shadow:0 6px 20px rgba(45,106,79,0.35);}
     .btn-next:disabled{background:var(--border);color:var(--muted-light);box-shadow:none;cursor:not-allowed;transform:none;}
-    .summary-card{background:var(--white);border:2px solid var(--border);border-radius:20px;padding:1.8rem 2rem;margin-bottom:1rem;box-shadow:var(--shadow-sm);}
-    .summary-section-label{font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--green-mid);margin-bottom:1.1rem;display:flex;align-items:center;gap:.5rem;}
-    .summary-edit-btn{margin-left:auto;background:none;border:1.5px solid var(--border);border-radius:8px;padding:.25rem .7rem;cursor:pointer;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;color:var(--muted);text-transform:none;letter-spacing:0;transition:border-color .15s,color .15s,background .15s;}
+    .action-card{background:var(--white);border-radius:22px;padding:1.8rem;margin-bottom:1.8rem;box-shadow:0 10px 30px rgba(45,106,79,0.10),0 2px 8px rgba(26,26,46,0.04);display:flex;flex-direction:column;gap:1.4rem;}
+    .summary-card{background:var(--white);border-radius:18px;padding:0;margin-bottom:1rem;box-shadow:0 6px 20px rgba(26,26,46,0.06);overflow:hidden;}
+    .summary-section-label{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#9ca3a3;margin-bottom:.9rem;display:flex;align-items:center;gap:.5rem;}
+    .summary-card .summary-section-label{margin-bottom:0;padding:1rem 1.8rem;border-bottom:1px solid var(--border);color:var(--green-mid);}
+    .summary-edit-btn{margin-left:auto;background:var(--cream);border:1px solid var(--border);border-radius:999px;padding:.35rem .9rem;cursor:pointer;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;color:var(--brown);text-transform:none;letter-spacing:0;transition:border-color .15s,color .15s,background .15s;}
     .summary-edit-btn:hover{border-color:var(--green-light);color:var(--green);background:var(--green-faint);}
-    .summary-row{display:flex;gap:1rem;margin-bottom:.75rem;align-items:flex-start;}
-    .summary-row:last-child{margin-bottom:0;}
+    .summary-row{display:flex;gap:1.25rem;padding:1rem 1.8rem;border-bottom:1px solid var(--border);align-items:flex-start;}
+    .summary-row:first-child{padding-top:1.1rem;}
+    .summary-row:last-child{border-bottom:none;padding-bottom:1.1rem;}
     .summary-q{font-size:.83rem;font-weight:800;color:var(--muted-light);width:165px;flex-shrink:0;line-height:1.4;padding-top:.05rem;}
     .summary-a{font-size:.88rem;font-weight:600;color:var(--text-soft);line-height:1.55;flex:1;}
     .summary-a.empty{color:var(--muted-light);font-style:italic;font-weight:600;}
-    .btn-submit{padding:1rem 2.5rem;border-radius:14px;border:none;background:var(--yellow);color:var(--brown);font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(249,199,79,0.45);}
-    .btn-submit:hover{background:var(--yellow-dark);color:white;transform:translateY(-1px);}
+    .btn-submit{padding:1.05rem 2.5rem;border-radius:999px;border:none;background:var(--green);color:white;font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;cursor:pointer;transition:all .2s;box-shadow:0 10px 24px rgba(45,106,79,0.35);}
+    .btn-submit:hover{background:var(--green-light);transform:translateY(-1px);box-shadow:0 12px 28px rgba(45,106,79,0.4);}
     .overlay{display:none;position:fixed;inset:0;z-index:999;background:var(--cream);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;}
     .overlay.show{display:flex;animation:fadeUp .4s ease both;}
     .loading-sparkle{font-size:4rem;margin-bottom:1.5rem;animation:spin 3s linear infinite;}
@@ -479,16 +482,17 @@
       <div class="eyebrow">✓ All done</div>
       <h1 class="panel-title">Here's what we've got</h1>
       <p class="panel-sub">Ready now, or scroll down to double-check your answers first.</p>
-      <label style="display:flex;align-items:flex-start;gap:0.65rem;font-size:0.88rem;color:#555;line-height:1.5;margin-bottom:1rem;cursor:pointer;">
-        <input type="checkbox" id="consentCheckbox" style="margin-top:0.2rem;flex-shrink:0;accent-color:#6c63ff;width:1rem;height:1rem;">
-        <span>I confirm I am a parent or guardian providing this information on behalf of my child, and I agree to the <a href="https://www.growingminds.io/privacy-policy" target="_blank" style="color:#6c63ff;text-decoration:underline;">Privacy Policy</a> and <a href="https://www.growingminds.io/terms" target="_blank" style="color:#6c63ff;text-decoration:underline;">Terms of Service</a>.</span>
-      </label>
-      <div class="nav" style="flex-direction:column;align-items:flex-start;gap:1rem;">
+
+      <div class="action-card">
+        <label for="consentCheckbox" style="display:flex;align-items:flex-start;gap:.8rem;cursor:pointer;">
+          <input type="checkbox" id="consentCheckbox" style="margin-top:.1rem;flex-shrink:0;accent-color:var(--green);width:1.25rem;height:1.25rem;cursor:pointer;">
+          <span style="font-size:.9rem;color:#374151;line-height:1.55;">I confirm I am a parent or guardian providing this information on behalf of my child, and I agree to the <a href="https://www.growingminds.io/privacy-policy" target="_blank" style="color:var(--green);font-weight:700;text-decoration:underline;">Privacy Policy</a> and <a href="https://www.growingminds.io/terms" target="_blank" style="color:var(--green);font-weight:700;text-decoration:underline;">Terms of Service</a>.</span>
+        </label>
         <button class="btn-submit" onclick="submitForm()">✨ Generate my preview →</button>
+        <p style="font-size:.85rem;color:#6b7280;text-align:center;margin:0;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:var(--green);font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
       </div>
-      <p style="font-size:.82rem;color:#6b7280;text-align:center;margin:1rem 0 .25rem;">📦 Ships within the United States &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('intlModal').style.display='flex';return false;" style="color:#6c63ff;font-weight:700;text-decoration:underline;">Outside the US? Join the waitlist →</a></p>
-      <hr style="border:none;border-top:1px solid #e5e7eb;margin:1.5rem 0;">
-      <p class="panel-sub" style="margin-bottom:.75rem;">Review your answers:</p>
+
+      <div class="summary-section-label" style="margin-top:1.8rem;">Review your answers</div>
       <div id="summaryContent"></div>
       <div class="nav">
         <button class="btn-back" onclick="goTo(7)">← Go back and edit</button>
