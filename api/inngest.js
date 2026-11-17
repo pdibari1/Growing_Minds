@@ -448,11 +448,13 @@ const generateStoryOrder = inngest.createFunction(
           // interior scene alike — reused across batches and across preview→upgrade
           // via its own long-lived Redis key, never regenerated as a side effect of
           // generating the cover.
-          const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
-          // Simplified fallback if the full prompt trips Gemini's safety filter —
-          // drops the setting and the characterPolicy block (lots of language
-          // about "real people," which a reference sheet alone doesn't need
-          // anyway, having no scene or other characters to apply it to).
+          // Setting and characterPolicy are scene-only concerns a solo reference
+          // portrait doesn't need (no scene, no other people in frame) — and
+          // characterPolicy's "real person"/"identifiable individual" language
+          // next to a named child's physical description tripped Gemini's safety
+          // filter on a real order even in the fallback below, so it's dropped
+          // from the primary prompt too rather than only the fallback.
+          const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
           const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
           const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
 
@@ -836,7 +838,10 @@ const generatePreviewChapters = inngest.createFunction(
         // Same private-reference pattern as the full order — see getOrCreateCharacterReference.
         // This reference (and, once generated, the cover itself) both survive on their own
         // long-lived Redis keys, so the full order reuses this exact cover on upgrade.
-        const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
+        // Setting/characterPolicy dropped from the reference prompt — see the full-order
+        // call site's comment for why (scene-only concerns that tripped Gemini's safety
+        // filter on a real order, in both the primary prompt and the fallback alike).
+        const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
         const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
         const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
         const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment about to begin their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
@@ -1675,7 +1680,15 @@ function buildIllustrationPromptContext(childData, freshOutline, tier) {
     ? `${baseStyle} Bright, dynamic, colorful energy. ${genreVisual}`
     : `${baseStyle} Detailed, dramatic, cinematic energy. ${genreVisual}`;
 
-  const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}. Setting: ${city}, ${region}.${characterPolicy}`;
+  // characterPolicy and Setting are scene-only concerns — they govern how to
+  // handle OTHER people and a location in a scene. The reference sheet is a
+  // solo portrait with no scene and no one else in frame (see referenceSuffix
+  // in getOrCreateCharacterReference), so neither belongs here: they were
+  // dead weight at best, and characterPolicy's "identifiable individual" /
+  // "real person" language next to a named child's physical description is
+  // exactly the kind of phrasing that tripped Gemini's safety filter on a
+  // real order. Primary and fallback are now the same simplified shape.
+  const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
   const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
 
   return {
@@ -1709,7 +1722,14 @@ async function getOrCreateCharacterReference(storyId, prompt, fallbackPrompt) {
       console.error(`Failed to fetch existing character reference, regenerating: ${e.message}`);
     }
   }
-  const referenceSuffix = `\n\nCharacter reference sheet, rendered as a fully illustrated cartoon character in the exact art style described above — NOT a photograph, NOT photorealistic, NOT a real person's headshot. Full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.`;
+  // Avoid the phrase "real person" here — even as a negation ("NOT a real
+  // person's headshot"), it sat next to a named child's detailed physical
+  // description (ethnicity, hair, eyes, age) in BOTH the primary and the
+  // fallback attempt on a real order, and both got PROHIBITED_CONTENT.
+  // Gemini's safety classifier reacts to that phrase's co-occurrence with a
+  // minor's description regardless of the surrounding negation — the same
+  // false-positive pattern as the earlier weapon/attack-language incident.
+  const referenceSuffix = `\n\nCharacter reference sheet, rendered as a stylized cartoon illustration in the exact art style described above — not a photograph or realistic render. Full body, front-facing, neutral pose, clear view of face and outfit, plain neutral background. No scene, no other characters, no text or labels in the image.`;
   let gen;
   try {
     gen = await callGeminiImage(
