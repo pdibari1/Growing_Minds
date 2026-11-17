@@ -34,7 +34,8 @@ open decisions.
 | `api/test-character-image.js` | Admin diagnostic tool for Gemini prompt/scene experiments (gated by `ADMIN_WEBHOOK_SECRET`) |
 | `api/recover-dropped-order.js` | Admin tool to manually re-queue a paid order whose storyToken expired out of Redis before Inngest ever saw it (gated by `ADMIN_WEBHOOK_SECRET`) |
 | `api/recover-missing-illustrations.js` | Admin tool to regenerate just the still-missing images for an order whose illustration step partially failed (e.g. Gemini billing ran out mid-batch), and rebuild the full PDF — without re-running outline/chapter generation (gated by `ADMIN_WEBHOOK_SECRET`) |
-| `prelaunch.js` + `api/waitlist.js` | Pre-launch switch: while on, homepage CTAs open a waitlist signup and intake pages redirect there (`?tester=1` bypasses); waitlist saved in Redis, CSV export gated by `ADMIN_WEBHOOK_SECRET` |
+| `prelaunch.js` + `api/waitlist.js` | Pre-launch switch, UI side only: while on, homepage CTAs open a waitlist signup and intake pages redirect there (`?tester=1` bypasses, sets a `gm_tester` cookie + localStorage); waitlist saved in Redis, CSV export gated by `ADMIN_WEBHOOK_SECRET` |
+| `api/prelaunch-lib.js` | Pre-launch switch, server side — the actual enforcement. Checked by `generate-preview.js`/`create-checkout.js`/`create-preview-checkout.js`/`create-upgrade-checkout.js` so a direct request can't skip the waitlist the way a UI-only redirect could. Driven by the `PRELAUNCH` env var, a separate flag from the `PRELAUNCH` constant in `prelaunch.js` — both must be flipped at launch |
 | `DEPLOYMENT.md` | Deploy runbook + API request/response shapes |
 | `env.example.txt` | All required environment variables |
 

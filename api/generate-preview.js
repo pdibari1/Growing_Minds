@@ -1,5 +1,6 @@
 // api/generate-preview.js
 const Anthropic = require("@anthropic-ai/sdk");
+const { isPrelaunchBlocked } = require("./prelaunch-lib");
 
 // Matches STORY_DATA_TTL in api/inngest.js — keep these in sync. A customer can
 // realistically take weeks or months to decide on the full book after seeing
@@ -10,6 +11,12 @@ const STORY_DATA_TTL = 60 * 60 * 24 * 180; // 180 days
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // The actual enforcement for the pre-launch waitlist — prelaunch.js only
+  // redirects the UI, which a direct request here would skip entirely.
+  if (isPrelaunchBlocked(req)) {
+    return res.status(403).json({ error: "Ordering isn't open yet — join the waitlist at growingminds.io." });
   }
 
   const { name, age, gender, ethnicity, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, email, customDetails, genre, genreStyle } = req.body;

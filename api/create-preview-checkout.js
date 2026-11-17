@@ -1,10 +1,17 @@
 // api/create-preview-checkout.js — $2.99 preview checkout (3 chapters, credited toward full book)
 const Stripe = require("stripe");
+const { isPrelaunchBlocked } = require("./prelaunch-lib");
 
 const PREVIEW_PRICE_CENTS = 299;
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // The actual enforcement for the pre-launch waitlist — prelaunch.js only
+  // redirects the UI, which a direct request here would skip entirely.
+  if (isPrelaunchBlocked(req)) {
+    return res.status(403).json({ error: "Ordering isn't open yet — join the waitlist at growingminds.io." });
+  }
 
   const { childName, storyId, customerEmail, customDetails } = req.body;
   if (!childName || !storyId) return res.status(400).json({ error: "Missing required fields" });

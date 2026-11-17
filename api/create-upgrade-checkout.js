@@ -1,11 +1,18 @@
 // api/create-upgrade-checkout.js — upgrade checkout (full book, $2.99 already credited)
 const Stripe = require("stripe");
+const { isPrelaunchBlocked } = require("./prelaunch-lib");
 
 // $35/$50 total minus the $2.99 preview already paid, rounded up to a whole dollar.
 const UPGRADE_PRICE_CENTS = { standard: 3200, premium: 4700 };
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  // The actual enforcement for the pre-launch waitlist — prelaunch.js only
+  // redirects the UI, which a direct request here would skip entirely.
+  if (isPrelaunchBlocked(req)) {
+    return res.status(403).json({ error: "Ordering isn't open yet — join the waitlist at growingminds.io." });
+  }
 
   const { storyId, childName, customerEmail, printQuality } = req.body;
   if (!storyId || !childName) return res.status(400).json({ error: "Missing required fields" });

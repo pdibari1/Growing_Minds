@@ -209,9 +209,14 @@ engineering time.
       family gets a physical book — worth the bottleneck at launch volume.
       Revisit once volume makes it the actual constraint — see Scale
       backlog.
-- [ ] Turn off the pre-launch waitlist: set `PRELAUNCH` to `false` in
-      `prelaunch.js` and redeploy. Until then the homepage's "start" buttons
-      open a waitlist signup and the intake pages redirect to it; testers get
-      the full flow by opening any page once with `?tester=1`. Export the list
-      with `GET /api/waitlist?token=<ADMIN_WEBHOOK_SECRET>&format=csv`, create
+- [ ] Turn off the pre-launch waitlist: **two separate flags, both need to
+      flip.** Set the `PRELAUNCH` constant to `false` in `prelaunch.js` (UI —
+      homepage "start" buttons and intake-page redirects) AND set the
+      `PRELAUNCH` env var to `false` in Vercel (server-side enforcement in
+      `api/prelaunch-lib.js`, checked by `generate-preview.js` and all three
+      checkout-creation endpoints), then redeploy. Until then, testers get
+      the full flow by opening any page once with `?tester=1` (sets a
+      `gm_tester` cookie + localStorage, read by both the client and server
+      checks). Export the list with
+      `GET /api/waitlist?token=<ADMIN_WEBHOOK_SECRET>&format=csv`, create
       the founding-family promotion code in Stripe, and email the list.

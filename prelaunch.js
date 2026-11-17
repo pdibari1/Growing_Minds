@@ -7,14 +7,26 @@
 //
 // Testers see a small "Tester mode" badge in the bottom-left corner.
 //
-// Launch day: set PRELAUNCH to false and deploy.
+// This file only controls the UI — see api/prelaunch-lib.js for the actual
+// server-side enforcement (nothing here can stop a direct request to an
+// order-creation endpoint). LAUNCH DAY: flip PRELAUNCH to false here AND set
+// the PRELAUNCH env var to "false" in Vercel, then deploy — these are two
+// independent flags that both need to change.
 (function () {
   var PRELAUNCH = true;
 
   var t = new URLSearchParams(location.search).get('tester');
   try {
-    if (t === '1') localStorage.setItem('gm_tester', '1');
-    else if (t === '0') localStorage.removeItem('gm_tester');
+    if (t === '1') {
+      localStorage.setItem('gm_tester', '1');
+      // Also a cookie, not just localStorage — localStorage never reaches
+      // the server, and api/prelaunch-lib.js needs this to honor the same
+      // bypass for the actual order-creation endpoints.
+      document.cookie = 'gm_tester=1; path=/; max-age=31536000; SameSite=Lax';
+    } else if (t === '0') {
+      localStorage.removeItem('gm_tester');
+      document.cookie = 'gm_tester=0; path=/; max-age=0; SameSite=Lax';
+    }
   } catch (e) {}
 
   var isTester = false;
