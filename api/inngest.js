@@ -1450,9 +1450,16 @@ function callGeminiImageOnce(parts, imageConfig) {
     };
 
     const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", (chunk) => (body += chunk));
+      // Buffer chunks instead of string-concatenating them (body += chunk):
+      // a single generated image's base64 data can run several MB, and
+      // repeated string concatenation does an O(n) copy on every chunk —
+      // needless overhead a single Buffer.concat at the end avoids. See
+      // checkBatchJob below for the same pattern on a much bigger payload,
+      // where that overhead became an actual crash.
+      const chunks = [];
+      res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
         try {
           const data = JSON.parse(body);
           if (data.error) return reject(new Error(data.error.message));
@@ -1548,9 +1555,12 @@ function submitBatchImageJob(items) {
         timeout: 60000,
       },
       (res) => {
-        let body = "";
-        res.on("data", (c) => (body += c));
+        // Response is just job metadata (name/state), no image data — small
+        // either way, but kept consistent with checkBatchJob's buffering below.
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
         res.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf8");
           try {
             const data = JSON.parse(body);
             if (data.error) return reject(new Error(data.error.message));
@@ -1590,9 +1600,24 @@ function checkBatchJob(jobName) {
         timeout: 120000,
       },
       (res) => {
-        let body = "";
-        res.on("data", (c) => (body += c));
+        // Buffer raw chunks and concat once instead of string-concatenating
+        // on every "data" event (body += c). A terminal response embeds every
+        // image's base64 data — in BOTH response.inlinedResponses and
+        // metadata.output.inlinedResponses, per extractBatchResults' comment,
+        // roughly doubling the payload — and for a 58-image order this grew
+        // past V8's max string length via repeated += reallocation, which
+        // threw synchronously inside this "data" handler. That throw wasn't
+        // caught by any promise .catch() — it became an uncaught exception
+        // that crashed the whole Node process, confirmed on a real order's
+        // logs (RangeError: Invalid string length, exit status 129), bypassing
+        // the poll-retry logic entirely since the terminal response is the
+        // same size on every retry. Buffer.concat + a single toString() at
+        // the end avoids the O(n) copy on every chunk and gets as close to
+        // the engine's actual limit as possible instead of failing early.
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
         res.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf8");
           try {
             resolve(JSON.parse(body));
           } catch (e) {
