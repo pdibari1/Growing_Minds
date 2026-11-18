@@ -1,6 +1,7 @@
 // api/generate-preview.js
 const Anthropic = require("@anthropic-ai/sdk");
 const { isPrelaunchBlocked } = require("./prelaunch-lib");
+const { sendAlertEmail } = require("./alert-lib");
 
 // Matches STORY_DATA_TTL in api/inngest.js — keep these in sync. A customer can
 // realistically take weeks or months to decide on the full book after seeing
@@ -180,6 +181,14 @@ INSTRUCTIONS:
 
   } catch (error) {
     console.error(`Claude API error (storyId ${storyId}, intake saved to pending-intake:${storyId} in Redis for recovery):`, error);
+    // Unlike every later step, this runs synchronously before Inngest (and
+    // its onFailure alerts) is ever involved — a customer's very first
+    // interaction after the intake form. Without an alert here, this
+    // failure mode would be invisible except in Vercel logs.
+    await sendAlertEmail(
+      `Preview generation FAILED — ${name || 'unknown'} (${storyId})`,
+      `generate-preview.js threw before Inngest was ever involved — the customer's intake form submission itself failed.\n\nstoryId: ${storyId}\nchildName: ${name}\ncustomerEmail: ${email}\n\nError: ${error?.name}: ${error?.message}\n\nIntake was saved to Redis (pending-intake:${storyId}) for manual recovery.`
+    );
     return res.status(500).json({ error: "Story generation failed. Please try again." });
   }
 };
