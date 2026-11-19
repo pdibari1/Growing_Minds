@@ -1962,19 +1962,35 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     const chapterNum = match ? match[1] : `Chapter ${ci + 1}`;
     const chapterTitle = match ? match[2] : fullTitle;
 
-    const body = lines.slice(1).map(p => `<p>${p}</p>`).join('');
+    const bodyParagraphs = lines.slice(1).map(p => `<p>${p}</p>`);
 
     // Check if this chapter has illustration(s) — use URL(s) directly.
     // Skip chapter 0: its image (key "0-0") is already shown full-bleed as
     // the cover. Every other chapter can carry tier.imagesPerChap distinct
-    // images (keys "{ci}-0", "{ci}-1", ...) — stack whichever of those
-    // actually got generated/saved, in order.
-    const illustrationHtml = ci > 0
-      ? Array.from({ length: tier.imagesPerChap || 1 }, (_, sub) => illustrations[`${ci}-${sub}`])
-          .filter(Boolean)
-          .map(url => `<img src="${url}" />`)
-          .join('')
-      : '';
+    // images (keys "{ci}-0", "{ci}-1", ...) — whichever of those actually
+    // got generated/saved, in order.
+    const chapterImages = ci > 0
+      ? Array.from({ length: tier.imagesPerChap || 1 }, (_, sub) => illustrations[`${ci}-${sub}`]).filter(Boolean)
+      : [];
+
+    // Spread images through the chapter's paragraphs instead of stacking
+    // them all before the first line (what happened before this fix — a
+    // real completed test book showed all of a chapter's images bunched up
+    // front with no text between them). Split the paragraphs into
+    // chapterImages.length + 1 groups and insert one image between each
+    // consecutive pair of groups.
+    let body;
+    if (chapterImages.length > 0 && bodyParagraphs.length > 0) {
+      const groupCount = chapterImages.length + 1;
+      const groupSize = Math.ceil(bodyParagraphs.length / groupCount);
+      body = bodyParagraphs.slice(0, groupSize).join('');
+      for (let i = 0; i < chapterImages.length; i++) {
+        body += `<img src="${chapterImages[i]}" />`;
+        body += bodyParagraphs.slice((i + 1) * groupSize, (i + 2) * groupSize).join('');
+      }
+    } else {
+      body = bodyParagraphs.join('');
+    }
 
     return `
       <div class="chapter">
@@ -1982,7 +1998,6 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
         <div class="chapter-title">${chapterTitle}</div>
         <div class="chapter-divider"></div>
         <div class="chapter-body">
-          ${illustrationHtml}
           ${body}
         </div>
         <div class="chapter-end">✦</div>
