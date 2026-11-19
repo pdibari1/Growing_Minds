@@ -266,74 +266,113 @@ const generateStoryOrder = inngest.createFunction(
         illustrations['0-0'] = coverResult.coverUrl;
 
         if (interiorKeys.length > 0) {
-          const batchJobName = await step.run("submit-illustration-batch", async () => {
+          // Cap each batch job's image count so a single terminal response can
+          // never get big enough to OOM the function. Confirmed on a real
+          // order: one ~58-image job's terminal response (every image's
+          // base64 data, duplicated across two JSON paths per
+          // extractBatchResults' comment) crashed Vercel's Hobby plan's fixed
+          // 1024MB limit outright ("instance was killed because it ran out
+          // of available memory") — and Hobby has no higher tier to move to.
+          // A 2-image test job has always worked fine; this chunk size is a
+          // conservative middle ground between those two known data points,
+          // not a guess at the response's internal size. All chunks are
+          // submitted up front and polled together below so total wait time
+          // is bounded by the slowest single chunk, not the sum of all of
+          // them.
+          const MAX_IMAGES_PER_BATCH_JOB = 20;
+          const chunks = [];
+          for (let i = 0; i < interiorKeys.length; i += MAX_IMAGES_PER_BATCH_JOB) {
+            chunks.push(interiorKeys.slice(i, i + MAX_IMAGES_PER_BATCH_JOB));
+          }
+
+          const batchJobNames = await step.run("submit-illustration-batch", async () => {
             const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
             const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
-            const items = interiorKeys.map((key) => {
-              const { scenePrompt } = promptCtx.buildScene(key);
-              return {
-                key,
-                parts: buildCharacterParts(referenceBytes, scenePrompt),
-                imageConfig: { aspectRatio: "4:3", imageSize: "2K" },
-              };
-            });
-            const jobName = await submitBatchImageJob(items);
-            console.log(`Submitted illustration batch job ${jobName} for ${interiorKeys.length} images`);
-            return jobName;
+            const jobNames = [];
+            for (const chunk of chunks) {
+              const items = chunk.map((key) => {
+                const { scenePrompt } = promptCtx.buildScene(key);
+                return {
+                  key,
+                  parts: buildCharacterParts(referenceBytes, scenePrompt),
+                  imageConfig: { aspectRatio: "4:3", imageSize: "2K" },
+                };
+              });
+              const jobName = await submitBatchImageJob(items);
+              console.log(`Submitted illustration batch job ${jobName} for ${chunk.length} images`);
+              jobNames.push(jobName);
+            }
+            return jobNames;
           });
 
-          // Bounded poll with increasing backoff — extraction and Blob upload
-          // happen INSIDE this step.run once a terminal state is seen, so the
-          // (large, base64-image-laden) raw job response never has to be
-          // returned as step output and bloat Inngest's memoized state.
+          // Bounded poll with increasing backoff, same schedule as before —
+          // now checks every still-pending chunk each round instead of just
+          // one job, and stops once every chunk has reached a terminal
+          // state. Extraction and Blob upload still happen INSIDE this
+          // step.run once a chunk's terminal state is seen, so the (large,
+          // base64-image-laden) raw job response never has to be returned as
+          // step output and bloat Inngest's memoized state.
           const POLL_SCHEDULE = ["1m", "2m", "5m", "10m", "15m", "30m", "30m", "1h", "1h", "2h", "2h", "4h", "4h", "4h"];
-          let batchReachedTerminal = false;
+          const terminalChunks = new Set();
           for (let i = 0; i < POLL_SCHEDULE.length; i++) {
+            if (terminalChunks.size === batchJobNames.length) break;
             await step.sleep(`batch-poll-wait-${i}`, POLL_SCHEDULE[i]);
-            const pollResult = await step.run(`batch-poll-check-${i}`, async () => {
-              // A single failed status check (network blip, a response big
-              // enough to still time out even at 120s) shouldn't kill the
-              // whole order — treat it the same as "not terminal yet" and
-              // let the next scheduled poll try again, rather than letting
-              // it throw and, after retries exhaust, fail the entire run.
-              let job;
-              try {
-                job = await checkBatchJob(batchJobName);
-              } catch (e) {
-                console.error(`Batch poll ${i + 1} check failed, will retry next scheduled poll: ${e.message}`);
-                return { terminal: false, state: "CHECK_FAILED" };
-              }
-              const state = job?.metadata?.state || "";
-              const terminal = /SUCCEED|FAIL|CANCEL|EXPIR/i.test(state);
-              if (!terminal) return { terminal: false, state };
-
-              const saved = [];
-              if (/SUCCEED/i.test(state)) {
-                const results = extractBatchResults(job);
-                const toSave = {};
-                for (const key of interiorKeys) {
-                  const r = results.get(key);
-                  if (r?.bytes) {
-                    const blob = await put(`illustrations/${storyId}/${key}.png`, r.bytes, { access: 'public', contentType: 'image/png' });
-                    toSave[key] = blob.url;
-                    saved.push(key);
-                  }
+            const pollResults = await step.run(`batch-poll-check-${i}`, async () => {
+              const out = [];
+              for (let idx = 0; idx < batchJobNames.length; idx++) {
+                if (terminalChunks.has(idx)) continue;
+                const jobName = batchJobNames[idx];
+                const chunkKeys = chunks[idx];
+                // A single failed status check (network blip, a response big
+                // enough to still time out even at 120s) shouldn't kill the
+                // whole order — treat it the same as "not terminal yet" and
+                // let the next scheduled poll try again, rather than letting
+                // it throw and, after retries exhaust, fail the entire run.
+                let job;
+                try {
+                  job = await checkBatchJob(jobName);
+                } catch (e) {
+                  console.error(`Batch poll ${i + 1} check failed for chunk ${idx} (${jobName}), will retry next scheduled poll: ${e.message}`);
+                  out.push({ idx, terminal: false, state: "CHECK_FAILED" });
+                  continue;
                 }
-                if (saved.length) await saveIllustrationsToRedis(storyId, toSave);
-              } else {
-                console.error(`Illustration batch job ${batchJobName} ended in state ${state}`);
+                const state = job?.metadata?.state || "";
+                const terminal = /SUCCEED|FAIL|CANCEL|EXPIR/i.test(state);
+                if (!terminal) {
+                  out.push({ idx, terminal: false, state });
+                  continue;
+                }
+                const saved = [];
+                if (/SUCCEED/i.test(state)) {
+                  const results = extractBatchResults(job);
+                  const toSave = {};
+                  for (const key of chunkKeys) {
+                    const r = results.get(key);
+                    if (r?.bytes) {
+                      const blob = await put(`illustrations/${storyId}/${key}.png`, r.bytes, { access: 'public', contentType: 'image/png' });
+                      toSave[key] = blob.url;
+                      saved.push(key);
+                    }
+                  }
+                  if (saved.length) await saveIllustrationsToRedis(storyId, toSave);
+                } else {
+                  console.error(`Illustration batch job ${jobName} (chunk ${idx}) ended in state ${state}`);
+                }
+                out.push({ idx, terminal: true, state, saved });
               }
-              return { terminal: true, state, saved };
+              return out;
             });
-            if (pollResult.terminal) {
-              batchReachedTerminal = true;
-              console.log(`Batch poll ${i + 1}: reached terminal state ${pollResult.state}, saved ${pollResult.saved.length}/${interiorKeys.length}`);
-              break;
+            for (const r of pollResults) {
+              if (r.terminal) {
+                terminalChunks.add(r.idx);
+                console.log(`Batch poll ${i + 1}: chunk ${r.idx} reached terminal state ${r.state}, saved ${r.saved.length}/${chunks[r.idx].length}`);
+              } else {
+                console.log(`Batch poll ${i + 1}: chunk ${r.idx} state=${r.state}`);
+              }
             }
-            console.log(`Batch poll ${i + 1}: state=${pollResult.state}`);
           }
-          if (!batchReachedTerminal) {
-            console.error(`Illustration batch job ${batchJobName} still not done after full poll schedule — falling back to real-time for anything missing`);
+          if (terminalChunks.size < batchJobNames.length) {
+            console.error(`${batchJobNames.length - terminalChunks.size}/${batchJobNames.length} illustration batch chunks still not done after full poll schedule — falling back to real-time for anything missing`);
           }
 
           // Cheap re-read (URLs only, not image bytes) to see what batch actually saved.
