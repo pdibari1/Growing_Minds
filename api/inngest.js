@@ -250,18 +250,19 @@ const generateStoryOrder = inngest.createFunction(
           const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
           const existingUrls = await getIllustrationsFromRedis(storyId);
           const referenceBytes = await getOrCreateCharacterReference(storyId, promptCtx.referencePrompt, promptCtx.fallbackReferencePrompt);
+          const companionBytes = await getOrCreateCompanionReference(storyId, childData.friend);
           let coverUrl = existingUrls['0-0'];
           if (coverUrl) {
             console.log(`Cover reused from preview: ${coverUrl.slice(0, 60)}`);
           } else {
             const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene('0-0');
-            const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" });
+            const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" }, companionBytes);
             const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
             coverUrl = blob.url;
             await saveIllustrationsToRedis(storyId, { '0-0': coverUrl });
             console.log(`Cover generated (4K, real-time)`);
           }
-          return { coverUrl, referenceBytesBase64: referenceBytes.toString('base64') };
+          return { coverUrl, referenceBytesBase64: referenceBytes.toString('base64'), companionBytesBase64: companionBytes ? companionBytes.toString('base64') : null };
         });
         illustrations['0-0'] = coverResult.coverUrl;
 
@@ -288,13 +289,14 @@ const generateStoryOrder = inngest.createFunction(
           const batchJobNames = await step.run("submit-illustration-batch", async () => {
             const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
             const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
+            const companionBytes = coverResult.companionBytesBase64 ? Buffer.from(coverResult.companionBytesBase64, 'base64') : undefined;
             const jobNames = [];
             for (const chunk of chunks) {
               const items = chunk.map((key) => {
                 const { scenePrompt } = promptCtx.buildScene(key);
                 return {
                   key,
-                  parts: buildCharacterParts(referenceBytes, scenePrompt),
+                  parts: buildCharacterParts(referenceBytes, scenePrompt, companionBytes),
                   imageConfig: { aspectRatio: "4:3", imageSize: "2K" },
                 };
               });
@@ -388,12 +390,13 @@ const generateStoryOrder = inngest.createFunction(
             const fallback = await step.run("generate-illustrations-fallback", async () => {
               const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
               const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
+              const companionBytes = coverResult.companionBytesBase64 ? Buffer.from(coverResult.companionBytesBase64, 'base64') : undefined;
               const result = {};
               const failures = [];
               for (const key of stillMissing) {
                 try {
                   const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene(key);
-                  const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" });
+                  const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" }, companionBytes);
                   const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
                   result[key] = blob.url;
                   console.log(`Image ${key} generated via real-time fallback (2K)`);
@@ -497,6 +500,7 @@ const generateStoryOrder = inngest.createFunction(
           const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
           const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
           const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
+          const companionBytes = await getOrCreateCompanionReference(storyId, friend);
 
           for (const key of keys) {
             const [ciStr, subStr] = key.split('-');
@@ -515,7 +519,7 @@ const generateStoryOrder = inngest.createFunction(
 
             try {
               const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment during their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
-              const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" });
+              const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" }, companionBytes);
 
               const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, {
                 access: 'public',
@@ -884,8 +888,9 @@ const generatePreviewChapters = inngest.createFunction(
         const referencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
         const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
         const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
+        const companionBytes = await getOrCreateCompanionReference(storyId, friend);
         const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment about to begin their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
-        const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" });
+        const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" }, companionBytes);
         const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, {
           access: 'public',
           contentType: 'image/png'
@@ -1532,23 +1537,36 @@ function callGeminiImageOnce(parts, imageConfig) {
 // trip it. Without a retry, that chapter silently ships with no illustration
 // at all. Retrying once with a generic, unmistakably safe scene (same
 // character/setting, no specific action) recovers an image instead.
-async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, imageConfig) {
+async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, imageConfig, companionBytes) {
   try {
-    return await callGeminiImage(buildCharacterParts(referenceBytes, scenePrompt), imageConfig);
+    return await callGeminiImage(buildCharacterParts(referenceBytes, scenePrompt, companionBytes), imageConfig);
   } catch (err) {
     if (!err.message.includes("PROHIBITED_CONTENT")) throw err;
     console.log(`Scene blocked by Gemini safety filter (PROHIBITED_CONTENT) — retrying with a generic fallback scene`);
-    return await callGeminiImage(buildCharacterParts(referenceBytes, fallbackScenePrompt), imageConfig);
+    return await callGeminiImage(buildCharacterParts(referenceBytes, fallbackScenePrompt, companionBytes), imageConfig);
   }
 }
 
 // Shared by the real-time path above and the batch path below — same reference-
 // image-conditioning parts either way, just a different transport underneath.
-function buildCharacterParts(referenceBytes, scene) {
-  return [
+// companionBytes is optional — only present when the story has a companion
+// (pet/creature/sibling) AND its own reference image generated successfully
+// (see getOrCreateCompanionReference). Without a second reference image,
+// Gemini has no visual memory of the companion across separate calls and
+// reinvents its specific appearance each time, even when told in text to
+// keep it consistent — confirmed on a real order where a "unicorn"
+// companion came out as a different-looking creature in almost every scene.
+function buildCharacterParts(referenceBytes, scene, companionBytes) {
+  const parts = [
     { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
-    { text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never the reference photo itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing it. The reference image is for your likeness guidance only and must not appear anywhere in the output image.` }
   ];
+  if (companionBytes) {
+    parts.push({ inlineData: { mimeType: "image/png", data: companionBytes.toString("base64") } });
+    parts.push({ text: `The FIRST reference image shows the SAME main character — keep their hair, eyes, face, and outfit identical. The SECOND reference image shows the SAME companion creature/animal — keep its species, coloring, and markings identical to that reference, never substituting a different kind of creature or animal. New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never either reference image itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing either one. Both reference images are for likeness guidance only and must not appear anywhere in the output image.` });
+  } else {
+    parts.push({ text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never the reference photo itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing it. The reference image is for your likeness guidance only and must not appear anywhere in the output image.` });
+  }
+  return parts;
 }
 
 // ════════════════════════════════════════════
@@ -1832,6 +1850,44 @@ async function getOrCreateCharacterReference(storyId, prompt, fallbackPrompt) {
   await redisRequest("SET", [`charref:${storyId}`, blob.url, "EX", STORY_DATA_TTL]);
   console.log(`Character reference created for ${storyId}: ${blob.url}`);
   return gen.bytes;
+}
+
+// One private reference image per story for the child's companion (pet/
+// creature/sibling), same pattern and same reason as the main character's
+// reference above — without it, Gemini has no visual memory across separate
+// image-generation calls and reinvents the companion's specific appearance
+// every time, even when told in text to keep it consistent. Confirmed on a
+// real order: a "unicorn" companion came out as a glowing dragon-like
+// creature in one scene and a pastel rainbow unicorn in another — both
+// loosely "a unicorn," nothing actually pinning down which one. Unlike the
+// main character reference, this never throws — a companion reference
+// failing just falls back to the old text-only companionPolicy for that one
+// story (what every story did before this existed), rather than taking the
+// whole order down over a secondary character's consistency.
+async function getOrCreateCompanionReference(storyId, friend) {
+  if (!friend || friend === 'none') return null;
+  const existingUrl = await redisRequest("GET", [`companionref:${storyId}`]);
+  if (existingUrl) {
+    try {
+      return await fetchImageBytes(existingUrl);
+    } catch (e) {
+      console.error(`Failed to fetch existing companion reference, regenerating: ${e.message}`);
+    }
+  }
+  try {
+    const prompt = `Pixar-style 3D glossy render, high production quality, warm and friendly. The companion is: ${friend}.\n\nCompanion reference sheet, rendered as a stylized cartoon illustration — not a photograph or realistic render. Full body, clear view, plain neutral background. No scene, no other characters, no text or labels in the image.`;
+    const gen = await callGeminiImage([{ text: prompt }], { aspectRatio: "3:4", imageSize: "2K" });
+    const blob = await put(`illustrations/${storyId}/companion-reference.png`, gen.bytes, {
+      access: 'public',
+      contentType: 'image/png'
+    });
+    await redisRequest("SET", [`companionref:${storyId}`, blob.url, "EX", STORY_DATA_TTL]);
+    console.log(`Companion reference created for ${storyId}: ${blob.url}`);
+    return gen.bytes;
+  } catch (e) {
+    console.error(`Companion reference generation failed for ${storyId}, falling back to text-only companion policy: ${e.message}`);
+    return null;
+  }
 }
 
 function fetchImageBytes(url) {
