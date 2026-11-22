@@ -28,6 +28,11 @@ Required fields: `slug`, `title`, `datePublished`. A post missing any of
 these is silently skipped (logged, not shown) rather than breaking the
 whole blog index if one file is malformed.
 
+Optional `"pinned": true` sorts a post before every other post on the index,
+regardless of date — for something like a founder/about post that should
+always lead. Multiple pinned posts sort newest-first among themselves; every
+unpinned post still sorts by `datePublished` as before.
+
 `body` is raw HTML dropped directly into the page — no sanitization, since
 these are trusted, admin-reviewed drafts, not user input. `slug` becomes
 the URL (`/blog/<slug>`) — keep it URL-safe (lowercase, hyphens, no spaces).

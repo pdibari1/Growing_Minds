@@ -30,7 +30,9 @@ function loadPosts() {
       console.error(`Failed to parse blog post ${file}: ${e.message}`);
     }
   }
-  posts.sort((a, b) => new Date(b.datePublished) - new Date(a.datePublished));
+  // Pinned posts (post.pinned === true) sort before everything else, newest
+  // pinned first if there's more than one; everyone else sorts by date as before.
+  posts.sort((a, b) => (!!b.pinned - !!a.pinned) || (new Date(b.datePublished) - new Date(a.datePublished)));
   return posts;
 }
 
