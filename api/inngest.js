@@ -221,13 +221,18 @@ const generateStoryOrder = inngest.createFunction(
       const freshOutlineData = await redisRequest("GET", [`outline:${storyId}`]);
       const freshOutline = freshOutlineData ? JSON.parse(freshOutlineData) : outline;
       console.log(`Fresh outline length: ${freshOutline.length}`);
-      // Chapter 0 contributes only the cover (key "0-0") — see the "Skip
-      // chapter 0" comment in generatePDF for why it never also gets an
-      // interior illustration. Every other chapter gets tier.imagesPerChap
-      // distinct images, keyed "{chapterIndex}-{subIndex}".
+      // Every chapter, including chapter 0, gets tier.imagesPerChap distinct
+      // images, keyed "{chapterIndex}-{subIndex}" — chapter 0's own outline
+      // entry already carries a full set of distinct imagePrompts same as
+      // any other chapter. Key "0-0" specifically doubles as the full-bleed
+      // cover (see isCover checks below and in buildIllustrationPromptContext);
+      // generatePDF skips that one specific key for chapter 1's interior
+      // images so the cover scene isn't repeated inline, but still uses
+      // "0-1", "0-2", etc. as chapter 1's own distinct interior illustrations
+      // instead of leaving it with none.
       const imagesPerChap = tier.imagesPerChap || 1;
-      const allImageKeys = ['0-0'];
-      for (let ci = 1; ci < freshOutline.length; ci++) {
+      const allImageKeys = [];
+      for (let ci = 0; ci < freshOutline.length; ci++) {
         for (let sub = 0; sub < imagesPerChap; sub++) {
           allImageKeys.push(`${ci}-${sub}`);
         }
@@ -2024,13 +2029,12 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     const bodyParagraphs = lines.slice(1).map(p => `<p>${p}</p>`);
 
     // Check if this chapter has illustration(s) — use URL(s) directly.
-    // Skip chapter 0: its image (key "0-0") is already shown full-bleed as
-    // the cover. Every other chapter can carry tier.imagesPerChap distinct
-    // images (keys "{ci}-0", "{ci}-1", ...) — whichever of those actually
-    // got generated/saved, in order.
-    const chapterImages = ci > 0
-      ? Array.from({ length: tier.imagesPerChap || 1 }, (_, sub) => illustrations[`${ci}-${sub}`]).filter(Boolean)
-      : [];
+    // Chapter 0's key "0-0" is already shown full-bleed as the cover, so
+    // skip only that one specific key here to avoid repeating it inline —
+    // "0-1", "0-2", etc. are chapter 1's own distinct interior images, same
+    // as any other chapter gets from its own "{ci}-0", "{ci}-1", ... set.
+    const startSub = ci === 0 ? 1 : 0;
+    const chapterImages = Array.from({ length: (tier.imagesPerChap || 1) - startSub }, (_, i) => illustrations[`${ci}-${i + startSub}`]).filter(Boolean);
 
     // Spread images through the chapter's paragraphs instead of stacking
     // them all before the first line (what happened before this fix — a
