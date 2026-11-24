@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
     ? posts.map((p) => `
     <a href="/blog/${escapeHtml(p.slug)}" style="display:block;background:#fff;border:1px solid rgba(45,106,79,0.12);border-radius:16px;padding:1.75rem;margin-bottom:1.25rem;text-decoration:none;color:inherit;">
       <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem;">${formatDate(p.datePublished)}</div>
-      <h2 style="font-family:'Fraunces',serif;font-size:1.35rem;color:var(--text);margin-bottom:.5rem;">${escapeHtml(p.title)}</h2>
+      <h2 style="font-family:'Fraunces',serif;font-size:1.35rem;color:var(--green);margin-bottom:.5rem;">${escapeHtml(p.title)}</h2>
       <p style="color:var(--muted);font-size:.95rem;line-height:1.6;margin:0;">${escapeHtml(p.excerpt)}</p>
     </a>`).join("")
     : `<p style="color:var(--muted);text-align:center;padding:3rem 0;">New articles are on the way — check back soon.</p>`;

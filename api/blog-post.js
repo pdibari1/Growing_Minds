@@ -53,7 +53,7 @@ ${renderNav()}
 <main>
   <p style="margin-bottom:1.5rem;"><a href="/blog" style="color:var(--muted);font-size:.9rem;text-decoration:none;">← Blog</a></p>
   <div style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem;">${formatDate(post.datePublished)}</div>
-  <h1 style="font-family:'Fraunces',serif;font-size:2.1rem;line-height:1.25;margin-bottom:1.5rem;">${escapeHtml(post.title)}</h1>
+  <h1 style="font-family:'Fraunces',serif;font-size:2.1rem;line-height:1.25;color:var(--green);margin-bottom:1.5rem;">${escapeHtml(post.title)}</h1>
   <div style="font-size:1.05rem;line-height:1.75;color:var(--text);">${post.body}</div>
   ${sourcesHtml}
   <div style="margin-top:3rem;padding:1.75rem;background:var(--green-pale);border-radius:16px;text-align:center;">
