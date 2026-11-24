@@ -42,26 +42,37 @@ function isBatchIllustrationsEnabled() {
 }
 
 // ── STORY TIERS BY AGE ──
-// imagesPerChap = distinct illustrated moments per interior chapter (chapter 0
-// never gets an interior image — see the "Skip chapter 0" comment in
-// generatePDF — its sole imagePrompt only ever becomes the cover). TEMPORARY
-// EXPERIMENT (2026-11-10, two real test orders, cost accepted deliberately):
-// bumped from the original flat 5/10/15 total images to 1/chapter (age>9),
-// 2/chapter (age<=9), 3/chapter (age<=5) — i.e. 1+29, 1+58, 1+87 images total.
-// Real cost per book (cover $0.24 real-time + interior at $0.134 real-time or
-// ~$0.067 batch): age>9 ~$4.12 real-time / ~$2.18 batch; age<=9 ~$8.01 /
-// ~$4.13; age<=5 ~$11.89 / ~$6.07 — before Lulu print ($9.57-$22.83), Claude
-// text, and Resend/Blob/Vercel overhead. Revisit against $35/$50 pricing
-// before this becomes the real default — may not hold up for age<=5 at
-// real-time rates. Known risk: a single batch job this size (up to 87 images
-// for age<=5) is much bigger than the ~2-image job this pipeline was
-// originally validated against — the existing real-time fallback for
-// anything batch doesn't deliver (see submit-illustration-batch below)
-// covers a partial loss, just at higher per-image cost for whatever falls
-// back.
+// imagesPerChap = distinct illustrated moments per interior chapter. Chapter 0
+// (the first chapter) gets the same imagesPerChap budget as every other
+// chapter — key "0-0" doubles as the full-bleed cover, and any remaining keys
+// ("0-1", "0-2", ...) become chapter 1's own interior images instead of being
+// left with none (see the chapter-0 handling in generatePDF).
+//
+// age<=5's chapCount was cut from 30 to 21 (2026-11-24) after real editorial
+// feedback on a test book: 30 chapters at this tier's word count repeated the
+// same emotional-processing beat too many times and read as predictable
+// rather than suspenseful. Scoped to this tier only — age<=9's realized
+// length already lands close to comparable real chapter books, and age>9 is
+// already short relative to typical middle-grade novels, so cutting its
+// chapter count would pull it further from genre norms, not closer.
+//
+// Image-cost math (TEMPORARY EXPERIMENT, 2026-11-10, two real test orders,
+// cost accepted deliberately — bumped from the original flat 5/10/15 total
+// images to 1/chapter (age>9), 2/chapter (age<=9), 3/chapter (age<=5)), now
+// current for all three tiers: age>9 1+29 images (30 chapters × 1) ~$4.13
+// real-time / ~$2.18 batch; age<=9 2+58 images (30 chapters × 2) ~$8.15 /
+// ~$4.19; age<=5 1+62 images (21 chapters × 3) ~$8.55 / ~$4.39 — cover
+// $0.24 real-time, interior $0.134 real-time or ~$0.067 batch — before Lulu
+// print ($9.57-$22.83), Claude text, and Resend/Blob/Vercel overhead.
+// Revisit against $35/$50 pricing before this becomes the real default.
+// Known risk: a single batch job this size is much bigger than the ~2-image
+// job this pipeline was originally validated against — the existing
+// real-time fallback for anything batch doesn't deliver (see
+// submit-illustration-batch below) covers a partial loss, just at higher
+// per-image cost for whatever falls back.
 function getStoryTier(age) {
   const a = parseInt(age);
-  if (a <= 5) return { chapCount: 30, minWords: 200, maxWords: 400, maxTokensPerChap: 800,  imagesPerChap: 3, label: "illustrated novel" };
+  if (a <= 5) return { chapCount: 21, minWords: 200, maxWords: 400, maxTokensPerChap: 800,  imagesPerChap: 3, label: "illustrated novel" };
   if (a <= 9) return { chapCount: 30, minWords: 300, maxWords: 600, maxTokensPerChap: 1200, imagesPerChap: 2, label: "illustrated chapter book" };
   return       { chapCount: 30, minWords: 400, maxWords: 800, maxTokensPerChap: 1600, imagesPerChap: 1, label: "novel" };
 }
@@ -948,10 +959,10 @@ const generatePreviewChapters = inngest.createFunction(
             <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
               <h2 style="color:#2d6a4f;">${storyTitle}</h2>
               <p>The first 3 chapters of ${childName}'s story are attached — enjoy a taste of the adventure!</p>
-              <p style="margin-top:1rem;color:#6b7280;font-size:.9rem;">Ready for the full 30-chapter story? Order the complete softcover book and it will be printed and shipped to your door.</p>
+              <p style="margin-top:1rem;color:#6b7280;font-size:.9rem;">Ready for the full ${tier.chapCount}-chapter story? Order the complete softcover book and it will be printed and shipped to your door.</p>
 
               <div style="text-align:center;margin:1.5rem 0;">
-                <a href="https://www.growingminds.io/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full 30-Chapter Book →</a>
+                <a href="https://www.growingminds.io/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full ${tier.chapCount}-Chapter Book →</a>
                 <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is credited toward the full price</p>
               </div>
 
@@ -1025,9 +1036,9 @@ const generatePreviewChapters = inngest.createFunction(
                 </div>
                 <div style="background:#fefae0;padding:2rem;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
                   <h2 style="color:#2d6a4f;">${childName} left off at a cliffhanger!</h2>
-                  <p>The rest of the 30-chapter story — plus custom illustrations throughout and a printed softcover book — is ready whenever you are.</p>
+                  <p>The rest of the ${tier.chapCount}-chapter story — plus custom illustrations throughout and a printed softcover book — is ready whenever you are.</p>
                   <div style="text-align:center;margin:1.5rem 0;">
-                    <a href="https://www.growingminds.io/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full 30-Chapter Book →</a>
+                    <a href="https://www.growingminds.io/upgrade.html?sid=${storyId}&name=${encodeURIComponent(childName)}" style="display:inline-block;background:#f9c74f;color:#5c3d2e;font-family:sans-serif;font-size:1rem;font-weight:900;text-decoration:none;padding:.9rem 2rem;border-radius:12px;box-shadow:0 4px 14px rgba(249,199,79,0.4);">✨ Get the Full ${tier.chapCount}-Chapter Book →</a>
                     <p style="font-size:.75rem;color:#9ca3af;margin-top:.5rem;">Your $2.99 is still credited toward the full price</p>
                   </div>
                   <p style="color:#9ca3af;font-size:.78rem;margin-top:.75rem;text-align:center;">${childName}'s story and this link stay active for 180 days from your preview purchase.</p>
@@ -1246,7 +1257,15 @@ EMOTIONAL FRAMING RULE: This milestone is about big feelings, so if the story gi
   const youngReader = parseInt(age) <= 5;
   const coRegulationLine = youngReader ? `
 
-YOUNG READER CO-REGULATION RULE: ${name} is ${age}, so when they calm down or work through a hard feeling, a trusted adult should typically be present and helping — sitting close, breathing together, listening — even though, per the ADULT ROLE RULE above, that adult must still never be the one who performs the decisive action that resolves the climax. Refer to this adult generically by their family role (Mom, Dad, a grandparent) unless the custom details below specifically name someone — never invent a new adult character (a new teacher, neighbor, or stranger) to fill this comforting role.` : '';
+YOUNG READER CO-REGULATION RULE: ${name} is ${age}, so a trusted adult is typically present and supportive when they work through a hard feeling, even though, per the ADULT ROLE RULE above, that adult must still never be the one who performs the decisive action that resolves the climax. Vary HOW that support shows up from one instance to the next — not the same sitting-close-and-breathing-together ritual every time; a quiet comment in passing, a shared task, a look, a question, humor, or simply staying nearby without much being said can all work just as well. Refer to this adult generically by their family role (Mom, Dad, a grandparent) unless the custom details below specifically name someone — never invent a new adult character (a new teacher, neighbor, or stranger) to fill this comforting role.` : '';
+
+  // Structural beats scale with tier.chapCount rather than being hardcoded to
+  // a 30-chapter book, so a shorter tier (e.g. age<=5's 21 chapters) still
+  // gets a proportional intro/rising/climax/resolution shape instead of a
+  // "Chapters 25-30" reference that no longer exists.
+  const introEnd = Math.min(2, tier.chapCount - 1);
+  const risingEnd = Math.max(introEnd + 1, Math.round(tier.chapCount * 0.5));
+  const climaxEnd = Math.max(risingEnd + 1, Math.round(tier.chapCount * 0.8));
 
   const prompt = `You are a children's book author. Create a ${tier.chapCount}-chapter outline for a personalized ${tier.label}.
 
@@ -1261,10 +1280,12 @@ Hometown: ${city}, ${region} — use broad geography (landscape, weather, region
 Milestone/theme: ${milestone}${genreLine}${customLine}
 
 This is a full ${tier.chapCount}-chapter novel. Structure the arc like a proper novel in the ${genre || 'fantasy'} genre:
-- Chapters 1–2: Introduce ${name} and their everyday world, THEN ignite the central ${genre || 'fantasy'} adventure — something genuinely magical, extraordinary, or genre-defining must actually happen on the page during these chapters, not just be hinted at or promised for later. The adventure must already be underway by the time Chapter 3 begins.
-- Chapters 3–15: Rising action, complications, deeper adventures, setbacks
-- Chapters 16–24: Climax builds, highest stakes, darkest moment
-- Chapters 25–30: Resolution, triumph over the milestone, heartwarming ending
+- Chapters 1–${introEnd}: Introduce ${name} and their everyday world, THEN ignite the central ${genre || 'fantasy'} adventure — something genuinely magical, extraordinary, or genre-defining must actually happen on the page during these chapters, not just be hinted at or promised for later. The adventure must already be underway by the time Chapter ${introEnd + 1} begins.
+- Chapters ${introEnd + 1}–${risingEnd}: Rising action, complications, deeper adventures, setbacks
+- Chapters ${risingEnd + 1}–${climaxEnd}: Climax builds, highest stakes, darkest moment
+- Chapters ${climaxEnd + 1}–${tier.chapCount}: Resolution, triumph over the milestone, heartwarming ending
+
+CHAPTER DENSITY RULE: Avoid giving consecutive chapters the identical shape. If your plan for several chapters in a row would each only consist of (a) ${name} carrying a feeling into an ordinary setting, (b) something making it harder, (c) returning home or to a trusted place to process it, (d) naming or explaining the feeling, and (e) a small magical/plot response to that naming — that is a sign too many chapters are repeating one loop, and the reader will start predicting the machinery instead of wondering what happens next. Combine some of these into fewer, fuller chapters that cover more emotional or plot ground at once, and let other chapters be driven by something other than restating this loop — a new complication, a relationship development, a genuine surprise, a piece of world-building. This is distinct from the EARLY PACING RULE below (which governs testing the new power in the first several chapters after the hook) — this rule applies to the emotional-processing rhythm across the rest of the book, roughly from the midpoint through the climax build.
 
 EARLY PACING RULE: In the chapters immediately following the ${genre || 'fantasy'} hook (roughly Chapters 2–6), do not compress a whole sequence of escalating attempts, tests, or feats into a single chapter — a chapter where the hero tries the new power/adventure element five different ways and succeeds at each, arriving at a fully confirmed rule, advances several chapters' worth of plot in the space of one. Give each significant attempt its own room: one attempt, one partial or inconsistent result, then stop — sit with the not-knowing rather than chaining several successful escalating attempts back to back in the same chapter. Discoveries should also raise at least one new question before fully answering an old one — early results should be unreliable or incomplete rather than immediately yielding a clear, confirmed rule. The hook must still ignite and be clearly underway by Chapter 3 (per above), but "underway" means the hero is investigating and forming theories across multiple chapters, not that they've already run the full experiment and arrived at a fully solved rule by Chapter 2 or 3.
 
@@ -1423,6 +1444,7 @@ ${emotionRule}
 - TIME SKIPS: Whenever time passes between where one chapter ends and the next begins — even just to that night or the next morning — mark the jump explicitly with a transition phrase or short sentence ("That night, ...", "The next morning, ...", "By the time he got home, ..."). Never cut straight into a new time or place and expect the reader to infer how much time passed or how the character got there. This applies within a single chapter too, not just between chapters — if the chapter itself skips forward partway through (recess to bedtime to the next morning, say), mark each jump the same way rather than chaining scenes back to back with no signal the clock moved. Wrong: a chapter ending at recess, and the next one opening "Benjamin had tried to go to sleep..." with no sentence marking that a new day has begun. Right: "That night, Benjamin tried to go to sleep..." — one short phrase is enough, but it must be there every time the timeline jumps.
 - TRUST THE METAPHOR: Once the story's central mechanism has been clearly explained once in an earlier chapter, don't have this chapter's characters or narration re-explain the same underlying rule in words again — show it through action and consequence instead. Only add new explanation if it reveals a genuinely new layer of understanding beyond what's already established.
 - VARY THE TRIGGER RESPONSE: Each time ${name} experiences the milestone trigger, vary the specific physical or behavioral manifestation instead of repeating the identical cue checklist every time (e.g., don't always describe heat rising, jaw tightening, and feet grounding, in that order, every single time). Draw from a range of real reactions — talking faster, going quiet and not hearing what's said, hands going rigid, wanting to leave the room, replaying what he wishes he'd said, avoiding eye contact, and so on — so each instance feels like a distinct real moment, not a repeating mechanism. The underlying pattern (trigger, dysregulation, reconnecting, responding differently) can stay consistent even as the specific details vary.
+- VARY THE FEELING VOCABULARY: Don't default to the same small set of words every time a feeling is described (e.g. warm, quiet, steady, sitting in ${name}'s chest) — vary the sensory and emotional language from chapter to chapter so the prose doesn't read as a repeating template. Not every feeling needs to be explicitly named or explained in narration, either — let some come through entirely in action, dialogue, or a physical reaction instead of the text stating what ${name} is feeling and why.
 - Writing style: ${parseInt(age) <= 5 ? "Warm, lyrical, read-aloud. Short paragraphs. Sensory detail." : parseInt(age) <= 9 ? "Engaging, age-appropriate. Mix of action, humor, emotion." : "Rich vocabulary, complex emotions. Feels like a real middle-grade novel."}
 ${isLastBatch ? `- The final chapter must resolve the milestone beautifully with warmth and hope, and must land on an identity statement about who ${name} has become — never end on ${name} or anyone else summarizing a technique or lesson ("remember to take a breath," "now I know to ask for help"). Show it through action (a small, ordinary echo of the milestone handled differently) or a single quiet line of realization about who ${name} is now, not what they learned to do.` : ""}
 - SAFETY: This is a children's book. Never include swear words, sexual content, or graphic violence. Unnamed side characters may have negative attitudes, rivalry, or conflict — this makes for a better story. However, ${name}${child.friend && child.friend !== 'none' ? ` and ${child.friend.split(' ')[0]}` : ''} must always be portrayed positively and with dignity. All stories must resolve with hope and warmth.
@@ -2093,8 +2115,11 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
       '</tr>';
   };
 
-  const tocRowsLeft = tocItems.slice(0, 15).map(tocRow).join('');
-  const tocRowsRight = tocItems.slice(15, 30).map(tocRow).join('');
+  // Split the two TOC columns evenly regardless of total chapter count — not
+  // hardcoded to a 30-chapter book (e.g. age<=5's 21-chapter tier).
+  const tocSplit = Math.ceil(tocItems.length / 2);
+  const tocRowsLeft = tocItems.slice(0, tocSplit).map(tocRow).join('');
+  const tocRowsRight = tocItems.slice(tocSplit).map(tocRow).join('');
 
   const tocFootnote = isPreview
     ? `✦ You're previewing Chapters 1–${writtenCount}. The complete ${totalCount}-chapter story continues when you order the full book.`
