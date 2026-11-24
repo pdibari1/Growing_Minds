@@ -1323,7 +1323,7 @@ Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "carriesForward": one sentence naming the specific problem, goal, question, or emotion carried over from the previous chapter that drives this chapter's events (for Chapter 1, describe the everyday-world hook that pulls the reader in instead)
 - "summary": 2-3 sentence summary of what happens, written so it clearly follows from "carriesForward" rather than starting a fresh, disconnected scene
-- "imagePrompts": an array of EXACTLY ${tier.imagesPerChap} one-sentence description(s) of key visual moments in this chapter${tier.imagesPerChap > 1 ? ` — each one a genuinely DIFFERENT beat from this chapter's events (e.g. an early moment, a middle moment, a later moment), never the same instant described twice in different words or minor variations of one pose` : ''}. Each one written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer. Describe ONLY ${name} and the setting/action — never write any other person (friends, siblings, classmates, a teacher, etc.) into this visual description, even if they're part of this chapter's events. If a moment involves someone else, frame it as ${name}'s own reaction or action in response to them (what ${name} is doing, reaching for, looking at) rather than describing that other person's presence, face, or appearance — an illustrator cannot draw a real person's likeness from a chapter summary alone.
+- "imagePrompts": an array of EXACTLY ${tier.imagesPerChap} one-sentence description(s) of key visual moments in this chapter${tier.imagesPerChap > 1 ? ` — each one a genuinely DIFFERENT beat from this chapter's events (e.g. an early moment, a middle moment, a later moment), never the same instant described twice in different words or minor variations of one pose` : ''}. Each one written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer. Describe ONLY ${name} and the setting/action — never write any other person (friends, siblings, classmates, a teacher, etc.) into this visual description, even if they're part of this chapter's events. If a moment involves someone else, frame it as ${name}'s own reaction or action in response to them (what ${name} is doing, reaching for, looking at) rather than describing that other person's presence, face, or appearance — an illustrator cannot draw a real person's likeness from a chapter summary alone. This also means avoiding any action that requires a second body in frame even without naming or describing one — a high five, a hug, holding hands, walking arm in arm, sitting shoulder to shoulder, and similar two-person contact all imply someone else is physically there to be drawn. Describe ${name}'s own gesture or expression alone instead (reaching a hand out, a wide smile, a relieved exhale) — if the moment truly only makes sense with two people pictured together, pick a different beat from the chapter instead.
 
 The Chapter 1 object only must ALSO include:
 - "bookSubtitle": a short, distinctive 2-4 word title capturing THIS story's specific invented adventure or hook (e.g. "Balloon Blaster," "The Whispering Woods," "Rocket to the Stars") — it becomes the book's title as "${name} and the [bookSubtitle]." It must be specific to what actually happens in this story, never a generic phrase like "Big Adventure" and never just a restatement of the milestone (${milestone}).
@@ -1397,9 +1397,13 @@ async function generateChapterBatch(child, outline, startIdx, endIdx, priorChapt
   // Chapters to write in this batch — carriesForward tells the model exactly what
   // problem/goal/question/emotion this chapter must open by continuing, so scene
   // changes read as caused by what just happened rather than a fresh reset.
-  const batchOutline = outline.slice(startIdx, endIdx).map((c, i) =>
-    `Chapter ${startIdx + i + 1}: "${c.title}"\n  Carries forward: ${c.carriesForward || '(continues directly from the previous chapter)'}\n  What happens: ${c.summary}`
-  ).join('\n');
+  const batchOutline = outline.slice(startIdx, endIdx).map((c, i) => {
+    const imagePrompts = Array.isArray(c.imagePrompts) ? c.imagePrompts : [];
+    const imageLines = imagePrompts.length
+      ? `\n  Illustrated moments (insert one [[IMG]] marker right after the sentence depicting each, in this exact order, nowhere else): ${imagePrompts.map((p, pi) => `(${pi + 1}) ${p}`).join('  ')}`
+      : '';
+    return `Chapter ${startIdx + i + 1}: "${c.title}"\n  Carries forward: ${c.carriesForward || '(continues directly from the previous chapter)'}\n  What happens: ${c.summary}${imageLines}`;
+  }).join('\n');
 
   const isLastBatch = endIdx >= outline.length;
 
@@ -1434,6 +1438,7 @@ RULES:
 - UNNAMED PEOPLE: Never invent a name for a classmate, teammate, friend, neighbor, teacher, or any other person who wasn't given a name in the custom details. Refer to them generically ("a classmate," "her friend," "the teacher") instead — an invented specific name is the one thing the real child will immediately recognize as made up, since no one by that name actually exists in their life.
 - APPEARANCE: Never invent a physical trait (hair, eyes, height, build, clothing) for a named character who wasn't given one in the custom details — not even a small, throwaway detail. Only describe what was explicitly provided.
 - Each chapter: ${tier.minWords}–${tier.maxWords} words, ending on a natural story beat
+- IMAGE MARKER RULE: Each chapter above lists its "Illustrated moments" in order. Insert the literal marker [[IMG]] immediately after the sentence in your prose where that exact moment happens — one marker per listed moment, in the same order they're listed, nowhere else. Never add extra markers, skip one, reorder them, or place two markers next to each other. If a chapter lists no illustrated moments, include no markers in it.
 ${emotionRule}
 - Each chapter starts with "Chapter N: Title" on its own line, then a blank line, then the story
 - Maintain the exact same characters, setting, and tone throughout
@@ -1756,6 +1761,17 @@ function extractBatchResults(jobResponse) {
 // prompt) needed to generate any image in the book — identical whether the
 // actual generation happens real-time or via batch, so both paths share this
 // instead of duplicating ~60 lines of prompt construction.
+// Programmatic backstop for the imagePrompts rule in generateOutline (which
+// tells the model never to imply a second body in frame) — LLM instruction
+// following isn't perfect, and characterPolicy below is advisory text Gemini
+// doesn't always honor either. Confirmed real failure: an imagePrompt that
+// slipped past both and described a high-five produced an image of two
+// near-identical children, since the only reference image available is
+// ${name}'s own, so an unplanned second figure just gets drawn as a copy of
+// it. Catches the clearest two-body-contact phrasing; not exhaustive, but a
+// deterministic net under the two instruction-based safeguards.
+const TWO_PERSON_CONTACT_RE = /high[\s-]?fiv|\bhug(?:s|ged|ging)?\b|\bembrac|holding hands|\barm[\s-]in[\s-]arm\b|\bhandshake\b|shook hands|shoulder to shoulder|piggyback/i;
+
 function buildIllustrationPromptContext(childData, freshOutline, tier) {
   const { name, age, ethnicity, hair, hairLength, hairStyle, eye, city, region, genre, genreStyle, friend, customDetails } = childData;
   const charDesc = buildCharDesc(ethnicity, hair, hairLength, hairStyle, eye);
@@ -1814,7 +1830,13 @@ function buildIllustrationPromptContext(childData, freshOutline, tier) {
       const ci = Number(ciStr);
       const sub = Number(subStr);
       const chap = freshOutline[ci];
-      const promptText = getChapterImagePrompt(chap, sub, `${name} on an adventure in ${city}`);
+      const rawPromptText = getChapterImagePrompt(chap, sub, `${name} on an adventure in ${city}`);
+      // If the imagePrompts rule slipped and this moment implies a second
+      // body in frame, don't send that text to Gemini at all — swap in a
+      // safe solo description instead (see TWO_PERSON_CONTACT_RE above).
+      const promptText = TWO_PERSON_CONTACT_RE.test(rawPromptText)
+        ? `${name} smiling warmly, caught in a quiet, happy moment alone`
+        : rawPromptText;
       const isCover = key === '0-0';
       const scenePrompt = `${styleGuide}. Scene: ${promptText} The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
       const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment during their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
@@ -2050,7 +2072,7 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     const chapterNum = match ? match[1] : `Chapter ${ci + 1}`;
     const chapterTitle = match ? match[2] : fullTitle;
 
-    const bodyParagraphs = lines.slice(1).map(p => `<p>${p}</p>`);
+    const rawParagraphs = lines.slice(1);
 
     // Check if this chapter has illustration(s) — use URL(s) directly.
     // Chapter 0's key "0-0" is already shown full-bleed as the cover, so
@@ -2060,23 +2082,41 @@ async function generatePDF(childName, chapters, child, tier, illustrations = {},
     const startSub = ci === 0 ? 1 : 0;
     const chapterImages = Array.from({ length: (tier.imagesPerChap || 1) - startSub }, (_, i) => illustrations[`${ci}-${i + startSub}`]).filter(Boolean);
 
-    // Spread images through the chapter's paragraphs instead of stacking
-    // them all before the first line (what happened before this fix — a
-    // real completed test book showed all of a chapter's images bunched up
-    // front with no text between them). Split the paragraphs into
-    // chapterImages.length + 1 groups and insert one image between each
-    // consecutive pair of groups.
+    // generateChapterBatch's IMAGE MARKER RULE asks the model to drop a
+    // [[IMG]] marker right after the sentence each image actually depicts —
+    // when it placed exactly the right number, use those positions so an
+    // image lands next to the moment it illustrates instead of an arbitrary
+    // nearby paragraph. An LLM won't place markers perfectly every chapter,
+    // so only trust them when the count matches exactly; otherwise fall back
+    // to the previous even paragraph-group split (spreading images through
+    // the chapter's paragraphs rather than stacking them all up front —
+    // what happened before that original fix).
+    const markerCount = rawParagraphs.reduce((n, p) => n + (p.match(/\[\[IMG\]\]/g) || []).length, 0);
+
     let body;
-    if (chapterImages.length > 0 && bodyParagraphs.length > 0) {
-      const groupCount = chapterImages.length + 1;
-      const groupSize = Math.ceil(bodyParagraphs.length / groupCount);
-      body = bodyParagraphs.slice(0, groupSize).join('');
-      for (let i = 0; i < chapterImages.length; i++) {
-        body += `<img src="${chapterImages[i]}" />`;
-        body += bodyParagraphs.slice((i + 1) * groupSize, (i + 2) * groupSize).join('');
-      }
+    if (chapterImages.length > 0 && markerCount === chapterImages.length) {
+      let imgIdx = 0;
+      body = rawParagraphs.map((p) => {
+        const segments = p.split('[[IMG]]');
+        return segments.map((seg, i) => {
+          const para = seg.trim() ? `<p>${seg.trim()}</p>` : '';
+          const img = i < segments.length - 1 ? `<img src="${chapterImages[imgIdx++]}" />` : '';
+          return para + img;
+        }).join('');
+      }).join('');
     } else {
-      body = bodyParagraphs.join('');
+      const bodyParagraphs = rawParagraphs.map(p => `<p>${p.replace(/\[\[IMG\]\]/g, '')}</p>`);
+      if (chapterImages.length > 0 && bodyParagraphs.length > 0) {
+        const groupCount = chapterImages.length + 1;
+        const groupSize = Math.ceil(bodyParagraphs.length / groupCount);
+        body = bodyParagraphs.slice(0, groupSize).join('');
+        for (let i = 0; i < chapterImages.length; i++) {
+          body += `<img src="${chapterImages[i]}" />`;
+          body += bodyParagraphs.slice((i + 1) * groupSize, (i + 2) * groupSize).join('');
+        }
+      } else {
+        body = bodyParagraphs.join('');
+      }
     }
 
     return `
@@ -2630,7 +2670,7 @@ async function saveStoryToAirtable(storyId, customerEmail, childName, child, cha
   if (!baseId || !token) { console.log("No Airtable credentials — skipping story save"); return; }
 
   const { age, milestone, city, region } = child;
-  const fullStory = chapters.join('\n\n---\n\n');
+  const fullStory = chapters.join('\n\n---\n\n').replace(/\[\[IMG\]\]/g, '');
   const wordCount = fullStory.split(/\s+/).length;
 
   const payload = JSON.stringify({
