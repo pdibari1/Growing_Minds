@@ -1171,6 +1171,7 @@ Object.assign(handler, {
   decodeStoryData,
   buildIllustrationPromptContext,
   getOrCreateCharacterReference,
+  getOrCreateCompanionReference,
   callGeminiImageWithSafeRetry,
   getIllustrationsFromRedis,
   saveIllustrationsToRedis,
