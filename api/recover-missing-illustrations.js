@@ -90,12 +90,13 @@ module.exports = async function handler(req, res) {
       const promptCtx = buildIllustrationPromptContext(childData, outline, tier);
       const referenceBytes = await getOrCreateCharacterReference(storyId, promptCtx.referencePrompt);
       const companionBytes = await getOrCreateCompanionReference(storyId, childData.friend);
+      const inventedCompanionBytes = await getOrCreateCompanionReference(storyId, outline[0]?.inventedCreatureCompanion, 'inventedCreature');
 
       const result = {};
       for (const key of missingKeys) {
         try {
           const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene(key);
-          const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" }, companionBytes);
+          const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" }, companionBytes, inventedCompanionBytes);
           const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
           result[key] = blob.url;
           console.log(`Recovered image ${key} for ${storyId}`);

@@ -267,18 +267,24 @@ const generateStoryOrder = inngest.createFunction(
           const existingUrls = await getIllustrationsFromRedis(storyId);
           const referenceBytes = await getOrCreateCharacterReference(storyId, promptCtx.referencePrompt, promptCtx.fallbackReferencePrompt);
           const companionBytes = await getOrCreateCompanionReference(storyId, childData.friend);
+          const inventedCompanionBytes = await getOrCreateCompanionReference(storyId, freshOutline[0]?.inventedCreatureCompanion, 'inventedCreature');
           let coverUrl = existingUrls['0-0'];
           if (coverUrl) {
             console.log(`Cover reused from preview: ${coverUrl.slice(0, 60)}`);
           } else {
             const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene('0-0');
-            const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" }, companionBytes);
+            const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" }, companionBytes, inventedCompanionBytes);
             const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
             coverUrl = blob.url;
             await saveIllustrationsToRedis(storyId, { '0-0': coverUrl });
             console.log(`Cover generated (4K, real-time)`);
           }
-          return { coverUrl, referenceBytesBase64: referenceBytes.toString('base64'), companionBytesBase64: companionBytes ? companionBytes.toString('base64') : null };
+          return {
+            coverUrl,
+            referenceBytesBase64: referenceBytes.toString('base64'),
+            companionBytesBase64: companionBytes ? companionBytes.toString('base64') : null,
+            inventedCompanionBytesBase64: inventedCompanionBytes ? inventedCompanionBytes.toString('base64') : null,
+          };
         });
         illustrations['0-0'] = coverResult.coverUrl;
 
@@ -306,13 +312,14 @@ const generateStoryOrder = inngest.createFunction(
             const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
             const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
             const companionBytes = coverResult.companionBytesBase64 ? Buffer.from(coverResult.companionBytesBase64, 'base64') : undefined;
+            const inventedCompanionBytes = coverResult.inventedCompanionBytesBase64 ? Buffer.from(coverResult.inventedCompanionBytesBase64, 'base64') : undefined;
             const jobNames = [];
             for (const chunk of chunks) {
               const items = chunk.map((key) => {
                 const { scenePrompt } = promptCtx.buildScene(key);
                 return {
                   key,
-                  parts: buildCharacterParts(referenceBytes, scenePrompt, companionBytes),
+                  parts: buildCharacterParts(referenceBytes, scenePrompt, companionBytes, inventedCompanionBytes),
                   imageConfig: { aspectRatio: "4:3", imageSize: "2K" },
                 };
               });
@@ -407,12 +414,13 @@ const generateStoryOrder = inngest.createFunction(
               const promptCtx = buildIllustrationPromptContext(childData, freshOutline, tier);
               const referenceBytes = Buffer.from(coverResult.referenceBytesBase64, 'base64');
               const companionBytes = coverResult.companionBytesBase64 ? Buffer.from(coverResult.companionBytesBase64, 'base64') : undefined;
+              const inventedCompanionBytes = coverResult.inventedCompanionBytesBase64 ? Buffer.from(coverResult.inventedCompanionBytesBase64, 'base64') : undefined;
               const result = {};
               const failures = [];
               for (const key of stillMissing) {
                 try {
                   const { scenePrompt, fallbackScenePrompt } = promptCtx.buildScene(key);
-                  const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" }, companionBytes);
+                  const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "4:3", imageSize: "2K" }, companionBytes, inventedCompanionBytes);
                   const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, { access: 'public', contentType: 'image/png' });
                   result[key] = blob.url;
                   console.log(`Image ${key} generated via real-time fallback (2K)`);
@@ -459,9 +467,12 @@ const generateStoryOrder = inngest.createFunction(
           // drawn, but only as whatever species/appearance was actually established
           // for them, never invented from scratch (this is what put a golden retriever
           // into a story whose only companion animal is a cat).
-          const companionPolicy = friend && friend !== 'none'
+          const inventedCreatureDesc = freshOutline[0]?.inventedCreatureCompanion;
+          const companionPolicy = (friend && friend !== 'none'
             ? `\n\nCOMPANION RULE: ${name}'s established companion(s) — ${friend} — must be drawn to match exactly what's already established (species, breed, coloring, etc.) whenever they appear in a scene. Never substitute a different kind of animal or a different person than what's specified — for example, never draw a dog if the companion is a cat.`
-            : '';
+            : '') + (inventedCreatureDesc
+            ? `\n\nINVENTED CREATURE RULE: This story also has a separate magical creature invented for this story (not ${name}'s established companion, if any) — ${inventedCreatureDesc} — which must be drawn to match exactly this description (species/type, size, coloring, markings) every time it appears, never redesigned or substituted for a different creature.`
+            : '');
 
           // Genre-specific illustration style
           const genreVisual = {
@@ -517,6 +528,7 @@ const generateStoryOrder = inngest.createFunction(
           const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
           const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
           const companionBytes = await getOrCreateCompanionReference(storyId, friend);
+          const inventedCompanionBytes = await getOrCreateCompanionReference(storyId, inventedCreatureDesc, 'inventedCreature');
 
           for (const key of keys) {
             const [ciStr, subStr] = key.split('-');
@@ -535,7 +547,7 @@ const generateStoryOrder = inngest.createFunction(
 
             try {
               const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment during their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${isCover ? getCoverMoodPolicy() : ''}`;
-              const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" }, companionBytes);
+              const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, isCover ? { aspectRatio: "3:4", imageSize: "4K" } : { aspectRatio: "4:3", imageSize: "2K" }, companionBytes, inventedCompanionBytes);
 
               const blob = await put(`illustrations/${storyId}/${key}.png`, gen.bytes, {
                 access: 'public',
@@ -859,9 +871,12 @@ const generatePreviewChapters = inngest.createFunction(
       // See the same policy in the full-order illustration step — pets are meant
       // to be drawn, but only matching whatever species/appearance was actually
       // established, never invented from scratch.
-      const companionPolicy = friend && friend !== 'none'
+      const inventedCreatureDesc = outline[0]?.inventedCreatureCompanion;
+      const companionPolicy = (friend && friend !== 'none'
         ? `\n\nCOMPANION RULE: ${name}'s established companion(s) — ${friend} — must be drawn to match exactly what's already established (species, breed, coloring, etc.) whenever they appear in a scene. Never substitute a different kind of animal or a different person than what's specified — for example, never draw a dog if the companion is a cat.`
-        : '';
+        : '') + (inventedCreatureDesc
+        ? `\n\nINVENTED CREATURE RULE: This story also has a separate magical creature invented for this story (not ${name}'s established companion, if any) — ${inventedCreatureDesc} — which must be drawn to match exactly this description (species/type, size, coloring, markings) every time it appears, never redesigned or substituted for a different creature.`
+        : '');
       const genreVisual = {
         'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
         'Enchanted Forest': 'lush woodland, soft dappled light, fairy tale flora',
@@ -905,8 +920,9 @@ const generatePreviewChapters = inngest.createFunction(
         const fallbackReferencePrompt = `${getReferenceSheetStyle(age)} The main character is ${charDesc}.`;
         const referenceBytes = await getOrCreateCharacterReference(storyId, referencePrompt, fallbackReferencePrompt);
         const companionBytes = await getOrCreateCompanionReference(storyId, friend);
+        const inventedCompanionBytes = await getOrCreateCompanionReference(storyId, inventedCreatureDesc, 'inventedCreature');
         const fallbackScenePrompt = `${styleGuide}. Scene: ${name} in a quiet, joyful moment about to begin their adventure. The main character is ${charDesc}. Setting: ${city}, ${region}. No text or letters in the image.${characterPolicy}${companionPolicy}${getCoverMoodPolicy()}`;
-        const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" }, companionBytes);
+        const gen = await callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, { aspectRatio: "3:4", imageSize: "4K" }, companionBytes, inventedCompanionBytes);
         const blob = await put(`illustrations/${storyId}/0-0.png`, gen.bytes, {
           access: 'public',
           contentType: 'image/png'
@@ -1225,18 +1241,28 @@ function pickStoryVarietyLines(name) {
     `a one-on-one moment with a single other character — not a group, not an audience`,
   ];
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  return `
+  // Picked explicitly (not via the generic pick() helper) so the caller can
+  // know whether this story is inventing its own creature companion — a
+  // creature invented this way has no reference image the way an intake
+  // "friend" field does (see getOrCreateCompanionReference), so generateOutline
+  // needs to ask for a reusable visual description of it when this device is
+  // chosen, confirmed necessary on a real order where an invented unicorn
+  // came out a different size and design in nearly every scene it appeared in.
+  const deviceIndex = Math.floor(Math.random() * devices.length);
+  const isCreatureDevice = deviceIndex === 1;
+  const lines = `
 
-STORY DEVICE RULE: The way ${name}'s internal experience of the milestone becomes visible or trackable in this story must be: ${pick(devices)}
+STORY DEVICE RULE: The way ${name}'s internal experience of the milestone becomes visible or trackable in this story must be: ${devices[deviceIndex]}
 
 MENTOR BACKSTORY RULE: ${pick(mentorReveals)}
 
 CLIMAX SETTING RULE: The climax of this story takes place in ${pick(climaxSettings)}`;
+  return { lines, isCreatureDevice };
 }
 
 async function generateOutline(child, tier) {
   const { name, age, gender, hair, hairLength, hairStyle, eye, trait, favorite, friend, city, region, milestone, customDetails, genre, genreStyle } = child;
-  const storyVarietyLines = pickStoryVarietyLines(name);
+  const { lines: storyVarietyLines, isCreatureDevice } = pickStoryVarietyLines(name);
   const genderPronoun = gender === "girl" ? "she/her" : gender === "boy" ? "he/him" : "they/them";
   const hairDesc = buildHairDescriptor(hair, hairLength, hairStyle);
   const friendLine = friend && friend !== "none" ? `Companion (pet, friend, or sibling): ${friend}.` : "";
@@ -1323,10 +1349,11 @@ Return ONLY a valid JSON array of EXACTLY ${tier.chapCount} objects. Each object
 - "title": chapter title WITHOUT chapter number (4-6 words, evocative e.g. "The Day Everything Changed")
 - "carriesForward": one sentence naming the specific problem, goal, question, or emotion carried over from the previous chapter that drives this chapter's events (for Chapter 1, describe the everyday-world hook that pulls the reader in instead)
 - "summary": 2-3 sentence summary of what happens, written so it clearly follows from "carriesForward" rather than starting a fresh, disconnected scene
-- "imagePrompts": an array of EXACTLY ${tier.imagesPerChap} one-sentence description(s) of key visual moments in this chapter${tier.imagesPerChap > 1 ? ` — prefer genuinely DIFFERENT beats from this chapter's events (e.g. an early moment, a middle moment, a later moment) over minor variations of one pose` : ''}. Every single one must describe something that actually happens in THIS chapter's own events, grounded in its summary above — never a scene from a later chapter, a preview of an adventure still to come, or generic adventure/magical imagery invented just to fill a slot. If this chapter's real events don't contain ${tier.imagesPerChap} genuinely distinct visual beats (a short, quiet chapter early in the book, say, before the adventure has ignited), it's better to show two different moments or angles of the SAME real event than to invent something that isn't actually in the chapter. Each one written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer. Describe ONLY ${name} and the setting/action — never write any other person (friends, siblings, classmates, a teacher, etc.) into this visual description, even if they're part of this chapter's events. If a moment involves someone else, frame it as ${name}'s own reaction or action in response to them (what ${name} is doing, reaching for, looking at) rather than describing that other person's presence, face, or appearance — an illustrator cannot draw a real person's likeness from a chapter summary alone. This also means avoiding any action that requires a second body in frame even without naming or describing one — a high five, a hug, holding hands, walking arm in arm, sitting shoulder to shoulder, and similar two-person contact all imply someone else is physically there to be drawn. Describe ${name}'s own gesture or expression alone instead (reaching a hand out, a wide smile, a relieved exhale) — if the moment truly only makes sense with two people pictured together, pick a different beat from the chapter instead.
+- "imagePrompts": an array of EXACTLY ${tier.imagesPerChap} one-sentence description(s) of key visual moments in this chapter${tier.imagesPerChap > 1 ? ` — prefer genuinely DIFFERENT beats from this chapter's events (e.g. an early moment, a middle moment, a later moment) over minor variations of one pose` : ''}. Every single one must describe something that actually happens in THIS chapter's own events, grounded in its summary above — never a scene from a later chapter, a preview of an adventure still to come, or generic adventure/magical imagery invented just to fill a slot. If this chapter's real events don't contain ${tier.imagesPerChap} genuinely distinct visual beats (a short, quiet chapter early in the book, say, before the adventure has ignited), it's better to show two different moments or angles of the SAME real event than to invent something that isn't actually in the chapter. When two of this chapter's images depict different beats of what is really one continuous scene (the same characters, the same conversation or magical event, only seconds or minutes apart), each one must explicitly restate the exact same specific location and time of day — never let the setting silently drift between them (e.g., one description set "on her bedroom nightstand at night" and the next quietly becoming an outdoor meadow) just because a different backdrop seems more striking for that one image alone. Each one written as ${name} actively mid-action or mid-discovery (leaning forward, reaching, running, pointing, reacting) with a clear direction of gaze — never ${name} simply standing, posing, or smiling at the viewer. Describe ONLY ${name} and the setting/action — never write any other person (friends, siblings, classmates, a teacher, etc.) into this visual description, even if they're part of this chapter's events. If a moment involves someone else, frame it as ${name}'s own reaction or action in response to them (what ${name} is doing, reaching for, looking at) rather than describing that other person's presence, face, or appearance — an illustrator cannot draw a real person's likeness from a chapter summary alone. This also means avoiding any action that requires a second body in frame even without naming or describing one — a high five, a hug, holding hands, walking arm in arm, sitting shoulder to shoulder, and similar two-person contact all imply someone else is physically there to be drawn. Describe ${name}'s own gesture or expression alone instead (reaching a hand out, a wide smile, a relieved exhale) — if the moment truly only makes sense with two people pictured together, pick a different beat from the chapter instead.
 
 The Chapter 1 object only must ALSO include:
 - "bookSubtitle": a short, distinctive 2-4 word title capturing THIS story's specific invented adventure or hook (e.g. "Balloon Blaster," "The Whispering Woods," "Rocket to the Stars") — it becomes the book's title as "${name} and the [bookSubtitle]." It must be specific to what actually happens in this story, never a generic phrase like "Big Adventure" and never just a restatement of the milestone (${milestone}).
+${isCreatureDevice ? `- "inventedCreatureCompanion": a short, specific visual description of the new magical creature/animal this story's STORY DEVICE introduces — species or creature type, size relative to something concrete (e.g. "no taller than a housecat"), coloring, and any distinguishing feature. Written the same concise way a physical description is written, so an illustrator can draw it identically every time it appears in the story. This is a NEW creature invented for this story${friend && friend !== 'none' ? `, separate from the already-established companion (${friend})` : ''} — never reuse another animal or object already mentioned elsewhere in this outline.` : ''}
 
 No markdown, no explanation, just the JSON array.`;
 
@@ -1574,13 +1601,13 @@ function callGeminiImageOnce(parts, imageConfig) {
 // trip it. Without a retry, that chapter silently ships with no illustration
 // at all. Retrying once with a generic, unmistakably safe scene (same
 // character/setting, no specific action) recovers an image instead.
-async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, imageConfig, companionBytes) {
+async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbackScenePrompt, imageConfig, companionBytes, inventedCompanionBytes) {
   try {
-    return await callGeminiImage(buildCharacterParts(referenceBytes, scenePrompt, companionBytes), imageConfig);
+    return await callGeminiImage(buildCharacterParts(referenceBytes, scenePrompt, companionBytes, inventedCompanionBytes), imageConfig);
   } catch (err) {
     if (!err.message.includes("PROHIBITED_CONTENT")) throw err;
     console.log(`Scene blocked by Gemini safety filter (PROHIBITED_CONTENT) — retrying with a generic fallback scene`);
-    return await callGeminiImage(buildCharacterParts(referenceBytes, fallbackScenePrompt, companionBytes), imageConfig);
+    return await callGeminiImage(buildCharacterParts(referenceBytes, fallbackScenePrompt, companionBytes, inventedCompanionBytes), imageConfig);
   }
 }
 
@@ -1588,18 +1615,32 @@ async function callGeminiImageWithSafeRetry(referenceBytes, scenePrompt, fallbac
 // image-conditioning parts either way, just a different transport underneath.
 // companionBytes is optional — only present when the story has a companion
 // (pet/creature/sibling) AND its own reference image generated successfully
-// (see getOrCreateCompanionReference). Without a second reference image,
-// Gemini has no visual memory of the companion across separate calls and
-// reinvents its specific appearance each time, even when told in text to
-// keep it consistent — confirmed on a real order where a "unicorn"
-// companion came out as a different-looking creature in almost every scene.
-function buildCharacterParts(referenceBytes, scene, companionBytes) {
+// (see getOrCreateCompanionReference). inventedCompanionBytes is the same idea
+// for a SEPARATE creature the story invents on its own (the STORY DEVICE
+// RULE's "animal or creature companion" option — see isCreatureDevice in
+// pickStoryVarietyLines) — a story can have both at once (an established pet
+// AND an invented magical creature), so this isn't an either/or with
+// companionBytes. Without a reference image, Gemini has no visual memory of
+// either one across separate calls and reinvents its specific appearance
+// each time, even when told in text to keep it consistent — confirmed on two
+// separate real orders, once where an established "unicorn" companion came
+// out a different-looking creature in almost every scene, and again where a
+// story-invented unicorn (not the established companion, which was a cat)
+// did the same thing.
+function buildCharacterParts(referenceBytes, scene, companionBytes, inventedCompanionBytes) {
   const parts = [
     { inlineData: { mimeType: "image/png", data: referenceBytes.toString("base64") } },
   ];
-  if (companionBytes) {
-    parts.push({ inlineData: { mimeType: "image/png", data: companionBytes.toString("base64") } });
-    parts.push({ text: `The FIRST reference image shows the SAME main character — keep their hair, eyes, face, and outfit identical. The SECOND reference image shows the SAME companion creature/animal — keep its species, coloring, and markings identical to that reference, never substituting a different kind of creature or animal. New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never either reference image itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing either one. Both reference images are for likeness guidance only and must not appear anywhere in the output image.` });
+  const companions = [companionBytes, inventedCompanionBytes].filter(Boolean);
+  if (companions.length > 0) {
+    companions.forEach((bytes) => {
+      parts.push({ inlineData: { mimeType: "image/png", data: bytes.toString("base64") } });
+    });
+    const ordinals = ['SECOND', 'THIRD'];
+    const companionLines = companions.map((_, i) =>
+      `The ${ordinals[i]} reference image shows the SAME companion creature/animal — keep its species, coloring, size, and markings identical to that reference, never substituting a different kind of creature or animal.`
+    ).join(' ');
+    parts.push({ text: `The FIRST reference image shows the SAME main character — keep their hair, eyes, face, and outfit identical. ${companionLines} New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never any reference image itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing any of them. All reference images are for likeness guidance only and must not appear anywhere in the output image.` });
   } else {
     parts.push({ text: `This is the SAME character shown in the reference image — keep hair, eyes, face, and outfit identical. New scene: ${scene} Output ONLY this new illustrated scene, drawn fresh in the story's art style — never the reference photo itself, a crop or copy of it, or any inset, thumbnail, frame, or side-by-side panel containing it. The reference image is for your likeness guidance only and must not appear anywhere in the output image.` });
   }
@@ -1778,9 +1819,12 @@ function buildIllustrationPromptContext(childData, freshOutline, tier) {
 
   const illustrationDetails = extractIllustrationDetails(customDetails);
   const characterPolicy = `\n\nIMPORTANT — depicting people: Only ${name} should be drawn as a specific, identifiable individual with a consistent face and appearance. Any other named real person — parents, siblings, friends, classmates, a teacher, etc. — must be left OUT of the illustration entirely unless a physical description for them is explicitly given below. This overrides the scene description above: if that scene mentions, implies, or is about another person (friends celebrating with ${name}, a teacher listening to ${name}, classmates nearby, a group, etc.) and no physical description for them is given below, do NOT draw that person at all — not as a named figure, not as a generic faceless or turned-away figure, not as a blurred or out-of-focus shape in the background. Re-frame the shot to show only ${name} — their own action, reaction, or expression — and the setting, as if everyone else had been cropped out of frame, since any invented depiction risks looking nothing like the real person.${illustrationDetails ? `\n\nPhysical descriptions to match exactly for these people if they appear in the scene:\n${illustrationDetails}` : ''}`;
-  const companionPolicy = friend && friend !== 'none'
+  const inventedCreatureDesc = freshOutline[0]?.inventedCreatureCompanion;
+  const companionPolicy = (friend && friend !== 'none'
     ? `\n\nCOMPANION RULE: ${name}'s established companion(s) — ${friend} — must be drawn to match exactly what's already established (species, breed, coloring, etc.) whenever they appear in a scene. Never substitute a different kind of animal or a different person than what's specified — for example, never draw a dog if the companion is a cat.`
-    : '';
+    : '') + (inventedCreatureDesc
+    ? `\n\nINVENTED CREATURE RULE: This story also has a separate magical creature invented for this story (not ${name}'s established companion, if any) — ${inventedCreatureDesc} — which must be drawn to match exactly this description (species/type, size, coloring, markings) every time it appears, never redesigned or substituted for a different creature.`
+    : '');
 
   const genreVisual = {
     'Magic & Wizards': 'cozy cottage magic, glowing spell effects, warm candlelight',
@@ -1918,28 +1962,40 @@ async function getOrCreateCharacterReference(storyId, prompt, fallbackPrompt) {
 // failing just falls back to the old text-only companionPolicy for that one
 // story (what every story did before this existed), rather than taking the
 // whole order down over a secondary character's consistency.
-async function getOrCreateCompanionReference(storyId, friend) {
-  if (!friend || friend === 'none') return null;
-  const existingUrl = await redisRequest("GET", [`companionref:${storyId}`]);
+// kind distinguishes the intake-established companion ('companion', the
+// default — childData.friend, e.g. "Oscar, a tuxedo cat") from a SEPARATE
+// creature a story invents on its own via the STORY DEVICE RULE
+// (kind='inventedCreature', description from outline[0].inventedCreatureCompanion
+// — see isCreatureDevice in pickStoryVarietyLines). A story can have both at
+// once; each gets its own Redis key and blob path so generating one never
+// overwrites the other.
+async function getOrCreateCompanionReference(storyId, description, kind = 'companion') {
+  if (!description || description === 'none') return null;
+  const isInvented = kind === 'inventedCreature';
+  const redisKey = isInvented ? `inventedcreatureref:${storyId}` : `companionref:${storyId}`;
+  const blobName = isInvented ? 'invented-creature-reference.png' : 'companion-reference.png';
+  const label = isInvented ? 'invented creature' : 'companion';
+
+  const existingUrl = await redisRequest("GET", [redisKey]);
   if (existingUrl) {
     try {
       return await fetchImageBytes(existingUrl);
     } catch (e) {
-      console.error(`Failed to fetch existing companion reference, regenerating: ${e.message}`);
+      console.error(`Failed to fetch existing ${label} reference, regenerating: ${e.message}`);
     }
   }
   try {
-    const prompt = `Pixar-style 3D glossy render, high production quality, warm and friendly. The companion is: ${friend}.\n\nCompanion reference sheet, rendered as a stylized cartoon illustration — not a photograph or realistic render. Full body, clear view, plain neutral background. No scene, no other characters, no text or labels in the image.`;
+    const prompt = `Pixar-style 3D glossy render, high production quality, warm and friendly. The ${isInvented ? 'creature' : 'companion'} is: ${description}.\n\n${isInvented ? 'Creature' : 'Companion'} reference sheet, rendered as a stylized cartoon illustration — not a photograph or realistic render. Full body, clear view, plain neutral background. No scene, no other characters, no text or labels in the image.`;
     const gen = await callGeminiImage([{ text: prompt }], { aspectRatio: "3:4", imageSize: "2K" });
-    const blob = await put(`illustrations/${storyId}/companion-reference.png`, gen.bytes, {
+    const blob = await put(`illustrations/${storyId}/${blobName}`, gen.bytes, {
       access: 'public',
       contentType: 'image/png'
     });
-    await redisRequest("SET", [`companionref:${storyId}`, blob.url, "EX", STORY_DATA_TTL]);
-    console.log(`Companion reference created for ${storyId}: ${blob.url}`);
+    await redisRequest("SET", [redisKey, blob.url, "EX", STORY_DATA_TTL]);
+    console.log(`${label} reference created for ${storyId}: ${blob.url}`);
     return gen.bytes;
   } catch (e) {
-    console.error(`Companion reference generation failed for ${storyId}, falling back to text-only companion policy: ${e.message}`);
+    console.error(`${label} reference generation failed for ${storyId}, falling back to text-only ${label} policy: ${e.message}`);
     return null;
   }
 }
